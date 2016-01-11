@@ -1,0 +1,85 @@
+echo  > asciiID.h
+echo  >> asciiID.h
+echo  \#define AGS_ASCII_ID \\ >> asciiID.h
+echo -n "          " >> asciiID.h
+echo -n \"laserguide >> asciiID.h
+echo -n " " >> asciiID.h
+echo -n `date +%Y` >> asciiID.h
+echo -n "  " >> asciiID.h
+echo -n version >> asciiID.h
+echo -n " " >> asciiID.h
+echo -n `cat majorminor`\" >> asciiID.h
+echo >> asciiID.h
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Main.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Main.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o L3DTransform.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG L3DTransform.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o AngleCorrections.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG AngleCorrections.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o APTParser.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG APTParser.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o CRCHandler.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG CRCHandler.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o comm_loop.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG comm_loop.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o parse_data.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG parse_data.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o DoLevelScan.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG DoLevelScan.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o DoAutoFocusCmd.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG DoAutoFocusCmd.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o LaserCmds.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG LaserCmds.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o LaserPattern.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG LaserPattern.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o LaserInterface.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG LaserInterface.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o BoardComm.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG BoardComm.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Events.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Events.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o SensorRegistration.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG SensorRegistration.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o 3DTransform.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG 3DTransform.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o FullRegManager.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG FullRegManager.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o SearchStopHandler.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG SearchStopHandler.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o QuickCheckManager.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG QuickCheckManager.c
+QuickCheckManager.c: In function ‘DummyQuickCheck’:
+QuickCheckManager.c:258:19: warning: operation on ‘gCurrentQCSensor’ may be undefined [-Wsequence-point]
+  gCurrentQCSensor = ++gCurrentQCSensor % kNumberOfFlexPoints;
+                   ^
+QuickCheckManager.c:261:17: warning: operation on ‘gCurrentQCSet’ may be undefined [-Wsequence-point]
+   gCurrentQCSet = ( gNumberOfSets ?
+                 ^
+QuickCheckManager.c: In function ‘PerformPeriodicQuickCheck’:
+QuickCheckManager.c:307:21: warning: operation on ‘gCurrentQCSet’ may be undefined [-Wsequence-point]
+       gCurrentQCSet = (gNumberOfSets ?
+                     ^
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o SystemSpecifics.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG SystemSpecifics.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Video.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Video.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Web.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Web.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Init.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Init.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Net.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Net.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o FOM.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG FOM.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o angles.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG angles.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o chisqr.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG chisqr.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o amoeba.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG amoeba.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o ShowTargets.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG ShowTargets.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Hobbs.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Hobbs.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o SetBit.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG SetBit.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o RightOnFullReg.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG RightOnFullReg.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o RightOnCert.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG RightOnCert.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o DoFindOneTarget.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG DoFindOneTarget.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o FullRegWithFeedback.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG FullRegWithFeedback.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o ParseAutoFocus.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG ParseAutoFocus.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o ParseVisionFocus.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG ParseVisionFocus.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o LaserFlex.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG LaserFlex.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o FlexCalculateTransform.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG FlexCalculateTransform.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o FlexCalWithFeedback.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG FlexCalWithFeedback.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o FlexRegWithFeedback.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG FlexRegWithFeedback.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o DoTakePicture.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG DoTakePicture.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o RefreshRate.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG RefreshRate.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o ChangeDisplayPeriod.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG ChangeDisplayPeriod.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o ChangeTransformTolerance.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG ChangeTransformTolerance.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o GetTargetsUsed.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG GetTargetsUsed.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o DoCoarseScan.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG DoCoarseScan.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o DoCoarseScan2.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG DoCoarseScan2.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o CalibXY.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG CalibXY.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o segtest.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG segtest.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o segpoly.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG segpoly.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o pnpoly.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG pnpoly.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o tan_init.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG tan_init.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o area_order.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG area_order.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o heap.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG heap.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o allace4.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG allace4.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o shoelace4.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG shoelace4.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o CalculateTransform.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG CalculateTransform.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o SensorSearch.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG SensorSearch.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-gcc -c -o Files.o -g -DLASER_DEFINED -march=atom  -Wall -I./ -I./linux_headers/include -DPATDEBUG -DCDEBUG Files.c
+/home/patti/buildroot/output/host/usr/bin/x86_64-linux-ld -L=/home/patti/buildroot/output/host/usr/lib/gcc/x86_64-buildroot-linux-gnu/5.2.0 -lc -lm --entry main -o agsd L3DTransform.o AngleCorrections.o APTParser.o CRCHandler.o comm_loop.o parse_data.o DoLevelScan.o DoAutoFocusCmd.o LaserCmds.o LaserPattern.o LaserInterface.o BoardComm.o Events.o SensorRegistration.o 3DTransform.o FullRegManager.o SearchStopHandler.o QuickCheckManager.o SystemSpecifics.o Video.o Web.o Init.o Net.o FOM.o angles.o chisqr.o amoeba.o ShowTargets.o Hobbs.o SetBit.o RightOnFullReg.o RightOnCert.o DoFindOneTarget.o FullRegWithFeedback.o ParseAutoFocus.o ParseVisionFocus.o LaserFlex.o FlexCalculateTransform.o FlexCalWithFeedback.o FlexRegWithFeedback.o DoTakePicture.o RefreshRate.o ChangeDisplayPeriod.o ChangeTransformTolerance.o GetTargetsUsed.o DoCoarseScan.o DoCoarseScan2.o CalibXY.o segtest.o segpoly.o pnpoly.o tan_init.o area_order.o heap.o allace4.o shoelace4.o CalculateTransform.o Main.o SensorSearch.o Files.o
+mv -f compile.h old.compile.h.old

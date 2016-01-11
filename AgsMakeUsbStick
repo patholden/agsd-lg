@@ -1,0 +1,9 @@
+sudo umount /dev/sdb1
+sudo mount /dev/sdb1 /mnt/stick
+sudo mount -o loop,ro /home/patti/buildroot/output/images/rootfs.ext2 /home/patti/buildroot/output/ext2
+sudo cp -avrf /home/patti/buildroot/output/ext2/* /mnt/stick
+sudo cp /home/patti/buildroot/output/images/bzImage /mnt/stick
+sudo cp /home/patti/buildroot/output/images/bzImage /mnt/stick/boot
+sudo cp /home/patti/ags/ags-demo/rev1.0/extlinux.conf /mnt/stick
+sudo umount /dev/sdb1
+sudo umount /home/patti/buildroot/output/ext2
