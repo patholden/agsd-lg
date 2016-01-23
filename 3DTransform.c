@@ -1137,24 +1137,7 @@ for ( i = 0; i < 12; i++ ) {
  	theTransform->transVector[2] = theArray[11];
 }
 
-void LongArrayIntoTransform
-	( long double theArray[12], transform *theTransform )
-{
-	theTransform->rotMatrix[0][0] = (double) theArray[0];
- 	theTransform->rotMatrix[0][1] = (double) theArray[1];
- 	theTransform->rotMatrix[0][2] = (double) theArray[2];
- 	theTransform->rotMatrix[1][0] = (double) theArray[3];
- 	theTransform->rotMatrix[1][1] = (double) theArray[4];
- 	theTransform->rotMatrix[1][2] = (double) theArray[5];
- 	theTransform->rotMatrix[2][0] = (double) theArray[6];
- 	theTransform->rotMatrix[2][1] = (double) theArray[7];
- 	theTransform->rotMatrix[2][2] = (double) theArray[8];
- 	theTransform->transVector[0] = (double) theArray[9];
- 	theTransform->transVector[1] = (double) theArray[10];
- 	theTransform->transVector[2] = (double) theArray[11];
-}
-
-void IdentityArray ( double theArray[12] )
+void IdentityArray (double *theArray)
 {
 	theArray [ 0 ] = 1.0;
 	theArray [ 1 ] = 0.0;

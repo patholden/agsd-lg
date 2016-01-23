@@ -8,6 +8,6 @@ void DoFlexDisplayChunks(struct lg_master *pLgMaster,
 void DoFlexDisplay (struct lg_master *pLgMaster,
 		    uint32_t dataLength,
 		    struct parse_flexdisp_parms * parameters,
-		    char * patternData);
+		    unsigned char * patternData);
 #endif // LASERFLEX_H
 

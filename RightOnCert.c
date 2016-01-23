@@ -16,6 +16,7 @@ static char rcsid[] = "$Id: RightOnCert.c,v 1.2 2000/05/05 23:54:44 ags-sw Exp p
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "AppCommon.h"
@@ -28,12 +29,11 @@ static char rcsid[] = "$Id: RightOnCert.c,v 1.2 2000/05/05 23:54:44 ags-sw Exp p
 #include "Protocol.h"
 #include "LaserInterface.h"
 
-extern double uptime( void );
+static double uptime(void);
 
-
-void    RightOnCert ( struct lg_master *pLgMaster,
-		      char * parameters,
-		      uint32_t respondToWhom )
+void RightOnCert(struct lg_master *pLgMaster,
+		 char *parameters,
+		 uint32_t respondToWhom )
 {
    double Xin;
    double Yin;
@@ -89,14 +89,17 @@ void    RightOnCert ( struct lg_master *pLgMaster,
    YgeomAngle = pInp->inp_YgeomAngle;
    GeometricAnglesFrom3D( Xtr, Ytr, Ztr, &aXd, &aYd );
    ConvertGeometricAnglesToMirror( &aXd, &aYd );
-   if( gCALIBFileOK ) {
-     aXe = aXd;
-     aYe = aYd;
-     ApplyCorrection( &aXe, &aYe );
-   } else {
-     aXe = aXd;
-     aYe = aYd;
-   }
+   if (pLgMaster->gCALIBFileOK)
+     {
+       aXe = aXd;
+       aYe = aYd;
+       ApplyCorrection(pLgMaster, &aXe, &aYe);
+     }
+   else
+     {
+       aXe = aXd;
+       aYe = aYd;
+     }
    aXg = aXe;
    aYg = aYe;
    ConvertMirrorToGeometricAngles( &aXg, &aYg );
@@ -114,7 +117,7 @@ void    RightOnCert ( struct lg_master *pLgMaster,
        bYe = YrawAngle;
    } else if ( RawGeomFlag == 2 ) {
 
-       ConvertExternalAnglesToBinary( XgeomAngle, YgeomAngle, &bXe, &bYe );
+     ConvertExternalAnglesToBinary(pLgMaster, XgeomAngle, YgeomAngle, &bXe, &bYe );
    }
 #ifdef ZDEBUG
 fprintf( stderr, "ROC125 geom %lf %lf\n", XgeomAngle, YgeomAngle );
@@ -198,7 +201,7 @@ fprintf( stderr, "ROC127 rawA %x %x\n", bXe, bYe );
 #endif
      pResp->bXf = bXf;
      pResp->bYf = bYf;
-     ConvertBinaryToExternalAngles( bXf, bYf, &Xexternal, &Yexternal );
+     ConvertBinaryToExternalAngles(pLgMaster, bXf, bYf, &Xexternal, &Yexternal);
      pResp->Xexternal = Xexternal;
      pResp->Yexternal = Yexternal;
      HandleResponse (pLgMaster, (sizeof(struct parse_rtoncert_resp)-kCRCSize), respondToWhom);
@@ -207,7 +210,7 @@ fprintf( stderr, "ROC127 rawA %x %x\n", bXe, bYe );
 
 }
 
-double uptime( void )
+static double uptime(void)
 {
     int up_fd;
     int up_size;
@@ -225,6 +228,5 @@ double uptime( void )
     if ( dtime < 0.0 && dtime > 1000000.0 ) {
          dtime = -1.0;
     } 
-
     return dtime;
 }

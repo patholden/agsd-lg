@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "AppErrors.h"
@@ -52,12 +52,7 @@ enum
 
 		double		gQuarterPi;
 
-static	double		gSqrtOfTwo;
-
-// #define	kHalfXMirror	0.0310
-// #define	kHalfYMirror	0.0310
-
-
+static	double  gSqrtOfTwo;
 static	double	MirrorFactor ( double x );
 static	double	MirrorOffset ( double x );
 								
@@ -72,15 +67,8 @@ static	void				TwoPointsOnLine
 						double point2[3] );
 
 
-uint32_t		gBlankBit;
-uint32_t		gBrightBit;
-uint32_t		gSearchOffBit;
-uint32_t		gSearchOnBit;
-uint32_t		gSampleOffBit;
-uint32_t		gMaxUnsigned;
 double		gBinaryCenter;
 double		gBinarySpanEachDirection;
-unsigned short		gNumberOfDummyBits;
 
 uint32_t		gSlowBabies;
 uint32_t		gFastBabies;
@@ -343,152 +331,102 @@ void ConvertBinaryToMirrorAngles
 }
 
 
-uint32_t ConvertMirrorAnglesToBinary
-		( double xIn, double yIn,
-		uint32_t *xOut, uint32_t *yOut )
+uint32_t ConvertMirrorAnglesToBinary(double xIn, double yIn,
+				     uint32_t *xOut, uint32_t *yOut)
 {
-	uint32_t theResult = 0U;
-	
-	if ( xIn > gXMirrorAngularRange )
+  uint32_t theResult = 0;
+#if PATDEBUG
+  fprintf(stderr,"\nCNVRTMA2BIN: x %d, y %d", *xOut, *yOut);
+#endif
+  if ( xIn > gXMirrorAngularRange )
+    {
+      *xOut = (uint32_t)
+	(rint((gBinaryCenter + gBinarySpanEachDirection)));
+      theResult = kXTooLarge;
+#if PATDEBUG
+      fprintf(stderr, "\nCNVRTMA2BIN: x %d TOOLARGE", *xOut);
+#endif
+    }
+  else
+    {
+      if (xIn < -gXMirrorAngularRange)
 	{
-		*xOut = (uint32_t)(int32_t)rint ( (double)(
-			gBinaryCenter + gBinarySpanEachDirection ) )
-			<< gNumberOfDummyBits;
-		theResult = kXTooLarge;
+	  *xOut = (uint32_t)
+	    (rint((gBinaryCenter - gBinarySpanEachDirection)));
+	  theResult = kXTooSmall;
+#if PATDEBUG
+	  fprintf(stderr, "\nxCNVRTMA2BIN: x %d TOOSMALL", *xOut);
+#endif
 	}
-	else
+      else
 	{
-		if ( xIn < -gXMirrorAngularRange )
-		{
-			*xOut = (uint32_t)(int32_t)rint ( (double)(
-				gBinaryCenter - gBinarySpanEachDirection ) )
-				<< gNumberOfDummyBits;
-			theResult = kXTooSmall;
-		}
-		else
-		{
-			*xOut = (uint32_t)(int32_t)rint ( (double)(
-				gBinaryCenter +
-				xIn * gBinarySpanEachDirection / gXMirrorAngularRange
-				) ) << gNumberOfDummyBits;
-		}
+	  *xOut = (uint32_t)
+	    (rint((gBinaryCenter
+		   + ((xIn * gBinarySpanEachDirection) / gXMirrorAngularRange))));
+#if PATDEBUG
+	  fprintf(stderr, "\nCNVRTMA2BIN: x %d CORRECT", *xOut);
+#endif
 	}
+    }
 
-	if ( yIn > gYMirrorAngularRange )
+  if (yIn > gYMirrorAngularRange)
+    {
+      *yOut = (uint32_t)
+	(rint((gBinaryCenter + gBinarySpanEachDirection)));
+      theResult += kYTooLarge;
+#if PATDEBUG
+      fprintf(stderr, "\nCNVRTMA2BIN: y %d TOOLARGE", *yOut);
+#endif
+    }
+  else
+    {
+      if (yIn < -gYMirrorAngularRange)
 	{
-		*yOut = (uint32_t)(int32_t)rint ( (double)(
-			gBinaryCenter + gBinarySpanEachDirection ) )
-			<< gNumberOfDummyBits;
-		theResult += kYTooLarge;
+	  *yOut = (uint32_t)
+	    (rint((gBinaryCenter - gBinarySpanEachDirection)));
+	  theResult += kYTooSmall;
+#if PATDEBUG
+	  fprintf(stderr, "\nCNVRTMA2BIN: y %d TOOSMALL", *yOut);
+#endif
 	}
-	else
+      else
 	{
-		if ( yIn < -gYMirrorAngularRange )
-		{
-			*yOut = (uint32_t)(int32_t)rint ( (double)(
-				gBinaryCenter - gBinarySpanEachDirection ) )
-				<< gNumberOfDummyBits;
-			theResult += kYTooSmall;
-		}
-		else
-		{
-			*yOut = (uint32_t)(int32_t)rint ( (double)(
-				gBinaryCenter +
-				yIn * gBinarySpanEachDirection / gYMirrorAngularRange
-				) ) << gNumberOfDummyBits;
-		}
+	  *yOut = (uint32_t)
+	    (rint((gBinaryCenter
+		   + ((yIn * gBinarySpanEachDirection) / gYMirrorAngularRange))));
 	}
-	return theResult;
+#if PATDEBUG
+      fprintf(stderr, "\nCNVRTMA2BIN: y %d CORRECT", *yOut);
+#endif
+    }
+#if PATDEBUG
+  fprintf(stderr, "\nCNVRTMA2BIN: END xOut %d, yOut %d", *xOut, *yOut);
+#endif
+  return theResult;
 }
 /*********************************************************/
 
-void SetProperBeam ( uint32_t *x, uint32_t *y )
-{
-	*x = *x & ( gMaxUnsigned | gBlankBit | gBrightBit );
-	*y = ( *y & gMaxUnsigned ) | gSearchOffBit | gSampleOffBit;
-}
-
-void SetHighBeam ( uint32_t *x, uint32_t *y )
-{
-	*x = ( *x & gMaxUnsigned ) | gBrightBit;
-	*y = ( *y & gMaxUnsigned ) | gSearchOffBit | gSampleOffBit;
-}
-
-void SetLowBeam ( uint32_t *x, uint32_t *y )
-{
-	*x = ( *x & gMaxUnsigned ) | gBlankBit;
-	*y = ( *y & gMaxUnsigned ) | gSearchOffBit | gSampleOffBit;
-}
-
-void SetBeamSearch ( uint32_t *x, uint32_t *y )
-{
-	*x = ( *x & gMaxUnsigned ) | gBrightBit;
-	*y = ( *y & gMaxUnsigned ) | gSearchOnBit | gSampleOffBit;
-}
-
-
 void ConvertToNumber ( uint32_t *x, uint32_t *y )
 {
-	*x = ( *x & gMaxUnsigned );
-	*y = ( *y & gMaxUnsigned );
+  *x = (*x & gMaxUnsigned);
+  *y = (*y & gMaxUnsigned);
 }
 
-void DummifyNumber ( uint32_t *x, uint32_t *y )
-{
-	*x = ( ( *x << gNumberOfDummyBits ) & gMaxUnsigned ) + gMinNeg;
-	*y = ( ( *y << gNumberOfDummyBits ) & gMaxUnsigned ) + gMinNeg;
-}
-
-void UndummifyNumber ( uint32_t *x, uint32_t *y )
-{
-	*x = ( ( *x & gMaxUnsigned ) - gMinNeg ) >> gNumberOfDummyBits;
-	*y = ( ( *y & gMaxUnsigned ) - gMinNeg ) >> gNumberOfDummyBits;
-}
-
-/*
-** uint32_t ConvertExternalAnglesToWindow
-** 	( double xIn, double yIn, Point *thePoint,
-** 	struct projectorWindow *theWindStruct )
-** {
-** 	
-** 	thePoint->h = 0;
-** 	thePoint->v = 0;
-** 	return 0U;
-** }
-** 
-** uint32_t ConvertWindowToExternalAngles
-** 	( Point *thePoint, double *xOut, double *yOut,
-** 	struct projectorWindow *theWindStruct )
-** {
-** 	Rect *theRect = &theWindStruct->beamMovementRect;
-** 	short diffRightLeft, diffBottomTop;
-** 	
-** 	diffRightLeft = theRect->right - theRect->left;
-** 	diffBottomTop = theRect->bottom - theRect->top;
-** 	
-** 	*xOut = (double)0.;
-** 	*yOut = (double)0.;
-** 	return 0U;
-** }
-*/
-
-uint32_t ConvertExternalAnglesToBinary
-		( double xIn, double yIn,
-		uint32_t *xOut, uint32_t *yOut )
+uint32_t ConvertExternalAnglesToBinary(struct lg_master *pLgMaster,
+				       double xIn, double yIn,
+				       uint32_t *xOut, uint32_t *yOut)
 {
 	double xMirror, yMirror;
 	ConvertExternalAnglesToMirror ( xIn, yIn, &xMirror, &yMirror );
-	ApplyCorrection ( &xMirror, &yMirror );
+	ApplyCorrection(pLgMaster, &xMirror, &yMirror);
 	return ConvertMirrorAnglesToBinary ( xMirror, yMirror, xOut, yOut );
 }
 
 void ConvertExternalAnglesToMirror ( double xIn, double yIn,
 		double *xOut, double *yOut )
 {
-	*xOut = ( (double)xIn - gXExternalCenterAngle ) *
-		gXExternalCoefficient;
-	*yOut = ( (double)yIn - gYExternalCenterAngle ) *
-		gYExternalCoefficient;
+	*xOut = (xIn - gXExternalCenterAngle) *	gXExternalCoefficient;
+	*yOut = (yIn - gYExternalCenterAngle) *	gYExternalCoefficient;
 }
 
 void ConvertGeometricAnglesToMirror ( double *x, double *y )
@@ -504,22 +442,22 @@ void ConvertMirrorToGeometricAngles ( double *x, double *y )
 }
 
 
-uint32_t ConvertGeometricAnglesToBinary
-		( double xIn, double yIn,
-		uint32_t *xOut, uint32_t *yOut )
+uint32_t ConvertGeometricAnglesToBinary(struct lg_master *pLgMaster,
+					double xIn, double yIn,
+					uint32_t *xOut, uint32_t *yOut)
 {
 	ConvertGeometricAnglesToMirror ( &xIn, &yIn );
-	ApplyCorrection ( &xIn, &yIn );
+	ApplyCorrection(pLgMaster, &xIn, &yIn );
 	return ConvertMirrorAnglesToBinary ( xIn, yIn, xOut, yOut );
 }
 
 
-void ConvertBinaryToGeometricAngles
-	( uint32_t xIn, uint32_t yIn,
-	double *xOut, double *yOut )
+void ConvertBinaryToGeometricAngles(struct lg_master *pLgMaster,
+				    uint32_t xIn, uint32_t yIn,
+				    double *xOut, double *yOut)
 {
 	ConvertBinaryToMirrorAngles ( xIn, yIn, xOut, yOut );
-	RemoveCorrection ( xOut, yOut );
+	RemoveCorrection(pLgMaster, xOut, yOut);
 	ConvertMirrorToGeometricAngles ( xOut, yOut );
 }
 
@@ -542,13 +480,13 @@ void ConvertMirrorToExternalAngles ( double xIn, double yIn,
 }
 
 
-void ConvertBinaryToExternalAngles
-	( uint32_t xIn, uint32_t yIn,
-	double *xOut, double *yOut )
+void ConvertBinaryToExternalAngles(struct lg_master *pLgMaster,
+				   uint32_t xIn, uint32_t yIn,
+				   double *xOut, double *yOut)
 {
 	double xMirror, yMirror;
 	ConvertBinaryToMirrorAngles ( xIn, yIn, &xMirror, &yMirror );
-	RemoveCorrection ( &xMirror, &yMirror );
+	RemoveCorrection(pLgMaster, &xMirror, &yMirror );
 	ConvertMirrorToExternalAngles ( xMirror, yMirror, xOut, yOut );
 }
 
@@ -716,15 +654,9 @@ unsigned char InitLaserInterface (struct lg_master *pLgMaster)
 	
         gAPTunitsPerInch = 1.0;
 
-	gBlankBit = 0x00000000U;
-	gBrightBit = 0x00000040U;
-	gSearchOffBit = 0x00000000U;
-	gSearchOnBit = 0x00000040U;
-	gSampleOffBit = 0x00000000U;
-	gMaxUnsigned = 0xFFFFC000U;
+
 	gBinaryCenter = -.50;
 	gBinarySpanEachDirection = (double)( 1U << 17 ) - .50;
-	gNumberOfDummyBits = 14U;
 
 	gMaxPiledPts = 9;
 	gCoarseBabies = 1U << 3;

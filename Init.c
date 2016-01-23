@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "AppCommon.h"
 #include "BoardComm.h"
 #include "comm_loop.h"
@@ -42,89 +43,6 @@ void DoReInit( struct lg_master *pLgMaster, uint32_t respondToWhom )
 }
 
 
-static int InitCheckVersion(void)
-{
-  char testStr[256];
-  char tmpline[256];
-  FILE *handle;
-  char *localBuff;
-  char *token;
-  char *ptr;
-  int  version1=0;
-  int  version2=0;
-  long     file_size;
-  size_t   length;
-  int      i, count;
-
-  memset(testStr, 0, sizeof(testStr));
-  handle = fopen( "/etc/ags/conf/version", "rb+" );
-  if (handle == NULL) { 
-    fprintf( stderr, "/etc/ags/conf/version file not found\n" );
-    return(-1);
-  }
-
-    fseek(handle, 0L, SEEK_END);   // Figure out length of file
-    file_size = ftell(handle);
-    fseek(handle, 0L, SEEK_SET);   // Reset back to beginning of file
-    // Get length of file, get a local buffer, and then read it.
-    if (file_size <=0) {
-      fprintf( stderr, "/etc/ags/conf/version bad size %lx\n",file_size );
-      fclose(handle);
-      return(-1);
-    }
-    localBuff = malloc(file_size);
-    if (localBuff <=0) {
-      fprintf( stderr, "Unable to read in file\n" );
-      return(-1);
-    }
-    length = (int)fread((void *)localBuff, (size_t)file_size, 1, handle );
-    fclose(handle);
-    if (length <= 0)
-      fprintf( stderr, "version file bad size %ld, errno %d\n",file_size,errno);
-    else
-      fprintf( stderr, "version file size %ld\n",file_size);
-    i = 0;  ptr = localBuff;
-    ptr = localBuff;
-    /* KLUDGE -- change all \r to \n ; change all alphas to lower case */
-    for( i=0; i<file_size; i++, ptr++ ) {
-      if ( *ptr == '\r' ) *ptr = '\n';
-      if ( isupper( *ptr ) ) {
-         *ptr = tolower( *ptr ) ;
-      }
-    }
-
-    token = localBuff; 
-    count = 0;
-    while( count < file_size && *token != 0 ) {
-      strncpy( tmpline, token, 255 );
-      for ( i = 0; i < 255; i++ ) {
-              if ( tmpline[i] == 0x0a || tmpline[i] == 0x0d ) {
-                  tmpline[i] = 0;
-              }
-      }
-
-      strcpy( testStr, " version " );
-      if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
-        sscanf( token, " version %d.%d", &version1, &version2);
-      }
-      while ( *token != 0x00 && *token != 0x0a && *token != 0x0d ) {
-          token++;
-          count++;
-      }
-      if ( *token == 0x0a || *token == 0x0d ) {
-          token++;
-          count++;
-      }
-    }
-
-    if ( version1 < 107) { 
-      fprintf( stderr, "incorrect version number (%d< 107) in /etc/ags/conf/version\n", version1 );
-    }
-    else
-      fprintf( stderr, "laserguide 2015 version %d.%d\n", version1, version2);
-    free(localBuff);
-    return(0);
-}
 int ConfigDataInit(struct lg_master* pLgMaster)
 {
   FILE *handle;
@@ -145,7 +63,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
   uint32_t return_code;
   
   // First check version file
-  return_code = InitCheckVersion();
+  return_code = InitCheckVersion(pLgMaster);
   if (return_code)
     return(return_code);
   // Now read config file & parse objects
@@ -213,8 +131,8 @@ int ConfigDataInit(struct lg_master* pLgMaster)
       if ( strncmp( tmpline, testStr, strlen(testStr)) == 0)
 	{
 	  sscanf( tmpline, "displayperiod = %d", &pLgMaster->gPeriod );
-	  if (pLgMaster->gPeriod < 50)
-	    pLgMaster->gPeriod = 50;
+	  if (pLgMaster->gPeriod < KETIMER_50U)
+	    pLgMaster->gPeriod = KETIMER_50U;
 	}
       strcpy(testStr, "curveinterpolation =" );
       if (strncmp(token, testStr, strlen(testStr)) == 0)
@@ -347,11 +265,11 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gTolerance = 0.0300;
   pLgMaster->gArgTol = GARGTOL_DEFAULT;
   pLgMaster->gProjectorSerialNumber = -1L;
-  pLgMaster->gPeriod  = GPERIOD_DEFAULT;
+  pLgMaster->gPeriod  = KETIMER_75U;
   pLgMaster->gSrchStpPeriod = 32;
   pLgMaster->gQCcount = GQCCOUNT_DEFAULT;
   pLgMaster->dmax = 4294967296.0 / 60.0;
-
+  pLgMaster->gCALIBFileOK = false;
 #if 0
   // FIXME---PAH---not working yet
   if (HobbsCountersInit(pLgMaster))
@@ -369,5 +287,6 @@ void LGMasterFree(struct lg_master *pLgMaster)
   free(pLgMaster->theResponseBuffer);
   free(pLgMaster->gDataChunksBuffer);
   free(pLgMaster->gSensorBuffer);
+  free(pLgMaster->vers_data.pVersions);
   return;
 }

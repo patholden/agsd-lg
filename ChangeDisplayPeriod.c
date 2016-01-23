@@ -11,7 +11,7 @@ static char rcsid[] = "$Id$";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "parse_data.h"
 #include "Protocol.h"
@@ -33,7 +33,7 @@ void DoChangeDisplayPeriod (struct lg_master *pLgMaster, struct parse_chngdisp_p
   if ((newPeriod == -1) || ((newPeriod >= 50) && (newPeriod <= 150)))
     pLgMaster->gPeriod = newPeriod;
   else if (newPeriod == 0)
-    pLgMaster->gPeriod = GPERIOD_DEFAULT;
+    pLgMaster->gPeriod = KETIMER_75U;
   else
     pResp->hdr.status =RESPFAIL;
 

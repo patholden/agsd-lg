@@ -12,7 +12,7 @@ static char rcsid[] = "$Id: DoFindOneTarget.c,v 1.1 2001/01/22 19:51:54 ags-sw E
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
@@ -42,14 +42,14 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
 	
   pResp = (struct parse_findonetgt_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_findonetgt_resp));
-  rc = ConvertExternalAnglesToBinary (pInp->steerX, pInp->steerY, &ptX, &ptY);
+  rc = ConvertExternalAnglesToBinary (pLgMaster, pInp->steerX, pInp->steerY, &ptX, &ptY);
   pResp->hdr.errtype = htons((uint16_t)rc);
   rc = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
   if (rc == kStopWasDone)
     return;
 		
-  ConvertBinaryToGeometricAngles(fndX, fndY, &XfoundAngle, &YfoundAngle);
-  ConvertBinaryToExternalAngles(fndX, fndY, &XExternalAngle, &YExternalAngle);
+  ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY, &XfoundAngle, &YfoundAngle);
+  ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY, &XExternalAngle, &YExternalAngle);
   if (rc  == 0)
     {
       pResp->hdr.status = RESPGOOD;

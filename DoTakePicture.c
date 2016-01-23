@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -24,9 +24,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
 		     uint32_t respondToWhom)
 {
   struct parse_basic_resp *pResp;
-  double *tmpPtr;
-  int    i;
-  double tmpDoubleArr[12];
+  double tmpDoubleArr[MAX_NEW_TRANSFORM_ITEMS];
   double partPoint[3];
   double outputPoint[3];
   uint32_t  data[2];
@@ -37,14 +35,13 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   struct timezone tz;
 #endif
   
+  // Prep response packet
   pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_basic_resp));
-  tmpPtr = (double *)&pInp->transform[0];
 
-  for( i=0; i< MAX_NEW_TRANSFORM_ITEMS; i++ ) {
-    tmpDoubleArr[i] = tmpPtr[i];
-  }
-  
+
+  // Get points
+  memcpy((char *)&tmpDoubleArr, (char *)&pInp->transform[0], sizeof(tmpDoubleArr));
   ArrayIntoTransform((double *)&tmpDoubleArr, &theTransform );
 		
   partPoint[0] = pInp->visionX;
@@ -52,7 +49,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   partPoint[2] = pInp->visionZ;
   
   TransformPoint ( &theTransform, partPoint, outputPoint );
-  theError = PointToBinary( outputPoint, (uint32_t *)&data[0], (uint32_t *)&data[1]);
+  theError = PointToBinary(pLgMaster, outputPoint, (uint32_t *)&data[0], (uint32_t *)&data[1]);
   if (theError)
     {
       pResp->hdr.status = RESPFAIL;

@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "DoCoarseScan.h"
 #include "SensorSearch.h"
@@ -43,9 +43,9 @@ DoCoarseScan(struct lg_master *pLgMaster,
             , uint32_t *yfound
             )
 {
+      struct lg_xydata  xydata;
+      struct lg_xydata  xydelta;
       uint32_t xoff, yoff;
-      uint32_t xout, yout;
-      uint32_t delX, delY;
       uint32_t x, y;
       uint32_t nSteps;
       int firstCoarse = 1;
@@ -67,37 +67,29 @@ DoCoarseScan(struct lg_master *pLgMaster,
       int32_t Ixavg;
       int32_t Iyavg;
 
-#ifdef ZZZDEBUG
-fprintf( stderr, "entering DoCoarseScan\n" );
-fprintf( stderr, "DoCoarseScan x,y double %8x %8x\n", dX, dY );
-#endif
-
       xmid = dX;
       ymid = dY;
-
-#ifdef ZZZDEBUG
-fprintf( stderr, "DoCoarseScan x,y mid %8x %8x\n", xmid, ymid );
-#endif
       target_cnt = 0;
 
+      memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+      memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
       memset( (void *)&(coarsedata[0]), 0, 512*512*sizeof(uint32_t) );
       
 
       xoff = xmid - ((lscount * lsstep) / 2 );
       yoff = ymid - ((lscount * lsstep) / 2 );
    
-#ifdef ZZZDEBUG
-fprintf( stderr, "DoCoarseScan x,y off %8x %8x\n", xoff, yoff );
-#endif
       testlevel = DELLEV;
       for ( y = 0x1U; y <= lscount+1; y += 0x2U ) {
           notarget = 0;
-          xout   = 0 * lsstep + xoff;
-          yout   = y * lsstep + yoff;
-          delX   = lsstep;
-          delY   = 0;
+          xydata.xdata = ((0 * lsstep) + xoff) & kMaxUnsigned;
+          xydata.ydata = ((y * lsstep) + yoff) & kMaxUnsigned;
+          xydelta.xdata = lsstep & kMaxUnsigned;
+          xydelta.ydata = 0;
           nSteps = lscount;
-          theResult = DoLevelSearch(pLgMaster, xout, yout, delX, delY, nSteps, gScan );
+	  
+          theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
+				    (struct lg_xydata *)&xydelta, nSteps, gScan );
           if ( theResult == kStopWasDone ) {
                    SearchBeamOff(pLgMaster);
                    return theResult;
@@ -130,12 +122,13 @@ fprintf( stderr, "DoCoarseScan x,y off %8x %8x\n", xoff, yoff );
           if ( notarget == 1 && target_cnt >= 1 ) break;
           if ( target_cnt >= min_target ) break;
 
-          xout   = lscount  *  lsstep + xoff;
-          yout   =  (y + 1) *  lsstep + yoff;
-          delX   = -lsstep;
-          delY   = 0;
+          xydata.xdata = ((lscount * lsstep) + xoff) & kMaxUnsigned;
+          xydata.ydata = (((y + 1) * lsstep) + yoff) & kMaxUnsigned;
+          xydelta.xdata = -lsstep;
+          xydelta.ydata = 0;
           nSteps = lscount;
-          theResult = DoLevelSearch(pLgMaster, xout, yout, delX, delY, nSteps, gScan );
+          theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
+				    (struct lg_xydata *)&xydelta, nSteps, gScan);
           if ( theResult == kStopWasDone ) {
 	    SearchBeamOff(pLgMaster);
 	    return theResult;
@@ -181,11 +174,6 @@ fprintf( stderr, "DoCoarseScan x,y off %8x %8x\n", xoff, yoff );
                }
           }
       }
-#ifdef ZDEBUG
-fprintf(stderr,"165 Dxsum %lf\n", Dxsum  );
-fprintf(stderr,"166 Dysum %lf\n", Dysum  );
-fprintf(stderr,"167 Dcount %lf\n", Dcount  );
-#endif
       if ( Dcount < 1.0 ) return kCoarseNotFound;
       qsort( Xarray, Icount, sizeof(int32_t), cint32_tsort );
       qsort( Yarray, Icount, sizeof(int32_t), cint32_tsort );

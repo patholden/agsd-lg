@@ -37,7 +37,7 @@ EXTRA_CFLAGS = -DPATDEBUG -DCDEBUG
 #CFLAGS = -g -DLASER_DEFINED -march=atom -Wall -Wextra -Werror
 USERINCLUDE    := \
 	-I./ \
-	-I../../linux_headers
+	-I../../linux_headers/include
 
 CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall $(USERINCLUDE)
 # CFLAGS = -g -DLASER_DEFINED -ICIncludes
@@ -49,7 +49,6 @@ AGS_OBJECTS = L3DTransform.o \
               CRCHandler.o  \
               comm_loop.o  \
               parse_data.o  \
-	      DoLevelScan.o \
 	      DoAutoFocusCmd.o \
               LaserCmds.o \
 	      LaserPattern.o \
@@ -87,9 +86,8 @@ AGS_OBJECTS = L3DTransform.o \
 	      CalculateTransform.o
 #
 #
-agsd : compile.h Main.o $(AGS_OBJECTS) SensorSearch.o Files.o
+agsd : Main.o $(AGS_OBJECTS) SensorSearch.o Files.o
 	$(CC) $(LDFLAGS) -o $@ $(AGS_OBJECTS) Main.o SensorSearch.o Files.o
-	mv -f compile.h old.compile.h.old
 
 ISensorSearch.o : ISensorSearch.c
 	$(CC) ISensorSearch.c -o ISensorSearch.o -c $(CFLAGS)
@@ -103,10 +101,10 @@ oneside : $(AGS_OBJECTS) oneside.o
 %.o: %.c
 	$(CC) -c -o $@ $(CFLAGS) $(EXTRA_CFLAGS) $<
 
-Main.o: compile.h asciiID.h Main.c
+Main.o:  Main.c
 	$(CC) -c -o Main.o $(CFLAGS) $(EXTRA_CFLAGS) Main.c
 
-Files.o: compile.h Files.c
+Files.o: Files.c
 	$(CC) -c -o Files.o $(CFLAGS) $(EXTRA_CFLAGS) Files.c
 
 jigqc.o: jigqc.c
@@ -114,38 +112,11 @@ jigqc.o: jigqc.c
 
 oneside.o: oneside.c
 	$(CC) -c -o oneside.o $(CFLAGS) $(EXTRA_CFLAGS) oneside.c
-
-compile.h:
-	@echo \#define AGS_COMPILE_TIME \"`date`\" >> .ver
-	@echo \#define AGS_UNIX_TIME \"`date +%s`\" >> .ver
-	@echo \#define AGS_COMPILE_BY \"`whoami`\" >> .ver
-	@echo \#define AGS_COMPILE_HOST \"assemblyguide.com\" >> .ver
-	@mv -f .ver $@
-
-asciiID.h:
-#	if [ ! -e major ] ; then (echo 4 > major) ; fi
-#	echo "scale=3 ; 0.001 + " "0`cat minor`" | bc > minor
-#	echo "scale=3 ; " `cat major` " + " `cat minor` | bc > majorminor
-	echo  > asciiID.h
-	echo  >> asciiID.h
-	echo  \#define AGS_ASCII_ID \\ >> asciiID.h
-	echo -n "          " >> asciiID.h
-	echo -n \"laserguide >> asciiID.h
-	echo -n " " >> asciiID.h
-	echo -n `date +%Y` >> asciiID.h
-	echo -n "  " >> asciiID.h
-	echo -n version >> asciiID.h
-	echo -n " " >> asciiID.h
-	echo -n `cat majorminor`\" >> asciiID.h
-	echo >> asciiID.h
-
-
-
 oclean:
-	rm -f *.o agsd ags.gz
+	rm -f *.o agsd
 
 clean:
-	rm -f *.o agsd nof old.compile.h.old Iags ags.gz asciiID.h
+	rm -f *.o agsd
 install:
 	chmod 755 agsd
 	cp agsd /home/patti/buildroot/board/ags/rootfs_overlay/agsd

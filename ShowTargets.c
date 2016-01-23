@@ -5,12 +5,14 @@ static char rcsid[] = "$Id$";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <stddef.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
@@ -34,89 +36,120 @@ static char rcsid[] = "$Id$";
     *  size based on default values of gNumberOfSpiral
     *  and gCoarseSearchStep
     */
-static int32_t gNumberStep =  64 * 0x00080000U;
+static uint32_t gNumberStep =  64 * 0x00080000U;
 
 static int32_t gCoarse3SearchStep;
 
-static void DoCross( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void DoCross(uint32_t currentX, uint32_t currentY,
+		    char *tmpPtr, uint32_t *pIndex);
+static void DoSquare(uint32_t currentX, uint32_t currentY,
+		     char *tmpPtr, uint32_t *pIndex);
+static void draw_line(uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
+		      char *tmpPtr, uint32_t *pIndex);
+static void draw_dark(uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
+		      char *tmpPtr, uint32_t *pIndex);
+static void off_pause(uint32_t x1, uint32_t y1, char *tmpPtr, uint32_t *pIndex);
+static void Draw0(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t ymax, char *tmpPtr, uint32_t *pIndex);
+static void Draw1(uint32_t x0, uint32_t ymin, uint32_t ymax,
+		  char *tmpPtr, uint32_t *pIndex);
+static void Do1(uint32_t currentX, uint32_t currentY, char *tmpPtr, uint32_t * pIndex);
+static void Do2(uint32_t currentX, uint32_t currentY, char *tmpPtr, uint32_t * pIndex);
+static void Do3( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
+static void Do4( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
+static void Do5( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
 
-static void DoSquare( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do6( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
 
-static void Do1( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do7( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
 
-static void Do2( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do8( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
 
-static void Do3( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do9( uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
 
-static void Do4( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do10( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do5( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do11( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do6( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do12( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do7( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do13( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do8( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do14( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do9( unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do15( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do10( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do16( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do11( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do17( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do12( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do18( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do13( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do19( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do14( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do20( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do15( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do21( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do16( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
+static void Do22( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
 
-static void Do17( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-
-static void Do18( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-
-static void Do19( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-
-static void Do20( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-
-static void Do21( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-
-static void Do22( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-
-static void Do23( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-static void Do24( unsigned int currentX, unsigned int currentY,
-                  char * tmpPtr, int * pIndex);
-static void show_move( unsigned int lastX, unsigned int lastY,
-                unsigned int currentX, unsigned int currentY,
-                char * tmpPtr, int * pIndex);
+static void Do23( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
+static void Do24( uint32_t currentX, uint32_t currentY,
+                  char * tmpPtr, uint32_t *pIndex);
+static void Draw2(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void Draw3(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void Draw4(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void Draw5(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void Draw6(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void Draw7(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t ymax, char *tmpPtr, uint32_t *pIndex);
+static void Draw8(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void Draw9(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex);
+static void show_move( uint32_t lastX, uint32_t lastY,
+                uint32_t currentX, uint32_t currentY,
+                char * tmpPtr, uint32_t *pIndex);
+static void limit2C(uint32_t currentX, uint32_t currentY,
+		    uint32_t *eolXNeg, uint32_t *eolX001,
+		    uint32_t *eolX002, uint32_t *eolXPos,
+		    uint32_t *eolYNeg, uint32_t * eolYPos);
+static void limitXY(uint32_t currentX, uint32_t currentY,
+		    uint32_t *eolXNeg, uint32_t *eolXPos,
+		    uint32_t *eolYNeg, uint32_t * eolYPos);
 
 //Start of local functions
 void DoShowTargets(struct lg_master *pLgMaster, char * Parameters, uint32_t respondToWhom )
@@ -124,7 +157,7 @@ void DoShowTargets(struct lg_master *pLgMaster, char * Parameters, uint32_t resp
     char * wr_buf;
     char * tmpPtr;
     int maxSize;
-    int index;
+    uint32_t index;
     int offset;
     double * pExternalAngles;
     int nTargets; 
@@ -172,7 +205,7 @@ void DoShowTargets(struct lg_master *pLgMaster, char * Parameters, uint32_t resp
         pExternalAngles = (double *)(&(Parameters)[offset]);
         Xtemp   = pExternalAngles[ 0 ];
         Ytemp   = pExternalAngles[ 1 ];
-        ConvertExternalAnglesToBinary( Xtemp, Ytemp, &Xi, &Yi );
+        ConvertExternalAnglesToBinary(pLgMaster, Xtemp, Ytemp, &Xi, &Yi );
         Xarr[i] = Xi;
         Yarr[i] = Yi;
         offset = sizeof(int32_t) + i * (kSizeOf1TargetData) + 2 * sizeof(double);
@@ -425,384 +458,337 @@ fprintf(stderr,"ShowTargets i %3d  ptr %08x  dex %5d\n", i, tmpPtr, index );
     }
 }
 
-static void DoCross(
-                  unsigned int currentX
-                , unsigned int currentY
-                , char * tmpPtr
-                , int * pIndex
-            ) {
-    int index;
-    int32_t eolXNeg;
-    int32_t eolXPos;
-    int32_t eolYNeg;
-    int32_t eolYPos;
-    uint32_t * Xptr;
-    uint32_t * Yptr;
-    int32_t x;
-    int32_t y;
-    int j;
+static void DoCross(uint32_t currentX, uint32_t currentY,
+		    char *tmpPtr, uint32_t*pIndex)
+{
+  struct lg_xydata *pXYdata;
+  uint32_t index;
+  uint32_t eolXNeg;
+  uint32_t eolXPos;
+  uint32_t eolYNeg;
+  uint32_t eolYPos;
+  uint32_t x;
+  uint32_t y;
+  int j;
 
-    index = *pIndex;
+  index = *pIndex;
 
-    if ( (int32_t)currentX >= (int32_t)(kMaxNumberX - gNumberStep) ) {
-         eolXPos   =  kMaxNumberX;
-    } else {
-         eolXPos =  (int32_t)currentX            + gNumberStep; 
-    }
-    if ( (int32_t)currentX <= (int32_t)(kMinNumberX + gNumberStep) ) {
-         eolXNeg   =  kMinNumberX;
-    } else {
-         eolXNeg =  (int32_t)currentX            - gNumberStep; 
-    }
-    if ( (int32_t)currentY >= (int32_t)(kMaxNumberY - gNumberStep) ) {
-         eolYPos   =  kMaxNumberY;
-    } else {
-         eolYPos =  (int32_t)currentY            + gNumberStep; 
-    }
-    if ( (int32_t)currentY <= (int32_t)(kMinNumberY + gNumberStep) ) {
-         eolYNeg   =  kMinNumberY;
-    } else {
-         eolYNeg =  (int32_t)currentY            - gNumberStep; 
-    }
-    x = (int32_t)currentX;
-    y = (int32_t)currentY;
-    for ( j = 0; j < 10; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetLowBeam( Xptr, Yptr );
-        index += 8; 
-    }
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetLowBeam( Xptr, Yptr );
-        index += 8; 
-    }
-    for ( x=(int32_t)currentX; x <= eolXPos && x >= (int32_t)currentX; x += 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
-    }
-    x = (int32_t)eolXPos;
-    y = (int32_t)currentY;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( x=eolXPos; x >= eolXNeg && x <= eolXPos; x -= 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
-    }
-    x = (int32_t)eolXNeg;
-    y = (int32_t)currentY;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( x = eolXNeg; x<=(int32_t)currentX && x >= eolXNeg; x += 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
-    }
-    x = (int32_t)currentX;
-    y = (int32_t)currentY;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( y=(int32_t)currentY; y >= eolYNeg && y <= (int32_t)currentY; y -= 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    x = (int32_t)currentX;
-    y = eolYNeg;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( y=eolYNeg; y <= eolYPos && y >= eolYNeg; y += 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    x = (int32_t)currentX;
-    y = eolYPos;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( y=eolYPos; y >= (int32_t)currentY && y <= eolYPos; y -= 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    x = (int32_t)currentX;
-    y = (int32_t)currentY;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetLowBeam( Xptr, Yptr );
-        index += 8;
-    }
+  if (currentX >= (kMaxNumberX - gNumberStep))
+    eolXPos   =  kMaxNumberX;
+  else
+    eolXPos =  currentX + gNumberStep; 
 
+  if (currentX <= (kMinNumberX + gNumberStep))
+    eolXNeg = kMinNumberX;
+  else
+    eolXNeg = currentX - gNumberStep; 
+  if (currentY >= (kMaxNumberY - gNumberStep))
+    eolYPos   =  kMaxNumberY;
+  else
+    eolYPos = currentY + gNumberStep; 
+  if (currentY <= (kMinNumberY + gNumberStep))
+    eolYNeg = kMinNumberY;
+  else
+    eolYNeg = currentY - gNumberStep; 
+
+  for (j = 0; j < 10; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetLowBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetLowBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (x=currentX; ((x<=eolXPos) && (x>=currentX)); (x+= 64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXPos & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (x=eolXPos; ((x>=eolXNeg) && (x<=eolXPos)); (x-=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (j=0; j<2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (x=eolXNeg; ((x<=currentX) && (x>=eolXNeg)); (x+=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (y=currentY; ((y>=eolYNeg) && (y<=currentY)); (y-=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (y=eolYNeg; ((y<=eolYPos) && (y>=eolYNeg)); (y+=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYPos & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  for (y=eolYPos; ((y>=currentY) && (y<=eolYPos)); (y-=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
+  x = (int32_t)currentX;
+  y = (int32_t)currentY;
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(currentX & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(currentY & kMaxUnsigned);
+      SetLowBeam(pXYdata);
+      index += sizeof(struct lg_xydata);
+    }
     *pIndex = index;
+    return;
 }
 
-static void DoSquare(
-                unsigned int currentX,
-                unsigned int currentY,
-                char * tmpPtr,
-                int * pIndex
-            ) {
-    int index;
-    int32_t eolXNeg;
-    int32_t eolXPos;
-    int32_t eolYNeg;
-    int32_t eolYPos;
-    uint32_t * Xptr;
-    uint32_t * Yptr;
-    int32_t x;
-    int32_t y;
-    int j;
+static void DoSquare(uint32_t currentX, uint32_t currentY,
+                char *tmpPtr, uint32_t *pIndex)
+{
+  struct lg_xydata *pXYdata;
+  int index;
+  uint32_t eolXNeg;
+  uint32_t eolXPos;
+  uint32_t eolYNeg;
+  uint32_t eolYPos;
+  uint32_t x;
+  uint32_t y;
+  int j;
 
-    index = *pIndex;
+  index = *pIndex;
 
-    if ( (int32_t)currentX >= (int32_t)(kMaxNumberX - gNumberStep) ) {
-         eolXPos   =  kMaxNumberX;
-    } else {
-         eolXPos =  (int32_t)currentX            + gNumberStep; 
+  if (currentX >= (kMaxNumberX - gNumberStep))
+    eolXPos   =  kMaxNumberX;
+  else
+    eolXPos =  currentX + gNumberStep; 
+  if (currentX <= (kMinNumberX + gNumberStep))
+    eolXNeg   =  kMinNumberX;
+  else
+    eolXNeg =  currentX - gNumberStep; 
+  if (currentY >= (kMaxNumberY - gNumberStep))
+    eolYPos   =  kMaxNumberY;
+  else
+    eolYPos = currentY + gNumberStep;
+  if (currentY <= (kMinNumberY + gNumberStep))
+    eolYNeg   =  kMinNumberY;
+  else
+    eolYNeg = currentY - gNumberStep; 
+  for (j = 0; j < 10; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetLowBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    if ( (int32_t)currentX <= (int32_t)(kMinNumberX + gNumberStep) ) {
-         eolXNeg   =  kMinNumberX;
-    } else {
-         eolXNeg =  (int32_t)currentX            - gNumberStep; 
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    if ( (int32_t)currentY >= (int32_t)(kMaxNumberY - gNumberStep) ) {
-         eolYPos   =  kMaxNumberY;
-    } else {
-         eolYPos =  (int32_t)currentY            + gNumberStep; 
+  for (x=currentX; ((x<=eolXPos) && (x>=currentX)); (x+=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    if ( (int32_t)currentY <= (int32_t)(kMinNumberY + gNumberStep) ) {
-         eolYNeg   =  kMinNumberY;
-    } else {
-         eolYNeg =  (int32_t)currentY            - gNumberStep; 
+  for (j = 0; j < 5; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXPos & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    x = (int32_t)eolXNeg;
-    y = (int32_t)eolYNeg;
-    for ( j = 0; j < 10; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetLowBeam( Xptr, Yptr );
-        index += 8; 
+  for (y=eolYNeg; ((y<=eolYPos) && (y>=eolYNeg)); (y+=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXPos & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
+  for (j = 0; j < 5; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXPos & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYPos & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    for ( x=(int32_t)currentX; x <= eolXPos && x >= (int32_t)currentX; x += 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
+  for (x = eolXPos; ((x>=eolXNeg) && (x<=eolXPos)); (x-=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYPos & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    x = (int32_t)eolXPos;
-    y = (int32_t)eolYNeg;
-    for ( j = 0; j < 5; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
+  for (j = 0; j < 5; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYPos & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    for ( y=eolYNeg; y <= eolYPos && y >= eolYNeg; y += 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
+  for (y=eolYPos; ((y>=eolYNeg) && (y<=eolYPos)); (y-=64*gCoarse3SearchStep))
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    x = (int32_t)eolXPos;
-    y = (int32_t)eolYPos;
-    for ( j = 0; j < 5; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    for ( x = eolXPos; x>=eolXNeg && x <= eolXPos; x -= 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8; 
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(eolXNeg & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(eolYNeg & kMaxUnsigned);
+      SetLowBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-    x = (int32_t)eolXNeg;
-    y = (int32_t)eolYPos;
-    for ( j = 0; j < 5; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( y=eolYPos; y >= eolYNeg && y <= eolYPos; y -= 64*gCoarse3SearchStep ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    x = (int32_t)eolXNeg;
-    y = (int32_t)eolYNeg;
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
-    }
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetLowBeam( Xptr, Yptr );
-        index += 8;
-    }
-
-    *pIndex = index;
+  *pIndex = index;
+  return;
 }
 
 void show_move(
-                unsigned int lastX,
-                unsigned int lastY,
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t lastX,
+                uint32_t lastY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             )
 {
-    int32_t new_xpos;
-    int32_t new_ypos;
-    int32_t last_xpos;
-    int32_t last_ypos;
+    uint32_t new_xpos;
+    uint32_t new_ypos;
+    uint32_t last_xpos;
+    uint32_t last_ypos;
 
     last_xpos = (int32_t)lastX;
     last_ypos = (int32_t)lastY;
     new_xpos  = (int32_t)currentX;
     new_ypos  = (int32_t)currentY;
 
-    draw_dark( last_xpos, last_ypos, new_xpos, new_ypos, tmpPtr, pIndex );
+    draw_dark( last_xpos, last_ypos, new_xpos, new_ypos, tmpPtr, pIndex);
 
 }
 
-static void Do1(
-                unsigned int currentX,
-                unsigned int currentY,
-                char * tmpPtr,
-                int * pIndex
-            ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+static void Do1(uint32_t currentX, uint32_t currentY, char *tmpPtr,uint32_t * pIndex)
+{
+  uint32_t XNeg;
+  uint32_t XPos;
+  uint32_t YNeg;
+  uint32_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+  limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
-    Draw1( currentX, YNeg, YPos, tmpPtr, pIndex );
+  Draw1( currentX, YNeg, YPos, tmpPtr, pIndex );
 }
+static void Do2(uint32_t currentX, uint32_t currentY, char *tmpPtr,uint32_t * pIndex)
+{
+  uint32_t XNeg;
+  uint32_t XPos;
+  uint32_t YNeg;
+  uint32_t YPos;
 
-
-
-static void Do2(
-                unsigned int currentX,
-                unsigned int currentY,
-                char * tmpPtr,
-                int * pIndex
-            ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
-
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-
-    Draw2( XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex );
+  limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+  
+  Draw2( XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex );
 }
 
 
 static void Do3(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -811,15 +797,15 @@ static void Do3(
 
 
 static void Do4(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -828,15 +814,15 @@ static void Do4(
 
 
 static void Do5(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -844,15 +830,15 @@ static void Do5(
 }
 
 static void Do6(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -860,15 +846,15 @@ static void Do6(
 
 }
 static void Do7(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -876,15 +862,15 @@ static void Do7(
 
 }
 static void Do8(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -892,15 +878,15 @@ static void Do8(
 
 }
 static void Do9(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
 
@@ -911,17 +897,17 @@ static void Do9(
 
 
 static void Do10(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -932,17 +918,17 @@ static void Do10(
 
 
 static void Do11(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -953,17 +939,17 @@ static void Do11(
 
 
 static void Do12(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -974,17 +960,17 @@ static void Do12(
 
 
 static void Do13(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -995,17 +981,17 @@ static void Do13(
 
 
 static void Do14(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -1016,164 +1002,153 @@ static void Do14(
 
 
 static void Do15(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
     Draw5(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
-
+    return;
 }
-
 
 static void Do16(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
     Draw6(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
-
+    return;
 }
 
-
 static void Do17(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
     Draw7(X002,XPos,YNeg,YPos,tmpPtr,pIndex);
-
+    return;
 }
 
 
 static void Do18(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
     Draw8(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
-
+    return;
 }
-
 
 static void Do19(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
     Draw9(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
-
 }
 
-
 static void Do20(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-
     Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
     Draw0(X002,XPos,YNeg,YPos,tmpPtr,pIndex);
-
+    return;
 }
 
 
 static void Do21(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-
     Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
     Draw1(XPos,YNeg,YPos,tmpPtr,pIndex);
-
+    return;
 }
 
 
 static void Do22(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -1184,17 +1159,17 @@ static void Do22(
 
 
 static void Do23(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -1204,17 +1179,17 @@ static void Do23(
 }
 
 static void Do24(
-                unsigned int currentX,
-                unsigned int currentY,
+                uint32_t currentX,
+                uint32_t currentY,
                 char * tmpPtr,
-                int * pIndex
+                uint32_t *pIndex
             ) {
-    int32_t XNeg;
-    int32_t X001;
-    int32_t X002;
-    int32_t XPos;
-    int32_t YNeg;
-    int32_t YPos;
+    uint32_t XNeg;
+    uint32_t X001;
+    uint32_t X002;
+    uint32_t XPos;
+    uint32_t YNeg;
+    uint32_t YPos;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
 
@@ -1223,40 +1198,29 @@ static void Do24(
 
 }
 
-void Draw0(int32_t xmin, int32_t xmax, int32_t ymin,
-	   int32_t ymax, char *tmpPtr, int *pIndex)
+static void Draw0(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t ymax, char *tmpPtr, uint32_t *pIndex)
 {
-    off_pause(  xmin, ymin,             tmpPtr, pIndex );
+    off_pause(  xmin, ymin, tmpPtr, pIndex );
     draw_line(  xmin, ymin, xmin, ymax, tmpPtr, pIndex );
     draw_line(  xmin, ymax, xmax, ymax, tmpPtr, pIndex );
     draw_line(  xmax, ymax, xmax, ymin, tmpPtr, pIndex );
     draw_line(  xmax, ymin, xmin, ymin, tmpPtr, pIndex );
-    off_pause(  xmin, ymin,             tmpPtr, pIndex );
+    off_pause(  xmin, ymin, tmpPtr, pIndex );
     return;
 }
 
-void
-Draw1( int32_t x0
-     , int32_t ymin
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw1(uint32_t x0, uint32_t ymin, uint32_t ymax,
+		  char *tmpPtr, uint32_t *pIndex)
 {
     off_pause(  x0, ymin,             tmpPtr, pIndex );
     draw_line(  x0, ymin, x0, ymax, tmpPtr, pIndex );
     off_pause(  x0, ymin,             tmpPtr, pIndex );
 }
 
-void
-Draw2( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw2(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
 
     off_pause(  xmin, ymax,             tmpPtr, pIndex );
@@ -1269,15 +1233,9 @@ Draw2( int32_t xmin
 
 }
 
-void
-Draw3( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw3(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
     off_pause(  xmin, ymax,             tmpPtr, pIndex );
     draw_line(  xmin, ymax, xmax, ymax, tmpPtr, pIndex );
@@ -1289,15 +1247,9 @@ Draw3( int32_t xmin
     off_pause(  xmin, ymin,             tmpPtr, pIndex );
 }
 
-void
-Draw4( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw4(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
     off_pause(  xmin, ymax,             tmpPtr, pIndex );
     draw_line(  xmin, ymax, xmin, y0,   tmpPtr, pIndex );
@@ -1307,15 +1259,9 @@ Draw4( int32_t xmin
     off_pause(  xmax, ymin,             tmpPtr, pIndex );
 }
 
-void
-Draw5( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw5(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
     off_pause(  xmax, ymax,             tmpPtr, pIndex );
     draw_line(  xmax, ymax, xmin, ymax, tmpPtr, pIndex );
@@ -1326,15 +1272,9 @@ Draw5( int32_t xmin
     off_pause(  xmin, ymin,             tmpPtr, pIndex );
 }
 
-void
-Draw6( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw6(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
     off_pause(  xmax, ymax,             tmpPtr, pIndex );
     draw_line(  xmax, ymax, xmin, ymax, tmpPtr, pIndex );
@@ -1345,30 +1285,17 @@ Draw6( int32_t xmin
     off_pause(  xmin, y0,               tmpPtr, pIndex );
 }
 
-void
-Draw7( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw7(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t ymax, char *tmpPtr, uint32_t *pIndex)
 {
     off_pause(  xmin, ymin,             tmpPtr, pIndex );
     draw_line(  xmin, ymin, xmax, ymax, tmpPtr, pIndex );
     draw_line(  xmax, ymax, xmin, ymax, tmpPtr, pIndex );
     off_pause(  xmin, ymax,             tmpPtr, pIndex );
 }
-
-void
-Draw8( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw8(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
     off_pause(  xmin, y0,               tmpPtr, pIndex );
     draw_line(  xmin, y0,   xmin, ymax, tmpPtr, pIndex );
@@ -1380,16 +1307,9 @@ Draw8( int32_t xmin
     draw_line(  xmax, ymin, xmax, y0,   tmpPtr, pIndex );
     off_pause(  xmax, y0,               tmpPtr, pIndex );
 }
-
-void
-Draw9( int32_t xmin
-     , int32_t xmax
-     , int32_t ymin
-     , int32_t y0
-     , int32_t ymax
-     , char * tmpPtr
-     , int * pIndex
-     )
+static void Draw9(uint32_t xmin, uint32_t xmax, uint32_t ymin,
+		  uint32_t y0, uint32_t ymax, char *tmpPtr,
+		  uint32_t *pIndex)
 {
     off_pause(  xmax, ymin,             tmpPtr, pIndex );
     draw_line(  xmax, ymin, xmax, ymax, tmpPtr, pIndex );
@@ -1399,159 +1319,113 @@ Draw9( int32_t xmin
     off_pause(  xmax, y0,               tmpPtr, pIndex );
 }
 
-void
-draw_line( int32_t x0
-         , int32_t y0
-         , int32_t x1
-         , int32_t y1
-         , char * tmpPtr
-         , int * pIndex
-         )
+void draw_line(uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
+	       char *tmpPtr, uint32_t *pIndex)
 {
-    int index;
-    uint32_t *Xptr;
-    uint32_t *Yptr;
-    int32_t delX;
-    int32_t delY;
-    int32_t x;
-    int32_t y;
-    int j;
+  struct lg_xydata *pXYdata;
+  int index;
+  uint32_t delX;
+  uint32_t delY;
+  uint32_t j;
 
-    index = *pIndex;
+  index = *pIndex;
 
-    delX = (x1 - x0) / 16;
-    delY = (y1 - y0) / 16;
+  delX = (x1 - x0) / 16;
+  delY = (y1 - y0) / 16;
 
-          // pause at the start of line
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x0;
-        *Yptr = (uint32_t)y0;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
+  // pause at the start of line
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x0 & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y0 & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-
-    for ( j=0; j <= 16; j++ ) {
-        x = x0 + j * delX;
-        y = y0 + j * delY;
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
+  for (j=0; j <= 16; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)((x0 + (j * delX)) & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)((y0 + (j * delY)) & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-
-          // pause at the end of line
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x1;
-        *Yptr = (uint32_t)y1;
-        SetHighBeam( Xptr, Yptr );
-        index += 8;
+  // pause at the end of line
+  for ( j = 0; j < 2; j++ )
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x1 & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y1 & kMaxUnsigned);
+      SetHighBeam(pXYdata);
+      index += sizeof(struct lg_xydata); 
     }
-
-    *pIndex = index;
+  *pIndex = index;
+  return;
 }
 
-void
-draw_dark( int32_t x0
-         , int32_t y0
-         , int32_t x1
-         , int32_t y1
-         , char * tmpPtr
-         , int * pIndex
-         )
+static void draw_dark(uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
+		      char *tmpPtr, uint32_t *pIndex)
 {
-    int index;
-    uint32_t *Xptr;
-    uint32_t *Yptr;
-    int32_t delX;
-    int32_t delY;
-    int32_t x;
-    int32_t y;
-    int j;
+  struct lg_xydata *pXYdata;
+  int index;
+  uint32_t delX;
+  uint32_t delY;
+  uint32_t j;
 
-    index = *pIndex;
+  index = *pIndex;
 
-    delX = (x1 - x0) / 60;
-    delY = (y1 - y0) / 60;
+  delX = (x1 - x0) / 60;
+  delY = (y1 - y0) / 60;
 
-          // pause at the start of line
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x0;
-        *Yptr = (uint32_t)y0;
-        *Xptr = (*Xptr & 0xFFFFFF00);
-        *Yptr = (*Yptr & 0xFFFFFF00);
-        index += 8;
+  // pause at the start of line
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x0 & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y0 & kMaxUnsigned);
+      index += sizeof(struct lg_xydata); 
     }
-
-    for ( j=0; j <= 60; j++ ) {
-        x = x0 + j * delX;
-        y = y0 + j * delY;
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x;
-        *Yptr = (uint32_t)y;
-        *Xptr = (*Xptr & 0xFFFFFF00);
-        *Yptr = (*Yptr & 0xFFFFFF00);
-        index += 8;
+  for (j=0; j <= 60; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)((x0 + (j*delX)) & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)((y0 + (j*delY)) & kMaxUnsigned);
+      index += sizeof(struct lg_xydata); 
     }
-
-          // pause at the end of line
-    for ( j = 0; j < 2; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x1;
-        *Yptr = (uint32_t)y1;
-        *Xptr = (*Xptr & 0xFFFFFF00);
-        *Yptr = (*Yptr & 0xFFFFFF00);
-        index += 8;
+  // pause at the end of line
+  for (j = 0; j < 2; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x1 & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y1 & kMaxUnsigned);
+      index += sizeof(struct lg_xydata); 
     }
-
-    *pIndex = index;
+  *pIndex = index;
+  return;
 }
 
-void
-off_pause( int32_t x1
-         , int32_t y1
-         , char * tmpPtr
-         , int * pIndex
-         )
+static void off_pause(uint32_t x1, uint32_t y1, char *tmpPtr, uint32_t *pIndex)
 {
-    uint32_t *Xptr;
-    uint32_t *Yptr;
-    int index;
-    int j;
+  struct lg_xydata *pXYdata;
+  uint32_t index;
+  uint32_t j;
 
-    index = *pIndex;
+  index = *pIndex;
 
-    for ( j = 0; j < 10; j++ ) {
-        Xptr = (uint32_t *)(&(tmpPtr[index+0]));
-        Yptr = (uint32_t *)(&(tmpPtr[index+4]));
-        *Xptr = (uint32_t)x1;
-        *Yptr = (uint32_t)y1;
-        *Xptr = (*Xptr & 0xFFFFFF00);
-        *Yptr = (*Yptr & 0xFFFFFF00);
-        //  SetLowBeam( Xptr, Yptr );
-        index += 8;
+  for (j = 0; j < 10; j++)
+    {
+      pXYdata = (struct lg_xydata *)&tmpPtr[j+index];
+      pXYdata->xdata = (uint16_t)(x1 & kMaxUnsigned);
+      pXYdata->ydata = (uint16_t)(y1 & kMaxUnsigned);
+      index += sizeof(struct lg_xydata); 
     }
-
-    *pIndex = index;
+  *pIndex = index;
+  return;
 }
 
-void
-limitXY( uint32_t currentX
-       , uint32_t currentY
-       , int32_t * eolXNeg
-       , int32_t * eolXPos
-       , int32_t * eolYNeg
-       , int32_t * eolYPos
-       )
+static void limitXY(uint32_t currentX, uint32_t currentY,
+		    uint32_t *eolXNeg, uint32_t *eolXPos,
+		    uint32_t *eolYNeg, uint32_t * eolYPos)
 {
     
     if ( (int32_t)currentX >= (int32_t)(kMaxNumberX - gNumberStep) ) {
@@ -1577,16 +1451,10 @@ limitXY( uint32_t currentX
 
 }
 
-void
-limit2C( uint32_t currentX
-       , uint32_t currentY
-       , int32_t * eolXNeg
-       , int32_t * eolX001
-       , int32_t * eolX002
-       , int32_t * eolXPos
-       , int32_t * eolYNeg
-       , int32_t * eolYPos
-       )
+static void limit2C(uint32_t currentX, uint32_t currentY,
+		    uint32_t *eolXNeg, uint32_t *eolX001,
+		    uint32_t *eolX002, uint32_t *eolXPos,
+		    uint32_t *eolYNeg, uint32_t * eolYPos)
 {
     
     if ( (int32_t)currentX >= (int32_t)(kMaxNumberX - gNumberStep) ) {

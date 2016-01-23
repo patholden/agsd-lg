@@ -12,7 +12,7 @@ static char rcsid[] = "$Id$";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -57,7 +57,7 @@ void CalculateTransform ( struct lg_master *pLgMaster,
             ConvertMirrorToGeometricAngles(&Xgeo, &Ygeo);
             foundAngles[2*i  ] = Xgeo;
             foundAngles[2*i+1] = Xgeo;
-            ConvertExternalAnglesToBinary (Xgeo, Ygeo, &Xarr[i], &Yarr[i] );
+            ConvertExternalAnglesToBinary(pLgMaster, Xgeo, Ygeo, &Xarr[i], &Yarr[i]);
             i++;
         } 
 

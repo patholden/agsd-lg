@@ -10,6 +10,7 @@ static char rcsid[] = "$Id: QuickCheckManager.c,v 1.15 2007/03/30 18:59:23 pickl
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -23,7 +24,6 @@ static char rcsid[] = "$Id: QuickCheckManager.c,v 1.15 2007/03/30 18:59:23 pickl
 
 #define	kMaxMissedInQuickCheck			3
 #define	kQCHistoryLength			1
-#define	kMaxMissesOnGoodSensor			2
 
 
 
@@ -98,8 +98,6 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, char *data, uint32_t 
     }
   else
     {
-      /* if ( lostSensors > kMaxMissedInQuickCheck ) */
-      /* if ( lostSensors ) */
       if ( lostSum >= gQuickFailNumber)
 	{
 	  return_code = htonl(kFail | lostSensors);
@@ -328,15 +326,7 @@ void InitQuickCheckHistory ( void )
 	gCurrentQCSensor = 0;
 	gCurrentQC = 0;
 	gCurrentQCSet = 0;
-
-/*
- *	gQCerrors[0] = 0;
- *	gQCerrors[1] = 0;
- *	gQCerrors[2] = 0;
- *	gQCerrors[3] = 0;
- *	gQCerrors[4] = 0;
- *	gQCerrors[5] = 0;
- */
+	return;
 }
 
 
@@ -374,7 +364,6 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 		   );
 #endif
 	}
-      // if ( numberOfMissesOnASensor >= kMaxMissesOnGoodSensor )
       if ( numberOfMissesOnASensor >= 1 )
 	{
 	  tempMsg += (1U << i);
@@ -390,12 +379,6 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 	       );
 #endif
     }
-  //
-  // if ( numberOfBadSensors >= kMaxMissedInQuickCheck )
-  //   when called, always report error
-  //
-  // if ( gNumberOfSets )
-  //
   if ( numberOfBadSensors >= gQuickFailNumber )
     {
       byte3 = (0x00FF0000 & tempMsg) >> 16;

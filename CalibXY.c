@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "LaserInterface.h"
 #include "CalibXY.h"
@@ -45,11 +45,9 @@ CalibXY(struct lg_master *pLgMaster,
     Ztr      = *((double *)tmpPtr);
 
 
-    theError  = ConvertExternalAnglesToBinary ( xgotoang
-                                              , ygotoang
-                                              , &xbinary
-                                              , &ybinary 
-                                              );
+    theError  = ConvertExternalAnglesToBinary(pLgMaster, xgotoang,
+                                              ygotoang, &xbinary,
+                                              &ybinary);
 #ifdef ZDEBUG
 fprintf( stderr, "CalibXY xy ang %lf %lf bin %08x %08x\n", xgotoang, ygotoang, xbinary, ybinary );
 #endif
@@ -61,7 +59,7 @@ fprintf( stderr, "CalibXY xy ang %lf %lf bin %08x %08x\n", xgotoang, ygotoang, x
       return;
     }
 
-    ConvertBinaryToMirrorAngles( xbinary, ybinary, &aXf, &aYf );
+    ConvertBinaryToMirrorAngles(xbinary, ybinary, &aXf, &aYf);
 
 #ifdef ZDEBUG
 fprintf( stderr, "CalibXY xy mirror %lf %lf bin %08x %08x\n", aXf, aYf, xbinary, ybinary );

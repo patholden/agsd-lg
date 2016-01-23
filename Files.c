@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <ctype.h>
@@ -22,29 +23,26 @@
 #include "AppCommon.h"
 #include "parse_data.h"
 #include "Files.h"
-#include "compile.h"
 #include "Hobbs.h"
 #include "comm_loop.h"
-#include "DoLevelScan.h"
 #include "SensorSearch.h"
 #include "ParseVisionFocus.h"
-#include "asciiID.h"
 #include "ParseAutoFocus.h"
 
 #define  BIG_SIZE   AGS_SIZE
 #define  HOBBS_BUFF_SIZE 128
 #define  KERN_BUFF_SIZE  256
-static char *pVersionBuff = 0;
 
 static char BIG_Buffer[BIG_SIZE];
+uint32_t * scandata;
 
 static int filelength;
 
 static int ReadLevel ( char *buff, uint32_t * size, int32_t offset, int32_t request );
-static int GetVersionSize(uint32_t*size);
-static int GetVersionData(struct parse_getdata_resp *resp_buff, uint32_t *size);
+static int GetVersionSize(struct lg_master *pLgMaster, uint32_t*size);
+static int GetVersionData(struct lg_master *pLgMaster, struct parse_getdata_resp *resp_buff, uint32_t *size);
 static int ReadReturn(char *buff, uint32_t * size, int32_t offset, int32_t request);
-static int ReadVersion ( char *buff, uint32_t * size );
+static void ReadVersion(struct lg_master *pLgMaster);
 
 /*
  * for now, the largest buffer shall be for the AGS executable
@@ -90,12 +88,9 @@ static char hob_name[] = "hobbs";
 static char level_name[] = "levelscandata";
 static char vision_name[] = "visionparameters";
 static char focus_vision_name[] = "visionfocus";
+static char polarizer_name[] = "polarizer";
 static char return_name[] = "targetreturns";
 static uint32_t saveLength;
-
-const char *time_string = AGS_COMPILE_TIME "\r\n"
-                          AGS_ASCII_ID "\r\n"
-                          ;
 
 static int WriteToBuffer ( char *buff,     int32_t offset, int32_t size );
 static int WriteBufferToFS (char * name, int32_t Size );
@@ -114,14 +109,13 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
   uint32_t local_len;
   uint32_t size = 0;
   struct parse_getstart_parms *pInp=(struct parse_getstart_parms *)parameters;
-  struct parse_basic_resp *pRespErr=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  struct parse_getstart_resp *pRespGood=(struct parse_getstart_resp *)pLgMaster->theResponseBuffer;
+  struct parse_getstart_resp *pResp=(struct parse_getstart_resp *)pLgMaster->theResponseBuffer;
   
 
     // Initialize all buffers to be used
     memset(FSName, 0, sizeof(FSName));
     memset(lcName, 0, sizeof(lcName));
-    memset(pRespGood, 0, sizeof(struct parse_getstart_resp));
+    memset((char *)pResp, 0, sizeof(struct parse_getstart_resp));
     memset(system_buff, 0, sizeof(system_buff));
 
     inp_filelen = strlen(pInp->inp_filename);
@@ -140,8 +134,10 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     local_len = strlen(lcName);
     if (!local_len)
       {
-	pRespErr->hdr.cmd = RESPFAIL;
+	perror("\nFILEGETSTART: Get-Filesize error, Empty input string");
+	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
       }    
       
     if ( strcmp( ini_name, lcName ) == 0 ) {
@@ -162,6 +158,16 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     else if ( strcmp( vision_name, lcName ) == 0 ) {
         strcpy( FSName, "/etc/ags/conf/vision" );
     }
+    else if ( strcmp( polarizer_name, lcName ) == 0 ) {
+#if 0
+        strcpy( FSName, "/etc/ags/conf/polarizer" );
+#else
+	perror("\nFILEGETSTART: Polarizer not supported right now");
+	pResp->hdr.cmd = RESPFAIL;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+#endif
+    }
     else if ( strcmp( focus_vision_name, lcName ) == 0 ) {
         strcpy( FSName, "/etc/ags/conf/focusvision" );
     }
@@ -173,18 +179,18 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     }
     else
       {
-	pRespErr->hdr.cmd = RESPFAIL;
+	fprintf(stderr,"\nFILEGETSTART: Get-Filesize error, unknown input file %s",lcName);
+	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
       }    
-
     if (strcmp(return_name, lcName) == 0)
-        size = gLoutSize;
+      size = gLoutSize;
     // Special-case version "file"
     // (it's actually a statically declared buffer
     else if (strcmp(ver_name, lcName) == 0)
       {
-	size = 0;
-	err = (GetVersionSize(&size));
+	err = (GetVersionSize(pLgMaster, &size));
 	if (err)
 	  {
 	    perror("\nFILEGETSTART: Get-Filesize error");
@@ -193,7 +199,6 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
       }
     else
       {
-	size = 0;
 	// First convert file to DOS text file
 	sprintf(system_buff, "unix2dos -o %s >> /dev/null", FSName);
 	system(system_buff);
@@ -207,33 +212,27 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
 
     if (err || (size == 0))
       {
-	pRespErr->hdr.cmd = RESPFAIL;
+	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
       }
-    else
-      {
-	pRespGood->hdr.status = RESPGOOD;
-	pRespGood->resp_filelen = size;
-	HandleResponse (pLgMaster, (sizeof(struct parse_getstart_resp)-kCRCSize), respondToWhom );
-      }
+    // All good, send response.
+    pResp->hdr.status = RESPGOOD;
+    pResp->resp_filelen = size;
+    HandleResponse (pLgMaster, (sizeof(struct parse_getstart_resp)-kCRCSize), respondToWhom );
     return;
 }
 
-static int GetVersionData(struct parse_getdata_resp *resp_buff, uint32_t *size)
+static int GetVersionData(struct lg_master *pLgMaster, struct parse_getdata_resp *resp_buff, uint32_t *size)
 {
-  uint32_t   ver_size;
-  
-  if (!pVersionBuff)
+  if (!pLgMaster->vers_data.isVersInit)
     {
-      if (GetVersionSize(size))
-	return(-1);
+      *size = 0;
+      return(-1);
     }
-  ver_size = strlen(pVersionBuff);
-  if (!ver_size)
-    return(-2);
-  memcpy(resp_buff->resp_buffer, pVersionBuff, ver_size);
-  *size = ver_size;
-  free(pVersionBuff);
+  
+  *size = pLgMaster->vers_data.version_size;
+  memcpy(resp_buff->resp_buffer, pLgMaster->vers_data.pVersions, *size);
   return(0);
 }
 
@@ -314,13 +313,17 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
       MaxSize = DATA_SIZE;
       strcpy( FSName, "/etc/ags/conf/focusvision" );
     }
+    else if ( strcmp( polarizer_name, lcName ) == 0 ) {
+      MaxSize = DATA_SIZE;
+      strcpy( FSName, "/etc/ags/conf/polarizer" );
+    }
     else if ( strcmp( hob_name, lcName ) == 0 ) {
       MaxSize = HOBB_SIZE;
       strcpy( FSName, "/etc/ags/conf/hobbs" );
     }
     else if (strcmp(ver_name, lcName) == 0 )
       {
-	err = GetVersionData(pRespGood, &size);
+	err = GetVersionData(pLgMaster, pRespGood, &size);
 	goto handle_resp;
       }
     else      
@@ -390,7 +393,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 handle_resp:
     if ( err )
       {
-	fprintf(stderr, "\nGETDATA: failed file %s, size %x, offset %d, request %d", FSName, MaxSize,offset,request);
+	fprintf(stderr, "\nFILEGETDATA: failed file %s,our-file %s,offs %d,req %d,size%d", lcName, FSName,offset, request, MaxSize);
 	pRespErr->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
       }
@@ -820,65 +823,38 @@ fprintf( stderr, "ReadReturn  size %d\n", *size );
 
 }
 
-static int ReadVersion ( char *buff, uint32_t * size )
+void ReadVersion(struct lg_master *pLgMaster)
 {
+  time_t   ltime;
   int length;
-  int hobbs=0;
-  char hobb_buffer[HOBBS_BUFF_SIZE];
   int hlen;
+  char time_buffer[256];
   char kernel_buffer[256];
+  char hobb_buffer[HOBBS_BUFF_SIZE];
   int klen;
   struct utsname utsbuff;
 
-  memset( hobb_buffer, 0, 128 );
-  memset( kernel_buffer, 0, 256 );
-  length = strlen( time_string );
+  memset(hobb_buffer, 0, sizeof(hobb_buffer));
+  memset(kernel_buffer, 0, sizeof(kernel_buffer));
+  memset(time_buffer, 0, sizeof(time_buffer));
 
-#ifdef ZDEBUG
-fprintf( stderr, "\nsize %d %d  \n\n%s\n", *size, length, time_string );
-#endif
-
-  memmove( (void *)buff, (void *)time_string, (size_t)length);
-
-  uname( &utsbuff ) ;
-  klen = sprintf( kernel_buffer
-                , "kernel version %s %s\r\n"
-                , utsbuff.release
-                , utsbuff.version
-                );
-  strncat( buff, kernel_buffer, klen );
-#ifdef ZDEBUG
-fprintf( stderr
-       , "%s\n%s\n klen %d,  len %d\n"
-       , kernel_buffer
-       , buff
-       , klen
-       , length
-       );
-#endif
-
-//FIXME---PAH---NEED TO FIX HOBBS COUNT
-// hobbs = ReadHobbs( "hobbs" );
-  hlen = sprintf( hobb_buffer
-                , "Hobbs %-10d \r\n"
-                  "QuickCheck V2.0\r\n"
-                , hobbs
-                );
-  strncat( buff, hobb_buffer, hlen );
-#ifdef ZDEBUG
-  fprintf( stderr
-	   , "%s\n%s\n hlen %d,  len %d\n"
-	   , hobb_buffer
-	   , buff
-	   , hlen
-	   , length
-	   );
-#endif
-  *size = length + klen + hlen;
-#ifdef ZDEBUG
-  fprintf( stderr, "\ninput_size %d, time size %d\n\n", *size, length);
-#endif
- return(0);
+  // Get local time
+  ltime = time(NULL);
+  sprintf(time_buffer, "%s\r\n", asctime(localtime(&ltime)));
+  length = strlen(time_buffer);
+  memcpy(pLgMaster->vers_data.pVersions, (void *)time_buffer, (size_t)length);
+  // Get kernel version info
+  uname(&utsbuff);
+  klen = sprintf(kernel_buffer, "kernel version %s %s\r\n",
+		 utsbuff.release, utsbuff.version);
+  strncat(pLgMaster->vers_data.pVersions, kernel_buffer, klen);
+  // Get hobbs count
+  hlen = sprintf(hobb_buffer, "Hobbs %-10ld \r\nQuickCheck V2.0\r\n",
+		 pLgMaster->hobbs.hobbs_counter);
+  strncat(pLgMaster->vers_data.pVersions, hobb_buffer, hlen);
+  pLgMaster->vers_data.version_size = strlen(pLgMaster->vers_data.pVersions);
+  pLgMaster->vers_data.isVersInit = 1;
+ return;
 }
 
 static int WriteToBuffer ( char *buff, int32_t offset, int32_t size )
@@ -976,15 +952,14 @@ printf( "1265 file size %d\n",length );
 
   return(0);
 }
-static int GetVersionSize(uint32_t*size)
+static int GetVersionSize(struct lg_master *pLgMaster, uint32_t*size)
 {
-  if (!pVersionBuff)
-    pVersionBuff = malloc(HOBBS_BUFF_SIZE+ KERN_BUFF_SIZE + strlen(time_string));
-  if (!pVersionBuff)
-    return(-1);
-  if (ReadVersion(pVersionBuff, size))
-      return(-2);
-
+  if (!pLgMaster->vers_data.isVersInit)
+    {
+      *size = 0;
+      return(-1);
+    }
+  *size = pLgMaster->vers_data.version_size;
   return(0);
 }
 static int GetFileSize(char *filename, uint32_t*size)
@@ -1018,4 +993,45 @@ int GetBufferSize ( int32_t request, int32_t * size )
 
   return(0);
 }
+int InitCheckVersion(struct lg_master *pLgMaster)
+{
+  char testStr[256];
+  char *this_line=0;
+  char tmpline[256];
+  char *token;
+  char version1=0;
+  char version2=0;
+  char version3=0;
+  int  version_found = 0;
+  
+  memset(testStr, 0, sizeof(testStr));
+  memset(tmpline, 0, sizeof(tmpline));
+  pLgMaster->vers_data.pVersions =
+    malloc(HOBBS_BUFF_SIZE + (2 * KERN_BUFF_SIZE));
+  if (!pLgMaster->vers_data.pVersions)
+    return(-1);
 
+  // Set up versions struct
+  ReadVersion(pLgMaster);
+  
+  token = strdup(pLgMaster->vers_data.pVersions); 
+  this_line = strtok(token, "\r\n"); 
+  while ((this_line != NULL) && !version_found)
+    {
+      strcpy(testStr, "kernel version");
+      if (strncmp(this_line, testStr, (strlen(testStr))) == 0)
+	{
+	  sscanf(this_line, "%[^0123456789]s.%[^0123456789]s.%[^0123456789]s", (char *)&version1,(char *)&version2,(char *)&version3);
+	  
+	  version_found = 1;
+	}
+      this_line = NULL;
+      this_line = strtok(NULL, "\r\n"); 
+    }
+  if (version1 < 4)
+    {
+      fprintf(stderr,"\nVersion %d.%d.%d, expected 4.1.7",version1, version2, version3);
+      return(-1);
+    }
+  return(0);
+}

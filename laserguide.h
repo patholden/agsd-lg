@@ -62,23 +62,27 @@ struct lg_delta {
    int32_t   xdel;   
    int32_t   ydel;
 };
-
+struct lg_val16 {
+  uint16_t   val16;
+  uint16_t   pad2;
+  uint32_t   pad3;
+};
+struct lg_val32 {
+  uint32_t   val32;
+  uint32_t   pad1;
+};
+struct lg_val64 {
+  double     val64;
+};
 struct cmd_rw_base {
   int        cmd;
   int        length;
   union {
-    struct {
-      uint32_t   val32;
-      uint32_t   pad1;
-    };
-    struct {
-      uint16_t   val16;
-      uint16_t   pad2;
-      uint32_t   pad3;
-    };
+    struct lg_val16 dat16;
+    struct lg_val32 dat32;
+    struct lg_val64 dat64;
     struct lg_points xypos;
     struct lg_delta xydel;
-    double     val64;
   };
 };
 struct cmd_rw {

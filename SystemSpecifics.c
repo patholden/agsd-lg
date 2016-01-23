@@ -11,6 +11,7 @@ static char rcsid[] = "$Id: SystemSpecifics.c,v 1.10 2007/03/30 18:57:42 pickle 
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "parse_data.h"
@@ -26,7 +27,6 @@ static char rcsid[] = "$Id: SystemSpecifics.c,v 1.10 2007/03/30 18:57:42 pickle 
 #include "LaserInterface.h"
 #include "LaserCmds.h"
 #include "SensorSearch.h"
-#include "laserguide.h"
 #include "SystemSpecifics.h"
 
 static  int gFirstTimer = 1;

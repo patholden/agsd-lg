@@ -9,5 +9,5 @@ extern	void			InitAPTParser ( void );
 
 extern	void			CloseAPTParser ( void );
 
-extern	uint32_t ProcessPatternData(struct lg_master *pLgMaster, char *theData,	uint32_t lengthOfData );
+extern	uint32_t ProcessPatternData(struct lg_master *pLgMaster, unsigned char *theData,	uint32_t lengthOfData );
 

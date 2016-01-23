@@ -11,7 +11,7 @@ static char rcsid[] = "$Id: FOM.c,v 1.2 1999/05/04 15:32:35 ags-sw Exp $";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "parse_data.h"
 #include "Protocol.h"

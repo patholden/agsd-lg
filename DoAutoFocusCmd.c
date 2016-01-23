@@ -11,15 +11,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
 #include "DoAutoFocusCmd.h"
 #include "Protocol.h"
 
-void
-DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char * buffer )
+void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 {
      int AFtoWrite;
      int af_index;
@@ -27,6 +26,7 @@ DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char * buffer )
      int read_count=0;
      int num_read=0;
      char cdata_in=0;
+     
      struct parse_autofocus_parms *pInp = (struct parse_autofocus_parms *)buffer;
      struct parse_autofocus_resp *pResp = (struct parse_autofocus_resp *)pLgMaster->theResponseBuffer;
 
@@ -41,19 +41,29 @@ DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char * buffer )
 	 // Flush ttyS2 to prepare for next operation
 	 if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
 	   perror("CantFlushttyS2");
+	 pResp->hdr.status = RESPFAIL;
+	 HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 	 return;
        }
      // Write buffer out to ttyS2
-     write_count = write(pLgMaster->af_serial, pInp->inp_data, AFtoWrite);
-     if (write_count != AFtoWrite)
+     // Need to read one byte at a time due to FPGA limitations for serial port
+     // design
+     for (af_index = 0; af_index < AFtoWrite; af_index++)
        {
-	 fprintf(stderr, "\nAFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
-	 if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-	   perror("AFWRITE:CantFlushttyS2");
-	 return;
+	 write_count = write(pLgMaster->af_serial, (void *)&pInp->inp_data[af_index], 1);
+	 if (write_count != 1)
+	   {
+	     fprintf(stderr, "\nAFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
+	     if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
+	       perror("AFWRITE:CantFlushttyS2");
+	     pResp->hdr.status = RESPFAIL;
+	     HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
+	     return;
+	   }
        }
        usleep(1000);   // Wait 1msec to get data back
-       
+       // Need to read one byte at a time due to FPGA limitations for serial port
+       // design
        for (af_index = 0; af_index < MAX_DATA; af_index++)
 	 {
 	   read_count = read(pLgMaster->af_serial, &cdata_in, 1);
@@ -74,6 +84,8 @@ DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char * buffer )
 		       fprintf(stderr,"\nAFREAD: FAIL: total_bytes %x, err %x, val %2x",read_count,num_read, (int)cdata_in);
 		       if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
 			 perror("AFWRITE:CantFlushttyS2");
+		       pResp->hdr.status = RESPFAIL;
+		       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 		       return;
 		     }
 		 }

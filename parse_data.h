@@ -169,6 +169,18 @@ struct parse_clctrnsfrm_parms {
 struct parse_chngdisp_parms {
   uint32_t    displayPeriod;
 } __attribute__ ((packed));
+struct parse_ethangle_parms {
+  double   xData;
+  double   yData;
+} __attribute__ ((packed));
+struct parse_goangle_parms {
+  double   xData;
+  double   yData;
+} __attribute__ ((packed));
+struct parse_setbit_parms {
+  uint32_t  bit_id;
+  uint32_t  bit_value;
+};
 
 // Send Confirm
 struct send_cnfm {

@@ -7,6 +7,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <linux/laser_api.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>

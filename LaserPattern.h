@@ -28,9 +28,9 @@ extern	uint32_t	SetDefaultZ ( double z );
 void SetUpLaserPattern(struct lg_master *pLgMaster, double *transform);
 void ChangeTransform(double *transform);
 
-uint32_t Transform3DPointToBinary(double x, double y, double z,
+uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double y, double z,
 				  uint32_t *xAngle, uint32_t *yAngle);
-uint32_t PointToBinary(double *point, uint32_t *xAngle,	uint32_t *yAngle);
+uint32_t PointToBinary(struct lg_master *pLgMaster, double *point, uint32_t *xAngle,	uint32_t *yAngle);
 extern double gMaxCos;
 
 extern  double gCurveMin;

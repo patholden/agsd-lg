@@ -9,8 +9,6 @@
 #include "Protocol.h"
 #include "AppResponses.h"
 
-uint32_t * scandata;
-uint32_t * gScan;
 
 void
 DoSuperLevelScan( double dX, double dY )

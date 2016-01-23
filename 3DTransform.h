@@ -1,10 +1,6 @@
 #include <stdint.h>
 /*   $Id: 3DTransform.h,v 1.4 1999/07/29 20:48:38 ags-sw Exp $  */
 
-#ifndef __unix__
-#pragma once
-#endif
-
 #ifndef D3DTRANSFORM_H
 #define D3DTRANSFORM_H
 

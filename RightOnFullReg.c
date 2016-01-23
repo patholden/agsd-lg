@@ -12,6 +12,7 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
@@ -106,11 +107,11 @@ void RightOnFullReg ( struct lg_master *pLgMaster,
            }
         } else if ( RawGeomFlag == 2 ) {
            for ( i = 0; i <  kNumberOfRegPoints ; i++ ) {
-                return_code = ConvertExternalAnglesToBinary (
-							     pGeometricAngles[2*i],
-							     pGeometricAngles[2*i+1],
-							     &(theAngleBuffer[2*i]),
-							     &(theAngleBuffer[2*i+1]) );
+	     return_code = ConvertExternalAnglesToBinary (pLgMaster,
+							  pGeometricAngles[2*i],
+							  pGeometricAngles[2*i+1],
+							  &(theAngleBuffer[2*i]),
+							  &(theAngleBuffer[2*i+1]) );
            }
         } else {
         }
@@ -190,16 +191,12 @@ fprintf( stderr, "finish search for sensor %d\n", i );
 			lostSensors += 1U << i;
 		} else {
                         foundTarget[i] = 1;
-			ConvertBinaryToGeometricAngles(
-                           fndX,
-                           fndY,
-                           &(XfoundAngles[i]),
-                           &(YfoundAngles[i]) );
-			ConvertBinaryToExternalAngles(
-                           fndX,
-                           fndY,
-                           &(XExternalAngles[i]),
-                           &(YExternalAngles[i]) );
+			ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
+						       &(XfoundAngles[i]),
+						       &(YfoundAngles[i]));
+			ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,
+						      &(XExternalAngles[i]),
+						      &(YExternalAngles[i]));
 #ifdef ZDEBUG
 fprintf( stderr, "fndX %x ", fndX );
 fprintf( stderr, "fndY %x ", fndY );

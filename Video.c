@@ -2,12 +2,20 @@
 static char rcsid[]="$Id: Video.c,v 1.15 2000/09/28 19:46:11 ags-sw Exp ags-sw $";
 */
 #include <stdint.h>
-#include <unistd.h>
-#include <netdb.h>
 #include <stdio.h>
-#include <math.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <math.h>
 #include <values.h>
+#include <sys/time.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "AppCommon.h"
@@ -52,8 +60,6 @@ double InvMatrix[2][2] = {
   {0.0, 1.0}
 };
 
-uint32_t gXcheck;
-uint32_t gYcheck;
 
 double gMinIntenStep = 0.0;
 double gLastInten = 0.0;
@@ -78,11 +84,11 @@ void   PerformVideoCheck( struct lg_master *pLgMaster, int respondFlag )
     // Response buffer needs to be initialized
     memset(pLgMaster->theResponseBuffer, 0, sizeof(COMM_RESP_ERROR_LEN1));
 
-    GoToRaw(pLgMaster, &gXcheck, &gYcheck );
+    GoToRaw(pLgMaster, (struct lg_xydata *)&pLgMaster->gCheckXY);
 #if defined(SDEBUG) || defined(KITDEBUG)
     fprintf( stderr, "check XY raw " );
-    fprintf( stderr, " %x", gXcheck );
-    fprintf( stderr, " %x", gYcheck );
+    fprintf( stderr, " %x", pLgMaster->gXcheck );
+    fprintf( stderr, " %x", pLgMaster->gYcheck );
     fprintf( stderr, "\n" );
 #endif
 

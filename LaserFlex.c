@@ -12,7 +12,7 @@ static char rcsid[] = "$Id: LaserFlex.c,v 1.18 2003/04/25 10:40:04 ags-sw Exp ag
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -51,12 +51,6 @@ enum
 #define gSameEndian true
 #endif
 
-void ResetFlexPlyCounter(void)
-{
-  gPlysToDisplay = 0;
-  gPlysReceived = 0;
-}
-
 void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 			  struct parse_chunkflex_parms *parameters,
 			  uint32_t respondToWhom )
@@ -66,7 +60,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
   int      i,index;
   int      numberOfTargets;
   double   *tmpDoubleArr;
-  char     *tmpPtr;
+  unsigned char *tmpPtr;
   uint32_t *p_anglepairs;
   uint32_t *p_transform;
   int      checkQC=0;
@@ -75,7 +69,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
   
   gAbortDisplay = false;
   memset((char *)&dispData, 0, sizeof(struct displayData));
-  memset((char *)&pResp, 0, sizeof(struct parse_basic_resp));
+  memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
   
   if ( gTransmittedLengthSum < pLgMaster->gDataChunksLength )
     {
@@ -87,7 +81,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	
   index  = gPlysReceived * kNumberOfFlexPoints *
                              2 * sizeof ( uint32_t );
-  tmpPtr = (char *)pLgMaster->gSensorBuffer;
+  tmpPtr = pLgMaster->gSensorBuffer;
   if (!tmpPtr)
     return;
 
@@ -133,11 +127,6 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       if ( error ) {
 	pResp->hdr.status = RESPFAIL;
 	pResp->hdr.errtype = RESPOTHERERROR;
-#ifdef ZDEBUG
-	fprintf( stderr
-		 , "LaserCmds sending error response %x%x\n"
-		 , pResp->hdr.status, pResp->hdr.errtype);
-#endif
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	ResetPlyCounter();
 	return;
@@ -147,16 +136,10 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
   else
     {
       dispData.numberOfSensorSets = gPlysToDisplay;
-#ifdef ZDEBUG
-      fprintf( stderr , "282  plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-      dispData.sensorAngles = (uint32_t *)pLgMaster->gSensorBuffer;
+      dispData.sensorAngles = (uint32_t *)&pLgMaster->gSensorBuffer[0];
       error = 0;
       tmpDoubleArr = (double *)&parameters->inp_transform[0];
       for( i=0; i<12; i++ ) {
-#ifdef ZDEBUG
-	fprintf( stderr, "283  transform %lf  %d\n", tmpDoubleArr[i], i );
-#endif
 	if ( isnan(tmpDoubleArr[i]) ) {
 	  error = 1;
 	}
@@ -178,7 +161,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       SetUpLaserPattern(pLgMaster, tmpDoubleArr);
     }
   
-  return_code = ProcessPatternData(pLgMaster, (char *)pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength );
+  return_code = ProcessPatternData(pLgMaster, pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
   if (return_code)
     {
       pResp->hdr.status = RESPFAIL;
@@ -207,36 +190,35 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       if ( gAbortDisplay || ( gPlysReceived < gPlysToDisplay ) )
 	{
 	  pResp->hdr.status = RESPGOOD;
-	  if (!(pLgMaster->gHeaderSpecialByte & 0x80) ) {
+	  if (!(pLgMaster->gHeaderSpecialByte & 0x80))
 	    HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-	  }
 	  return;
 	}
       else
 	{
 	  if ( (CDRHflag(pLgMaster) )  ) {
-	    pResp->hdr.status1 =  RESPFAIL; 
-	    pResp->hdr.errtype1 = RESPE1BOARDERROR; 
-	    HandleResponse (pLgMaster, sizeof(uint32_t), respondToWhom );
-	    ResetFlexPlyCounter (  );
+	    if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+	      {
+		pResp->hdr.status =  RESPFAIL; 
+		pResp->hdr.errtype1 = RESPE1BOARDERROR; 
+		HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+	      }
+	    ResetFlexPlyCounter();
 	    return;
 	  }
 	  gVideoCheck = 0;
 	  SearchBeamOff(pLgMaster);
 	  if ( (CDRHflag(pLgMaster) )  ) {
-	    pResp->hdr.status1 =  RESPFAIL; 
+	    pResp->hdr.status =  RESPFAIL; 
 	    pResp->hdr.errtype1 = RESPE1BOARDERROR; 
 	    HandleResponse (pLgMaster, sizeof(uint32_t), respondToWhom );
-	    ResetFlexPlyCounter (  );
+	    ResetFlexPlyCounter();
 	    return;
 	  }
 	  if ( (pLgMaster->gHeaderSpecialByte & 0x80) ) {
 	    PostCmdDispNoResp(pLgMaster, (struct displayData *)&dispData, respondToWhom);
 	    ResetFlexPlyCounter();
 	  } else {
-#ifdef ZDEBUG
-	    fprintf(stderr,"FL309 special %2x\n", pLgMaster->gHeaderSpecialByte );
-#endif
 	    PostCmdDisplay(pLgMaster,(struct displayData *)&dispData, respondToWhom);
 	    ResetFlexPlyCounter();
 	  }
@@ -244,178 +226,137 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
     }
 }
 
-void DoFlexDisplay (struct lg_master *pLgMaster,
-		    uint32_t dataLength
-		    , struct parse_flexdisp_parms * parameters
-		    , char * patternData
-		    )
+void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
+		    struct parse_flexdisp_parms *parameters, unsigned char *patternData)
 {
-	double tmpDoubleArr[12];
-	struct displayData dispData;
-	double *currentData;
-	uint32_t *currentAnglePair, anglesBuffer[2 * kNumberOfFlexPoints];
-	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-	
-        int zeroTarget;
-	int return_code;
-        double x, y, z;
-        int numberOfTargets;
-	short i;
+  struct displayData dispData;
+  struct lg_xydata   xydata;
+  double             tmpDoubleArr[12];
+  uint32_t           anglePairs[2 * kNumberOfFlexPoints];
+  double *currentTransform;
+  uint32_t *currentData;
+  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+  int zeroTarget=1;
+  int return_code;
+  double x, y, z;
+  uint32_t i,j,numberOfTargets;
 
-	memset(pResp, 0, sizeof(struct parse_basic_resp));
-	memset((char *)&dispData, 0, sizeof(struct displayData));
-	gAbortDisplay = false;
+  memset(pResp, 0, sizeof(struct parse_basic_resp));
+  memset((char *)&dispData, 0, sizeof(struct displayData));
+  memset((char *)&anglePairs[0], 0, sizeof(anglePairs));
+  memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+  gAbortDisplay = false;
 
-	currentData = (double *)parameters->inp_anglepairs;
-	currentAnglePair = anglesBuffer;
+  currentData = (uint32_t*)&parameters->inp_anglepairs[0];
+  currentTransform = (double *)&parameters->inp_transform[0];
+  numberOfTargets = parameters->inp_numTargets;
+  gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
 
-        numberOfTargets = parameters->inp_numTargets;
-        gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
-#ifdef ZDEBUG
-fprintf( stderr
-       , "LFlex435 numTarget %d ply %d gNumT %d\n"
-       , numberOfTargets
-       , gPlysReceived
-       , gQuickCheckTargetNumber[gPlysReceived] 
-       );
-#endif
+  for (i=0; i<MAX_NEW_TRANSFORM_ITEMS; i++)
+    tmpDoubleArr[i] = currentTransform[i];
 
-
-	for( i=0; i<12; i++ ) {
-		tmpDoubleArr[i] = (double)(((double *)parameters->inp_transform)[i]);
-	}
-	ChangeTransform((double *)&tmpDoubleArr);
-
-	i = 0;
-        zeroTarget = 1;
-	while ( i++ < numberOfTargets )
+  ChangeTransform((double *)&tmpDoubleArr);
+  zeroTarget = 1;
+  for(i=0,j=0;  i++ < numberOfTargets; i+=2)
+    {
+      x = currentData[j];
+      y = currentData[j+1];
+      z = currentData[j+2];
+      return_code = Transform3DPointToBinary(pLgMaster,
+					     x, y, z,
+					     &anglePairs[i],
+					     &anglePairs[i+1]);
+      if ((fabs(x) > 0.0001) || (fabs(y) > 0.0001))
+	zeroTarget = 0;
+      xydata.xdata = anglePairs[i] & kMaxUnsigned;
+      xydata.ydata = anglePairs[i+1] & kMaxUnsigned;
+      SetHighBeam ((struct lg_xydata *)&xydata);
+      if (return_code)
 	{
-                x = ( double )DoubleFromCharConv (
-                         (unsigned char *)&currentData[0] );
-                y = ( double )DoubleFromCharConv (
-                         (unsigned char *)&currentData[1] );
-                z = ( double )DoubleFromCharConv (
-                         (unsigned char *)&currentData[2] );
-		return_code = 
-                        Transform3DPointToBinary (
-                           x, y, z,
-			&currentAnglePair[0],
-			&currentAnglePair[1] );
-                if ( fabs(x) > 0.0001 ) { zeroTarget = 0; }
-                if ( fabs(y) > 0.0001 ) { zeroTarget = 0; }
-#ifdef ZDEBUG
-  fprintf( stderr, "target x y %lf %lf\n", x, y );
-  fprintf( stderr, "target angles %x %x\n", currentAnglePair[0], currentAnglePair[1] );
-#endif
-		SetHighBeam ( &currentAnglePair[0], &currentAnglePair[1] );
-		if (return_code)
-		{
-		  pResp->hdr.status = RESPFAIL;
-		  pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
-		  pResp->hdr.errtype2 = (uint16_t)return_code & 0xFFFF;
-                        if ( !(pLgMaster->gHeaderSpecialByte & 0x80)  ) {
-#ifdef ZDEBUG
-			  fprintf( stderr
-				   , "LaserFlex sending error response %x%x%x\n"
-				   , pResp->hdr.status,pResp->hdr.errtype1,pResp->hdr.errtype2);
-#endif
-			  HandleResponse (pLgMaster,sizeof ( uint32_t ), 0 );
-			}
-			return;
-		}
-		SetHighBeam ( &currentAnglePair[0], &currentAnglePair[1] );
-		currentData += 3;
-		currentAnglePair += 2;
-	}
-	
-        if ( zeroTarget ) {
-            for ( i = 0; i < kNumberOfFlexPoints; i++ ) {
-	        anglesBuffer[2*i + 0] = 0;
-	        anglesBuffer[2*i + 1] = 0;
-            }
-        }
-	
-	memmove ( &pLgMaster->gSensorBuffer[ gPlysReceived *
-			kNumberOfFlexPoints * 2 * sizeof ( uint32_t ) ],
-                (char *)anglesBuffer,
-		(size_t)( kNumberOfFlexPoints * 2 * sizeof ( uint32_t ) ) );
-	if ( gPlysReceived++ )
-	{
-#ifdef ZDEBUG
-fprintf( stderr , "1038 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-/*		ChangeTransform ( (double *)&otherParameters
-			[kNumberOfFlexPoints * 3 * sizeof ( double )] ); */
-	}
-	else
-	{
-#ifdef ZDEBUG
-fprintf( stderr , "1046 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-		dispData.numberOfSensorSets = gPlysToDisplay;
-		dispData.sensorAngles = (uint32_t *)pLgMaster->gSensorBuffer;
-		for( i=0; i<12; i++ ) {
-		  tmpDoubleArr[i] = (double)(((double *)parameters->inp_transform)[i]);
-	        }
-		SetUpLaserPattern(pLgMaster, tmpDoubleArr);
-	}
-	
-	pResp->hdr.errtype = ProcessPatternData(pLgMaster, patternData, dataLength );
-
-	if (pResp->hdr.errtype)
-	{
-	  pResp->hdr.status = RESPFAIL; 
-	  if ( !(pLgMaster->gHeaderSpecialByte & 0x80)  ) {
-	    HandleResponse(pLgMaster, sizeof(uint32_t), 0 );
-	  }
-	  ResetFlexPlyCounter();
+	  pResp->hdr.status = RESPFAIL;
+	  pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
+	  pResp->hdr.errtype2 = (uint16_t)return_code & 0xFFFF;
+	  if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+	    HandleResponse (pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
 	  return;
 	}
+	  j += 3;
+    }
 	
-#ifdef ZDEBUG
-fprintf( stderr , "1080 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-	if ( gPlysReceived < gPlysToDisplay )
-	  pResp->hdr.errtype = (uint16_t)SetPenUp (  );
-	else
-	  pResp->hdr.errtype = (uint16_t)FinishPattern(pLgMaster);
+  if (zeroTarget)
+    memset((char *)&anglePairs[0], 0, sizeof(anglePairs));
+  else
+    memmove (&pLgMaster->gSensorBuffer[gPlysReceived *
+				       kNumberOfFlexPoints * 2 * sizeof(uint32_t)],
+	     (char *)&anglePairs[0],
+	     (kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
 
-	if (pResp->hdr.errtype)
+  if (!gPlysReceived)
+    {
+      dispData.numberOfSensorSets = gPlysToDisplay;
+      dispData.sensorAngles = (uint32_t *)&pLgMaster->gSensorBuffer[0];
+      for (i=0; i<MAX_NEW_TRANSFORM_ITEMS; i++)
+	tmpDoubleArr[i] = currentTransform[i];
+      SetUpLaserPattern(pLgMaster, tmpDoubleArr);
+    }
+  else
+    gPlysReceived++;      
+  
+  pResp->hdr.errtype = ProcessPatternData(pLgMaster, patternData, dataLength );
+  if (pResp->hdr.errtype)
+    {
+      pResp->hdr.status = RESPFAIL; 
+      if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
+      ResetFlexPlyCounter();
+      return;
+    }
+  
+  if ( gPlysReceived < gPlysToDisplay )
+    pResp->hdr.errtype = (uint16_t)SetPenUp (  );
+  else
+    pResp->hdr.errtype = (uint16_t)FinishPattern(pLgMaster);
+  
+  if (pResp->hdr.errtype)
+    {
+      pResp->hdr.status = RESPFAIL; 
+      if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+	HandleResponse(pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
+      ResetFlexPlyCounter (  );
+    }
+  else
+    {
+      if (gAbortDisplay || (gPlysReceived < gPlysToDisplay))
 	{
-	  pResp->hdr.status = RESPFAIL; 
-	  if ( !(pLgMaster->gHeaderSpecialByte & 0x80))
-	    HandleResponse(pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
-	  ResetFlexPlyCounter (  );
+	  pResp->hdr.status = RESPGOOD;
+	  if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+	    HandleResponse (pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
 	}
-	else
+      else
 	{
-	  if ( gAbortDisplay || ( gPlysReceived < gPlysToDisplay ) )
+	  gVideoCheck = 0;
+	  SearchBeamOff(pLgMaster);
+	  if ( (CDRHflag(pLgMaster)))
 	    {
-	      pResp->hdr.status = RESPGOOD;
-	      if (!(pLgMaster->gHeaderSpecialByte & 0x80))
-		HandleResponse (pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
+	      pResp->hdr.status1 = RESPFAIL;
+	      pResp->hdr.errtype1 = RESPE1BOARDERROR; 
+	      HandleResponse (pLgMaster,sizeof ( uint32_t ), 0 );
+	      ResetFlexPlyCounter (  );
+	      return;
+	    }
+	  if ( (pLgMaster->gHeaderSpecialByte & 0x80))
+	    {
+	      PostCmdDispNoResp(pLgMaster, (struct displayData *)&dispData, 0);
+	      ResetFlexPlyCounter (  );
 	    }
 	  else
 	    {
-	      gVideoCheck = 0;
-	      SearchBeamOff(pLgMaster);
-	      if ( (CDRHflag(pLgMaster) )  ) {
-		pResp->hdr.status1 = RESPFAIL;
-		pResp->hdr.errtype1 = RESPE1BOARDERROR; 
-		HandleResponse (pLgMaster,sizeof ( uint32_t ), 0 );
-		ResetFlexPlyCounter (  );
-		return;
-	      }
-	      if ( (pLgMaster->gHeaderSpecialByte & 0x80) ) {
-		PostCmdDispNoResp(pLgMaster, (struct displayData *)&dispData, 0);
-		ResetFlexPlyCounter (  );
-	      } else {
-		PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, 0);
-		ResetFlexPlyCounter();
-	      }
+	      PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, 0);
+	      ResetFlexPlyCounter();
 	    }
 	}
-	return;
+    }
+  return;
 }
 
 

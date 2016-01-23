@@ -7,13 +7,12 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
 #include "Protocol.h"
 #include "CRCHandler.h"
-#include "DoLevelScan.h"
 #include "LaserCmds.h"
 #include "DoAutoFocusCmd.h"
 #include "QuickCheckManager.h"
@@ -42,7 +41,7 @@
 #include "Files.h"
 
 uint32_t cmdState = 1;
-static  char *  gDisplayDataBuffer = (char *)NULL;
+static  unsigned char *  gDisplayDataBuffer = 0;
 static int32_t  nTargets;
 
 
@@ -51,7 +50,7 @@ int
 parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *rawindex)
 {
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  char *pInp;
+  unsigned char *pInp;
   int  index;
   int i, cmdSize;
   uint32_t dataLength=0;
@@ -64,45 +63,58 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
       fprintf(stderr, "\nPARSEDATA:  Received Bad input");
       return(-1);
     }
-  pLgMaster->gParametersBuffer = &(pLgMaster->gInputBuffer[4]);  // Pointer to input data less k_header
-  pInp = (char *)pLgMaster->gParametersBuffer;
+  pLgMaster->gParametersBuffer = &pLgMaster->gInputBuffer[4];  // Pointer to input data less k_header
+  pInp = pLgMaster->gParametersBuffer;
 
-  if ( cmdState == 1 ) {
-    cmdState = 0;
-    *rawindex = 0;
-    memset( pLgMaster->gRawBuffer, 0, kMaxDataLength );
-    memcpy( pLgMaster->gRawBuffer, data, data_len );
-    *rawindex += data_len;
-  } else if ( cmdState == 0 ) {
-    memcpy( &(pLgMaster->gRawBuffer[*rawindex]), data, data_len );
-    *rawindex += data_len;
-  }
+  if (cmdState == 1)
+    {
+      cmdState = 0;
+      *rawindex = 0;
+      memset(pLgMaster->gRawBuffer, 0, kMaxDataLength);
+      memcpy(pLgMaster->gRawBuffer, data, data_len);
+      *rawindex += data_len;
+    }
+  else if (cmdState == 0)
+    {
+      memcpy(&pLgMaster->gRawBuffer[*rawindex], data, data_len );
+      *rawindex += data_len;
+    }
   // If we get A1 or A2 from host, need to allow 
   if (*rawindex == 1)
     {
       // 0xA2 is a special emergency -- reset byte
-      if (pLgMaster->gRawBuffer[0] == 0xA1)
+      if (*pLgMaster->gRawBuffer == 0xA1)
 	{
 	  pLgMaster->gotA1 = 1;
 	  fprintf( stderr, "\nreceived 0xA1 -- expect 0xA2 next" );
 	  return(0);
 	}
-      if (pLgMaster->gRawBuffer[0] == 0xA2)
+      else if (*pLgMaster->gRawBuffer == 0xA2)
 	{
 	  fprintf( stderr, "\nreceived 0xA2" );
 	  SlowDownAndStop(pLgMaster);
-	  cmdState = 1;
 	  if (pLgMaster->gotA1)
-	    SendA3(pLgMaster);
+	    {
+	      SendA3(pLgMaster);
+	      pLgMaster->gotA1 = 0;  // Start all over for A1->A2->A3 resync
+	    }
 	  else
 	    fprintf(stderr, "\nreceived 0xA2 with no 0xA1 predecessor");
+	  return(0);
+	}
+      else
+	{
+	  fprintf(stderr, "\nPARSEDATA:  Extraneous data received %d, len %d\n",
+		  *pLgMaster->gRawBuffer, *rawindex);
 	  return(0);
 	}
     }
 
   if (*rawindex < COMM_RECV_MIN_LEN)
-    return(-2);
-
+    {
+      fprintf(stderr, "\nPARSEDATA:  Bad input length %x", *rawindex);
+      return(-3);
+    }
   if (pLgMaster->gHEX == 1 ) {
     index = 0;
     for ( i=0; i < (*rawindex); i++ ) {
@@ -189,6 +201,8 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	}
     }
     break;
+#if 0
+// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
   case kDisplay:
     dataLength = ((struct parse_disp_parms *)pInp)->inp_dataLength;
     if (index > 8)
@@ -203,10 +217,10 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				     dataLength)))
 	      {
 		SendConfirmation (pLgMaster, kDisplay);
-		gDisplayDataBuffer = (char *)&(pLgMaster->gParametersBuffer[kSizeOfDisplayParameters]);
+		gDisplayDataBuffer = (unsigned char *)&(pLgMaster->gParametersBuffer[kSizeOfDisplayParameters]);
 		DoDisplay(pLgMaster,
 			  dataLength,
-			  (char *)((struct parse_disp_parms *)pInp)->inp_dispdata,
+			  (unsigned char *)((struct parse_disp_parms *)pInp)->inp_dispdata,
 			  gDisplayDataBuffer);  
 	      }
 	    else
@@ -214,7 +228,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  }
       }
     break;
-
+#endif
   case kFlexDisplay:
     dataLength = ((struct parse_flexdisp_parms *)pInp)->inp_dataLength;
     if (index > 8)
@@ -230,7 +244,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	      {
 		SendConfirmation (pLgMaster, kDisplay);
 		gDisplayDataBuffer =
-		  (char *)&(pLgMaster->gParametersBuffer[kSizeOfFlexDisplayParameters]);
+		  (unsigned char *)&(pLgMaster->gParametersBuffer[kSizeOfFlexDisplayParameters]);
 		DoFlexDisplay(pLgMaster,
 			      dataLength,
 			      (struct parse_flexdisp_parms *)pInp,
@@ -255,10 +269,10 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				   + dataLength)))
 	    {
 	      SendConfirmation(pLgMaster, kDisplayKitVideo);
-	      gDisplayDataBuffer = (char *)&(pLgMaster->gParametersBuffer[kSizeOfDisplayKitVideoParameters]);
+	      gDisplayDataBuffer = (unsigned char *)&pLgMaster->gParametersBuffer[kSizeOfDisplayKitVideoParameters];
 	      DoDisplayKitVideo(pLgMaster,
 				dataLength,
-				(char *)((struct parse_dispkitvid_parms *)pInp)->inp_transform,
+				(unsigned char *)((struct parse_dispkitvid_parms *)pInp)->inp_transform,
 				gDisplayDataBuffer,
 				kRespondExtern);
 	    }
@@ -296,7 +310,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  {
 	    SendConfirmation(pLgMaster, kFlexDisplayChunksDo);
 	    DoFlexDisplayChunks(pLgMaster,
-				(struct parse_chunkflex_parms *)pInp,
+				(struct parse_chunkflex_parms *)pLgMaster->gParametersBuffer,
 				kRespondExtern );
 	  }
 	else
@@ -421,16 +435,14 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				(kSizeOfCommand + kSizeOfGoAngleParameters)))
 	  {
 	    SendConfirmation (pLgMaster, kGoAngle);
-	    //FIXME---PAH---CMD/RESP BUFFERS NEED TO BE ADDED
-	    DoGoAngle (pLgMaster, DoubleFromCharConv ( pLgMaster->gParametersBuffer ),
-		       DoubleFromCharConv
-		       (&pLgMaster->gParametersBuffer[sizeof(double)]),
-		       kRespondExtern );
+	    DoGoAngle(pLgMaster, (struct parse_goangle_parms *)pInp, kRespondExtern);
 	}
       else
 	SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
     }
     break;
+#if 0
+// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
   case kDarkAngle:
     cmdSize = kSizeOfCommand + kSizeOfDarkAngleParameters;
     if (index >= cmdSize + 2)
@@ -450,6 +462,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
       }
     break;
+#endif
   case kFindOneTarget:
     cmdSize = kSizeOfCommand + kSizeOfFindOneTargetParameters;
     if (index >= cmdSize + 2)
@@ -536,7 +549,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, cmdSize))
 	  {
 	    SendConfirmation(pLgMaster, kSetBit);
-	    DoSetBit(pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern);
+	    DoSetBit(pLgMaster, (struct parse_setbit_parms *)pLgMaster->gParametersBuffer, kRespondExtern);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -669,44 +682,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				(kSizeOfCommand + kSizeOfEtherAngleParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kEtherAngle);
-	    DoEtherAngle (pLgMaster,
-			  DoubleFromCharConv(pLgMaster->gParametersBuffer),
-			  DoubleFromCharConv(&pLgMaster->gParametersBuffer[sizeof ( double )] ),
-			  kRespondExtern );
-	  }
-	else
-	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
-      }
-    break;
-  case kAngleOffset:
-    cmdSize = kSizeOfCommand + kSizeOfAngleOffsetParameters;
-    if (index >= cmdSize + 2)
-      {
-	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
-				(kSizeOfCommand + kSizeOfAngleOffsetParameters)))
-	  {
-	    SendConfirmation(pLgMaster, kAngleOffset);
-	    AngleOffset (pLgMaster, DoubleFromCharConv(pLgMaster->gParametersBuffer),
-			 DoubleFromCharConv(&pLgMaster->gParametersBuffer[sizeof(double)]),
-			 kRespondExtern);
-	  }
-	else
-	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
-      }
-    break;
-  case kLevelScan:
-    cmdSize = kSizeOfCommand + kSizeOfLevelScanParameters;
-    if (index >= cmdSize + 2)
-      {
-	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
-				(kSizeOfCommand + kSizeOfLevelScanParameters)))
-	  {
-	    SendConfirmation(pLgMaster, kLevelScan);
-	    DoLevelScan (pLgMaster,
-			 DoubleFromCharConv(pLgMaster->gParametersBuffer),
-			 DoubleFromCharConv( &pLgMaster->gParametersBuffer[sizeof(double)]));
+	    DoEtherAngle(pLgMaster, (struct parse_ethangle_parms *)pInp, kRespondExtern);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -721,8 +697,8 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  {
 	    fprintf( stderr, "I'm melting!\n" );
 	    SendConfirmation(pLgMaster, kTFS);
-	    LedBoot(pLgMaster);
-	    ClearLinkLED(pLgMaster);
+	    doClearReadyLED(pLgMaster);
+	    doClearLinkLED(pLgMaster);
 	    // FIXME---PAH---THIS SHOULD BE JUST STOPPING
 	    // AND RESTARTING THE AGS DAEMON
 	    //	  magic     = 0xfee1dead;
@@ -977,6 +953,8 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
       }
     break;
+#if 0
+// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
   case kDimAngle:
     cmdSize = kSizeOfCommand + kSizeOfDimAngleParameters;
     if (index >= cmdSize + 2)
@@ -992,6 +970,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
       }
     break;
+#endif
   default:
     cmdState = 1;
     break;

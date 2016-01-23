@@ -11,7 +11,7 @@ static char rcsid[] = "$Id$";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -163,18 +163,18 @@ fprintf( stderr
            }
         } else if ( RawGeomFlag == 2 ) {
            for ( i = 0; i <  numberOfTargets ; i++ ) {
-                return_code = ConvertExternalAnglesToBinary (
-                          pGeometricAngles[2*i],
-                          pGeometricAngles[2*i+1],
-                          &(theAngleBuffer[2*i]),
-                          &(theAngleBuffer[2*i+1]) );
+	     return_code = ConvertExternalAnglesToBinary(pLgMaster,
+							 pGeometricAngles[2*i],
+							 pGeometricAngles[2*i+1],
+							 &(theAngleBuffer[2*i]),
+							 &(theAngleBuffer[2*i+1]));
                
                 if ( numberOfTargets == 4 ) {
-                    return_code = ConvertExternalAnglesToBinary (
-                              pGeometricAngles[2*(i)],
-                              pGeometricAngles[2*(i)+1],
-                              &(theAngleBuffer[2*(i+4)]),
-                              &(theAngleBuffer[2*(i+4)+1]) );
+		  return_code = ConvertExternalAnglesToBinary(pLgMaster,
+							      pGeometricAngles[2*(i)],
+							      pGeometricAngles[2*(i)+1],
+							      &(theAngleBuffer[2*(i+4)]),
+							      &(theAngleBuffer[2*(i+4)+1]));
                 }
 #ifdef ANGDEBUG
 fprintf( stderr
@@ -286,16 +286,12 @@ fprintf( stderr, "kStopWasDone %d %d\n", gSearchFlag, gStopFlag );
 		} else {
                         target_status[i] = 1;
                         foundTarget[i]   = 1;
-			ConvertBinaryToGeometricAngles(
-                           fndX,
-                           fndY,
-                           &(XfoundAngles[i]),
-                           &(YfoundAngles[i]) );
-			ConvertBinaryToExternalAngles(
-                           fndX,
-                           fndY,
-                           &(XExternalAngles[i]),
-                           &(YExternalAngles[i]) );
+			ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
+						       &(XfoundAngles[i]),
+						       &(YfoundAngles[i]) );
+			ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,
+						      &(XExternalAngles[i]),
+						      &(YExternalAngles[i]));
 #ifdef ZDEBUG
 fprintf( stderr, "fndX %x ", fndX );
 fprintf( stderr, "fndY %x ", fndY );

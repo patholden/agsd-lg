@@ -11,10 +11,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
-#include "laserguide.h"
 #include "Protocol.h"
 #include "LaserCmds.h"
 #include "SystemMaint.h"
@@ -66,13 +66,13 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
   error = bind(pLgMaster->socketfd, (struct sockaddr *)&pLgMaster->webhost_addr, sockaddr_len);
   if (error < 0)
     {
-      perror("COMMINIT: Bind failed ");
+      perror("COMMCFGSCK: Bind failed ");
       exit(-3);
     }
   error = listen(pLgMaster->socketfd, MAXPENDING);
   if (error < 0)
     {
-      perror("COMMINIT: connect failed ");
+      perror("COMMCFGSCK: connect failed ");
       exit(-3);
     }
 
@@ -167,10 +167,10 @@ int CommInit(struct lg_master *pLgMaster)
 
 static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 {
-  unsigned char      *recv_data = 0;
-  int                data_len = 0;
-  int                error = 0;
-  int                parsed_count = 0;
+  unsigned char *recv_data = 0;
+  int       data_len = 0;
+  int       error = 0;
+  int       parsed_count = 0;
   
   if (!pLgMaster)
     return(-1);
@@ -215,13 +215,10 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   error = parse_data(pLgMaster, recv_data, data_len, &parsed_count );
   if (error < 0)
     {
-      perror("Bad parse");
+      fprintf(stderr,"Bad parse, error %d",error);
       free(recv_data);
       return(error);
     }
-#ifdef ZDEBUG
-  fprintf(stderr, "\nENETPROC:  END data_len %x, parsed %x", data_len, parsed_count);
-#endif
   free(recv_data);
   return(data_len);
 }
@@ -234,96 +231,67 @@ int SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand)
   int sent=0, remain=0;
   struct send_cnfm *pOut=(struct send_cnfm *)&gOutputBuffer[0];;
 
-      sent = 0;
-#ifdef ZDEBUG
-      fprintf( stderr, "entering SendConfirmation %02x\n", theCommand );
-#endif
-      // Need to initialize buffers to be used
-      memset(gOutputBuffer, 0, sizeof(struct send_cnfm));
-      memset(gOutputHex, 0, (sizeof(struct send_cnfm) * 2));
+  sent = 0;
+  // Need to initialize buffers to be used
+  memset(gOutputBuffer, 0, sizeof(struct send_cnfm));
+  memset(gOutputHex, 0, (sizeof(struct send_cnfm) * 2));
 
-      pOut->cmd   = theCommand;
-      pOut->flags = pLgMaster->gHeaderSpecialByte;
-      pOut->seq_num = htons(pLgMaster->seqNo);
-      AppendCRC((char *)gOutputBuffer, (sizeof(struct send_cnfm)-kCRCSize));
+  pOut->cmd   = theCommand;
+  pOut->flags = pLgMaster->gHeaderSpecialByte;
+  pOut->seq_num = htons(pLgMaster->seqNo);
+  AppendCRC((char *)gOutputBuffer, (sizeof(struct send_cnfm)-kCRCSize));
 
-      if (pLgMaster->gHEX == 1 ) {
-          count = 0; 
-          for ( i=0; i<COMM_CONFIRM_LEN; i++ ) {
-               if ( gOutputBuffer[i] >= 0x80 ) {
-                   gOutputHex[count] = 0x80;
-                   count++;
-                   gOutputHex[count] = gOutputBuffer[i] - 0x80;
-                   count++;
-               } else {
-                   gOutputHex[count] = gOutputBuffer[i];
-                   count++;
-               }
-#ifdef ZDEBUG
-               fprintf( stderr
-                      , "SENDCNFM: out=%02x, index=%d"
-                      , gOutputHex[count-1]
-			, count);
-               fprintf( stderr, "\n" );
-#endif
-          }
-#ifdef ZDEBUG
-	  fprintf( stderr, "\nconfirm cmd %x,i=%d,remain=%d,fd=%d", theCommand, i, remain, pLgMaster->datafd);
-#endif
-          i = 0;
-          remain = count;
-          sent = 0;
-	  while(count && (i < count) && (sent >= 0) && (pLgMaster->datafd >= 0))
-	    {
-#ifdef ZDEBUG
-	      fprintf( stderr, "\nconfirm cmd %x,sending %x,i=%d,remain=%d,fd=%d", theCommand, count, i, remain, pLgMaster->datafd);
-#endif
-	      sent = send(pLgMaster->datafd, gOutputHex, count, MSG_NOSIGNAL);
-#ifdef ZDEBUG
-	      fprintf( stderr, ",actual sent=%d\n", sent);
-#endif
-                    i += sent;
-                    remain -= sent;
-	    }
-      }
-
-      if (pLgMaster->gHEX == 0 ) {
-	if ((pLgMaster->serial_ether_flag == 2) && (pLgMaster->datafd >= 0)) 
-	  sent = send(pLgMaster->datafd, gOutputBuffer, COMM_CONFIRM_LEN, MSG_NOSIGNAL);
-	if ( sent == -1 )
+  if (pLgMaster->gHEX == 1 ) {
+    count = 0; 
+    for (i=0; i<COMM_CONFIRM_LEN; i++)
+      {
+	if (gOutputBuffer[i] >= 0x80)
 	  {
-	    perror("\nBad data-send: ");
-#ifdef ZDEBUG
-	    fprintf(stderr, "CNFRM:  Bad send datafd = %d, err %x\n", pLgMaster->datafd, errno);
-#endif
-          }
+	    gOutputHex[count] = 0x80;
+	    count++;
+	    gOutputHex[count] = gOutputBuffer[i] - 0x80;
+	    count++;
+	  }
+	else
+	  {
+	    gOutputHex[count] = gOutputBuffer[i];
+	    count++;
+	  }
       }
-#ifdef ZDEBUG
-      fprintf( stderr, "leaving SendConfirmation %x, sent %x\n", theCommand, sent);
-#endif
-      return(0);
+    i = 0;
+    remain = count;
+    sent = 0;
+    while(count && (i < count) && (sent >= 0) && (pLgMaster->datafd >= 0))
+      {
+	sent = send(pLgMaster->datafd, gOutputHex, count, MSG_NOSIGNAL);
+	i += sent;
+	remain -= sent;
+      }
+  }
+
+  if (pLgMaster->gHEX == 0)
+    {
+      if ((pLgMaster->serial_ether_flag == 2) && (pLgMaster->datafd >= 0)) 
+	sent = send(pLgMaster->datafd, gOutputBuffer, COMM_CONFIRM_LEN, MSG_NOSIGNAL);
+      if (sent == -1)
+	perror("\nBad data-send: ");
+    }
+  return(0);
 }
 
 void SendA3(struct lg_master *pLgMaster)
 {
-      struct k_header gOutputBuffer;
-      int sent;
+  struct k_header gOutputBuffer;
+  int sent=0;
 
-      memset ((char *)&gOutputBuffer, 0, sizeof(struct k_header));
-      gOutputBuffer.status = 0xA3;
+  memset ((char *)&gOutputBuffer, 0, sizeof(struct k_header));
+  gOutputBuffer.status = 0xA3;
 
-#ifdef ZDEBUG
-fprintf( stderr, "about to send 0xA3  %c\n",  gOutputBuffer );
-#endif
-
-
- if ((pLgMaster->serial_ether_flag == 2)  && (pLgMaster->datafd >= 0))
-   sent = send(pLgMaster->datafd, (char *)&gOutputBuffer, sizeof(struct k_header), MSG_NOSIGNAL );
- if ( sent == -1 ) {
-#ifdef ZDEBUG
-   fprintf( stderr, "457 datafd = %d\n", pLgMaster->datafd );
-#endif
- }
+  if ((pLgMaster->serial_ether_flag == 2)  && (pLgMaster->datafd >= 0))
+    sent = send(pLgMaster->datafd, (char *)&gOutputBuffer, sizeof(struct k_header), MSG_NOSIGNAL );
+  if (sent <= 0)
+    fprintf(stderr,"\nUnable to send data, errno %d, sent %d", errno, sent);
+  return;
 }
 
 
@@ -343,15 +311,7 @@ void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint
     }
   memset(gOutputHEX, 0, (lengthOfResponse * 2));
   
-#ifdef ZDEBUG
-  fprintf(stderr, "\nHANDLERESP: enter HandleResponse  length %d", lengthOfResponse);
-  fprintf(stderr, ", about to append CRC\n");
-#endif
   AppendCRC((char *) pLgMaster->theResponseBuffer, lengthOfResponse);
-#ifdef ZDEBUG
-  fprintf( stderr, "finished CRC\n" );
-#endif
-
   if (pLgMaster->gHEX == 1)
     {
       count = 0; 
@@ -361,9 +321,6 @@ void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint
 	    {
 	      gOutputHEX[count] = 0x80;
 	      count++;
-#if ZDEBUG
-	      fprintf(stderr, "\nHANDLERESP: outhex:%02x, count:%3d, index:%3d, ", gOutputHEX[count-1], count, i);
-#endif
 	      gOutputHEX[count] = pLgMaster->theResponseBuffer[i] - 0x80;
 	      count++;
 	    }
@@ -372,38 +329,17 @@ void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint
 	      gOutputHEX[count] = pLgMaster->theResponseBuffer[i];
 	      count++;
 	    }
-#ifdef ZDEBUG
-	  fprintf(stderr, "in %02x %3d %3d ", gOutputHEX[count-1], count, i);
-	  if ( isalnum(gOutputHEX[count-1]) )
-	    fprintf( stderr, "%c", gOutputHEX[count-1] );
-	  fprintf( stderr, "\n" );
-#endif
 	}
       i = 0;
       remain = count;
       sent = 0;
       if (pLgMaster->serial_ether_flag == 2)
 	{
-#ifdef ZDEBUG
-	  fprintf( stderr, "f2 sent,i,remain %d %d %d  datafd %d\n", sent, i, remain, pLgMaster->datafd);
-#endif
 	  while ((i < count) && (sent >= 0) && (pLgMaster->datafd >= 0))
 	    {
-#ifdef ZDEBUG
-	      fprintf( stderr, "\nHANDLERESP:  f2 sending %d,i %d,remain %d,datafd %d\n", sent, i, remain, pLgMaster->datafd);
-#endif
 	      sent = send( pLgMaster->datafd, gOutputHEX, remain, MSG_NOSIGNAL );
 	      i += sent;
 	      remain -= sent;
-#ifdef ZDEBUG
-	      fprintf( stderr, "\nHANDLERESP:  f2 sent,i,remain %x %x %x\n", sent, i, remain);
-#endif
-	    }
-	  if ((sent == -1) && (remain > 0))
-	    {
-#ifdef ZDEBUG
-	      fprintf( stderr, "\nHANDLERESP:  send err %x, remain %x, sockfd %d\n", sent, remain, pLgMaster->datafd);
-#endif
 	    }
 	}
     }
@@ -421,17 +357,8 @@ void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint
 	      i += sent;
 	      remain -= sent;
 	    }
-	  if ((sent == -1) && (remain > 0))
-	    {
-#ifdef ZDEBUG
-	      fprintf( stderr, "HANDLERESP:  send err %x, remain %x, sockfd %d\n", sent, remain, pLgMaster->datafd);
-#endif
-	    }
 	}
     }
-#ifdef ZDEBUG
-  fprintf( stderr, "HANDLERESP:  DONE\n" );
-#endif
   free(gOutputHEX);
   return;
 }
@@ -537,10 +464,4 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
   
   return(0);
 }
-
-//  FIXME---PAH---defined in AFExternComm.c  AND NEVER USED
-//void CommandReadCompProc ( void ) { int32_t oldA5; }
-//void ParametersReadCompProc ( void ) { int32_t oldA5; }
-//void DataReadCompProc ( void ) { int32_t oldA5; }
-//void ConfirmationWriteCompProc ( void ) { int32_t oldA5; }
 

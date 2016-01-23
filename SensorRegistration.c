@@ -11,7 +11,7 @@ static char rcsid[] = "$Id: SensorRegistration.c,v 1.15 2007/04/02 08:42:12 pick
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "L3DTransform.h"

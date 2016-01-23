@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "AppErrors.h"
@@ -754,7 +754,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * prevPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * prevPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -779,7 +779,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * prevPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * prevPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -806,7 +806,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * prevPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * prevPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -831,7 +831,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * prevPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * prevPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -900,7 +900,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * nextPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * nextPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -925,7 +925,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * nextPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * nextPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -950,7 +950,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * nextPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * nextPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -978,7 +978,7 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * nextPoint->y;
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * nextPoint->z;
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 /*
  *				return kPatternAngleOutOfRange + theError;
@@ -1002,7 +1002,7 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 #if _NEW_PATH_
 	uint32_t endPointX, endPointY, theError;
 
-	theError = PointToBinary ( theEndPoint, &endPointX, &endPointY );
+	theError = PointToBinary(pLgMaster, theEndPoint, &endPointX, &endPointY );
 	if ( theError ) {
 /*
  *		return kPatternAngleOutOfRange + theError;
@@ -1038,12 +1038,12 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 	unsigned char currentBeamOn;
 	double acosX, acosY, acosZ, norm;
 
-	theError = PointToBinary ( gPutPoint, &startPointX, &startPointY );
+	theError = PointToBinary(pLgMaster, gPutPoint, &startPointX, &startPointY );
 	if ( theError ) { 
           return kPatternAngleOutOfRange + theError;
         }
 
-	theError = PointToBinary ( theEndPoint, &endPointX, &endPointY );
+	theError = PointToBinary(pLgMaster, theEndPoint, &endPointX, &endPointY );
 	if ( theError ) {
           return kPatternAngleOutOfRange + theError;
         }
@@ -1084,7 +1084,7 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 					pathFraction * gOldPutPoint[kY];
 				pathPoint[kZ] = gPutPoint[kZ] * ( 1.0 - pathFraction ) +
 					pathFraction * gOldPutPoint[kZ];
-				theError = PointToBinary ( pathPoint, &pathX, &pathY );
+				theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 				if ( theError ) {
 				  return kPatternAngleOutOfRange + theError;
                                 }
@@ -1144,7 +1144,7 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 				( 1.0 - pathFraction ) * gPutPoint[kY];
 			pathPoint[kZ] = theEndPoint[kZ] * pathFraction +
 				( 1.0 - pathFraction ) * gPutPoint[kZ];
-			theError = PointToBinary ( pathPoint, &pathX, &pathY );
+			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
 				return kPatternAngleOutOfRange + theError;
                         }
@@ -1177,28 +1177,25 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 
 static uint32_t PutAPoint(struct lg_master *pLgMaster, uint32_t newXBin, uint32_t newYBin )
 {
-#ifdef PATDEBUG
-  fprintf(stderr,"\nPUTAPOINT: START");
-#endif
-	pLgMaster->patternLength += 2 * sizeof ( uint32_t );
-	if (pLgMaster->patternLength > ( kMaxNumberOfPatternPoints *
-		2 * sizeof ( uint32_t ) ) )
-        {
-		return kTooManyPatternPoints;
-        }
-#ifdef PATDEBUG
-	fprintf(stderr,"\nPUTAPOINT: patternlength %d",pLgMaster->patternLength);
-#endif
-	gCurrentPoint[kX] = newXBin; 
-	gCurrentPoint[kY] = newYBin;
-	if ( !gRawInput )
-	{
-		if ( gBeamOn )
-			SetHighBeam ( &gCurrentPoint[kX], &gCurrentPoint[kY] );
-		else SetLowBeam ( &gCurrentPoint[kX], &gCurrentPoint[kY] );
-	}
-	gCurrentPoint += 2;
-	return 0U;
+  struct lg_xydata  *pXYData;
+
+  pLgMaster->patternLength += 2 * sizeof ( uint32_t );
+  if (pLgMaster->patternLength > ( kMaxNumberOfPatternPoints *
+				   2 * sizeof ( uint32_t ) ) )
+    {
+      return kTooManyPatternPoints;
+    }
+  gCurrentPoint[kX] = newXBin; 
+  gCurrentPoint[kY] = newYBin;
+  if ( !gRawInput )
+    {
+      pXYData = (struct lg_xydata *)&gCurrentPoint[kX];
+      if ( gBeamOn )
+	SetHighBeam (pXYData);
+      else SetLowBeam (pXYData);
+    }
+  gCurrentPoint += 2;
+  return 0U;
 }
 
 uint32_t PendPenDown ( void )
@@ -1694,7 +1691,7 @@ printf( "1475exitXYZ  %lf %lf %lf\n"
 
 
 
-uint32_t Transform3DPointToBinary ( double x, double y,
+uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double y,
 	double z, uint32_t *xAngle, uint32_t *yAngle )
 {
 	double inputPoint[3], outputPoint[3];
@@ -1702,17 +1699,14 @@ uint32_t Transform3DPointToBinary ( double x, double y,
 	inputPoint[kY] = y;
 	inputPoint[kZ] = z;
 	TransformPoint ( &gCurrentTransform, inputPoint, outputPoint );
-	return PointToBinary ( outputPoint, xAngle, yAngle );
+	return PointToBinary(pLgMaster, outputPoint, xAngle, yAngle );
 }
 
-uint32_t PointToBinary ( double *point,
-						uint32_t *xAngle, uint32_t *yAngle )
+uint32_t PointToBinary(struct lg_master *pLgMaster,  double *point, uint32_t *xAngle, uint32_t *yAngle)
 {
-	double angleX, angleY;
-	GeometricAnglesFrom3D ( point[kX], point[kY], point[kZ],
-								&angleX, &angleY );
-	return ConvertGeometricAnglesToBinary
-		( angleX, angleY, xAngle, yAngle );
+  double angleX, angleY;
+  GeometricAnglesFrom3D(point[kX], point[kY], point[kZ], &angleX, &angleY );
+  return(ConvertGeometricAnglesToBinary(pLgMaster, angleX, angleY, xAngle, yAngle));
 }
 
 int InitLaserPattern ( void )
@@ -1950,7 +1944,7 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
               pathPoint[kX] = Xtmp;
               pathPoint[kY] = Ytmp;
               pathPoint[kZ] = Ztmp;
-              theError = PointToBinary ( pathPoint, &pathX, &pathY );
+              theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
               if ( theError ) {
                        return kPatternAngleOutOfRange;
               } else {
@@ -1975,7 +1969,7 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
               pathPoint[kX] = Xtmp;
               pathPoint[kY] = Ytmp;
               pathPoint[kZ] = Ztmp;
-              theError = PointToBinary ( pathPoint, &pathX, &pathY );
+              theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
               if ( theError ) {
                        return kPatternAngleOutOfRange;
               } else {
@@ -1995,7 +1989,7 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
     pathPoint[kX] = p2[0];
     pathPoint[kY] = p2[1];
     pathPoint[kZ] = p2[2];
-    theError = PointToBinary ( pathPoint, &pathX, &pathY );
+    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
     if ( theError ) {
 #ifdef QDEBUG
               printf( "outofrange %x %x %x\r\n", pathX, pathY, tempLong );

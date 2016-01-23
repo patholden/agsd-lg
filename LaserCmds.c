@@ -11,7 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -80,7 +80,11 @@ unsigned char CheckSourceAndMode ( uint32_t respondToWhom )
   return true;
 }
 
-
+void ResetFlexPlyCounter(void)
+{
+  gPlysToDisplay = 0;
+  gPlysReceived = 0;
+}
 
 void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_parms *pInp, uint32_t respondToWhom )
 {
@@ -213,10 +217,7 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
 	}
       SetUpLaserPattern(pLgMaster, tmpDoubleArr);
     }
-  pResp->hdr.errtype = ProcessPatternData(pLgMaster, (char *)pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
-#ifdef PATDEBUG
-  fprintf(stderr,"\nDISPCHUNK:  ProcessPatternData rc %d",pResp->hdr.errtype);
-#endif
+  pResp->hdr.errtype = ProcessPatternData(pLgMaster, pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
   if (pResp->hdr.errtype)
     {
       pResp->hdr.status = RESPFAIL;
@@ -229,23 +230,14 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
   if ( gPlysReceived < gPlysToDisplay )
     {
       pResp->hdr.errtype = (uint16_t)SetPenUp();
-#ifdef PATDEBUG
-      fprintf(stderr,"\nDISPCHUNK:  SetPenUp rc %d",pResp->hdr.errtype);
-#endif
       if (!pResp->hdr.errtype)
 	{
 	  pResp->hdr.errtype = (uint16_t)PendPenDown();
-#ifdef PATDEBUG
-	  fprintf(stderr,"\nDISPCHUNK:  PendPenDown rc %d",pResp->hdr.errtype);
-#endif
 	}
     }
   else
     {
       pResp->hdr.errtype = (uint16_t)FinishPattern(pLgMaster);
-#ifdef PATDEBUG
-      fprintf(stderr,"\nDISPCHUNK:  FinishPattern rc %d",pResp->hdr.errtype);
-#endif
     }
   if (pResp->hdr.errtype)
     {
@@ -283,9 +275,6 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
 	      ResetPlyCounter();
 	      return;
 	    }
-#ifdef PATDEBUG
-	  fprintf(stderr,"\nDISPCHUNK:  CDRHflag DONE, onto PostCmd");
-#endif
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, respondToWhom);
 	  ResetPlyCounter();
 	}
@@ -328,72 +317,94 @@ void DoStop ( struct lg_master *pLgMaster, uint32_t respondToWhom )
 }
 
 
-void DoGoAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom )
+void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, uint32_t respondToWhom )
 {
-	uint32_t theBuffer[2];
-	int      return_val;
-	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+  struct lg_xydata xydata;
+  uint32_t theBuffer[2];
+  double   x;
+  double   y;
+  int      return_val;
+  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
 
-	memset(pResp, 0, sizeof(struct parse_basic_resp));
-	if ( !CheckSourceAndMode ( respondToWhom ) ) return;
+  memset(pResp, 0, sizeof(struct parse_basic_resp));
+  if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 
-	return_val = ConvertExternalAnglesToBinary(x, y, &theBuffer[0], &theBuffer[1]);
+  // Check input parms pointer & get x/y data
+  if (!pInp)
+    return;
+  x = pInp->xData;
+  y = pInp->yData;
+  return_val = ConvertExternalAnglesToBinary(pLgMaster, x, y,
+					     &theBuffer[0], &theBuffer[1]);
+  if (return_val)
+    {
+      pResp->hdr.status1 = RESPFAIL;
+      pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
+      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+    }
+  else
+    {
+      if ((CDRHflag(pLgMaster)))
+	{
+	  pResp->hdr.status1 =RESPFAIL;
+	  pResp->hdr.errtype1 = RESPE1BOARDERROR; 
+	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	  return;
+	}
+      xydata.xdata = theBuffer[0] & kMaxUnsigned;
+      xydata.ydata = theBuffer[1] & kMaxUnsigned;
+      PostCmdGoAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom );
+    }
+  return;
+}
 
-#ifdef SDEBUG
-	printf( "go angxy %lf %lf\n", x, y );
+void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom )
+{
+  struct lg_xydata xydata;
+  uint32_t theBuffer[2];
+  double   x, y;
+  int      return_val;
+  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+	
+  memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
+  memset((char *)&theBuffer[0], 0, sizeof(theBuffer));
+  memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+  if ( !CheckSourceAndMode ( respondToWhom ) ) return;
+
+  if (!pInp)
+    return;
+  x = pInp->xData;
+  y = pInp->yData;
+#ifdef PATDEBUG
+  fprintf(stderr,"\nDOETHANGL: B4 CNVRT x%f, y%f", x, y);
 #endif
-	if (return_val)
+  return_val =  ConvertExternalAnglesToBinary(pLgMaster, x, y, &theBuffer[0], &theBuffer[1]);
+#ifdef PATDEBUG
+  fprintf(stderr,"\nDOETHANGL: AFTER CNVRT x%d, y%d", theBuffer[0], theBuffer[1]);
+#endif
+  if (return_val)
+    {
+      pResp->hdr.status1 = RESPFAIL;
+      pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
+      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+    }
+  else
+    {
+      if ((CDRHflag(pLgMaster)))
 	{
 	  pResp->hdr.status1 = RESPFAIL;
-	  pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
+	  pResp->hdr.errtype1 = RESPE1BOARDERROR;
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	  return;
 	}
-	else
-	{
-	  SetHighBeam ( &theBuffer[0], &theBuffer[1] );
-	  if ( (CDRHflag(pLgMaster) )  ) {
-	    pResp->hdr.status1 =RESPFAIL;
-	    pResp->hdr.errtype1 = RESPE1BOARDERROR; 
-	    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	    return;
-	  }
-	  PostCommand ( pLgMaster, kGoAngle, (char *)theBuffer, respondToWhom );
-	}
+      xydata.xdata = theBuffer[0] & kMaxUnsigned;
+      xydata.ydata = theBuffer[1] & kMaxUnsigned;
+      PostCmdEtherAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom);
+    }
+  return;
 }
-
-void DoEtherAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom )
-{
-	uint32_t theBuffer[2];
-	int      return_val;
-	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-	
-	memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
-	if ( !CheckSourceAndMode ( respondToWhom ) ) return;
-
-	return_val =  ConvertExternalAnglesToBinary(x, y, &theBuffer[0], &theBuffer[1]);
-
-#ifdef SDEBUG
-	printf( "go angxy %lf %lf\n", x, y );
-#endif
-	if (return_val)
-	  {
-	    pResp->hdr.status1 = RESPFAIL;
-	    pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
-	    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	  }
-	else
-	  {
-	    SetHighBeam ( &theBuffer[0], &theBuffer[1] );
-	    if ( (CDRHflag(pLgMaster) )  ) {
-	      pResp->hdr.status1 = RESPFAIL;
-	      pResp->hdr.errtype1 = RESPE1BOARDERROR;
-	      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	      return;
-	    }
-	    PostCommand ( pLgMaster, kEtherAngle, (char *)theBuffer, respondToWhom );
-	}
-}
-
+#if 0
+// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
 void DarkAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom )
 {
         uint32_t theBuffer[2];
@@ -405,7 +416,7 @@ void DarkAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respon
 	
         if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 
-        return_val = ConvertExternalAnglesToBinary(x, y, &theBuffer[0], &theBuffer[1]);
+        return_val = ConvertExternalAnglesToBinary(pLgMaster, x, y, &theBuffer[0], &theBuffer[1]);
 
         if (return_val)
         {
@@ -451,66 +462,40 @@ void DimAngle (struct lg_master *pLgMaster, char * parameters )
 	// FIXME---PAH---Supposed to check return & send back bad response if bad???
 #if 0
         uint32_t  resp;
-        resp = ConvertExternalAnglesToBinary ( x, y, &xRaw, &yRaw );
+        resp = ConvertExternalAnglesToBinary(pLgMaster, x, y, &xRaw, &yRaw );
 #else
-        ConvertExternalAnglesToBinary ( x, y, &xRaw, &yRaw );
+        ConvertExternalAnglesToBinary(pLgMaster, x, y, &xRaw, &yRaw );
 #endif
 	
         GoToPulse (pLgMaster, &xRaw, &yRaw, pulseoffvalue, pulseonvalue );
 }
-
-void AngleOffset(struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom )
-{
-        uint32_t theBuffer[2];
-	int      return_val;
-        struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-	
-	memset(&theBuffer, 0, sizeof(theBuffer));
-	memset(pResp, 0, sizeof(struct parse_basic_resp));
-	
-        if ( !CheckSourceAndMode ( respondToWhom ) ) return;
-
-        return_val = ConvertExternalAnglesToBinary(x, y, &theBuffer[0], &theBuffer[1]);
-
-        if (return_val)
-        {
-	  pResp->hdr.status1 = RESPFAIL;
-	  pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	  return;
-        }
-        else
-        {
-	  PostCommand (pLgMaster, kAngleOffset, (char *)theBuffer, respondToWhom );
-        }
-}
-
+#endif
 void DoFullReg (struct lg_master *pLgMaster, 
 		struct parse_dofullreg_parms *pInp, 
 		uint32_t respondToWhom )
 {
-	double *currentData;
-	short i;
 	double theCoordinateBuffer[kNumberOfRegPoints * 3];
 	uint32_t theAngleBuffer[kNumberOfRegPoints * 2];
-	uint32_t *currentAnglePair;
-	int       return_val;
+	struct lg_xydata *pXYData;
 	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+	double    *currentData;
+	int       return_val;
+	short     i;
 	unsigned char dontBother;
 
 	memset(pResp, 0, sizeof(struct parse_basic_resp));
+	memset((char *)&theAngleBuffer, 0, sizeof(theAngleBuffer));
 	
 	if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 
-	currentAnglePair = theAngleBuffer;
 	currentData = (double *)&pInp->inp_tgt_angles[0];
 	i = 0;
 	while ( i++ < kNumberOfRegPoints )
 	{
-	  return_val = ConvertExternalAnglesToBinary (
-			DoubleFromCharConv ( (unsigned char *)&currentData[0] ),
-			DoubleFromCharConv ( (unsigned char *)&currentData[1] ),
-			&currentAnglePair[0], &currentAnglePair[1] );
+	  return_val = ConvertExternalAnglesToBinary(pLgMaster, currentData[0],
+						     currentData[1],
+						     &theAngleBuffer[i],
+						     &theAngleBuffer[i+1]);
 	  if (return_val)
 	    {
 	      pResp->hdr.status1 = RESPFAIL;
@@ -540,9 +525,10 @@ void DoFullReg (struct lg_master *pLgMaster,
 	      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	      return;
 	    }
-	  SetHighBeam ( &currentAnglePair[0], &currentAnglePair[1] );
+	  ConvertToNumber(&theAngleBuffer[i], &theAngleBuffer[i+1]);
+	  pXYData = (struct lg_xydata *)&theAngleBuffer[i];
+	  SetHighBeam(pXYData);
 	  currentData += 2;
-	  currentAnglePair += 2;
 	}
 	currentData = (double *)pInp->inp_targets;
 	i = 0;
@@ -559,8 +545,6 @@ void DoFullReg (struct lg_master *pLgMaster,
 	if ( dontBother ) return;
 	SaveFullRegCoordinates ( kNumberOfRegPoints, theCoordinateBuffer );
 
-	ZeroLGoffset(pLgMaster);
-
         gRespondToWhom = respondToWhom;
 
         if ( (CDRHflag(pLgMaster) )  ) {
@@ -572,7 +556,8 @@ void DoFullReg (struct lg_master *pLgMaster,
         PerformAndSendFullReg( pLgMaster, (char *)theAngleBuffer, gRespondToWhom );
 	return;
 }
-
+#if 0
+// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
 void DoDisplay (struct lg_master *pLgMaster,
 		uint32_t dataLength
                , char * otherParameters
@@ -617,7 +602,7 @@ void DoDisplay (struct lg_master *pLgMaster,
                          (unsigned char *)&currentData[1] );
                 z = ( double )DoubleFromCharConv (
                          (unsigned char *)&currentData[2] );
-	        return_val = Transform3DPointToBinary(x, y, z,
+	        return_val = Transform3DPointToBinary(pLgMaster,x, y, z,
 						       &currentAnglePair[0],
 						       &currentAnglePair[1] );
                 if ( fabs(x) > 0.0001 ) { zeroTarget = 0; }
@@ -758,11 +743,11 @@ fprintf( stderr , "1080 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay 
 		}
 	}
 }
-
+#endif
 void DoDisplayKitVideo (struct lg_master *pLgMaster,
 			uint32_t dataLength,
-			char *otherParameters,
-			char *patternData,
+			unsigned char *otherParameters,
+			unsigned char *patternData,
 			uint32_t respondToWhom)
 {
     short i;
@@ -770,7 +755,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster,
     struct displayData dispData;
     struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
     int index;
-    char * tmpPtr;
+    unsigned char * tmpPtr;
     int32_t   tmpLong;
     transform   invTransform, CurrentTransform;
     int count;
@@ -848,12 +833,12 @@ fprintf( stderr, "gVideoCount %d\n", gVideoCount );
     fprintf( stderr, "\n" );
 #endif
 
-    PointToBinary ( outputPoint, &gXcheck, &gYcheck );
+    PointToBinary(pLgMaster, outputPoint, &pLgMaster->gXcheck, &pLgMaster->gYcheck );
 
 #if defined(SDEBUG) || defined(KITDEBUG)
     fprintf( stderr, "check XY raw " );
-    fprintf( stderr, " %x", gXcheck );
-    fprintf( stderr, " %x", gYcheck );
+    fprintf( stderr, " %x", pLgMaster->gXcheck );
+    fprintf( stderr, " %x", pLgMaster->gYcheck );
     fprintf( stderr, "\n" );
 #endif
 
@@ -960,6 +945,10 @@ void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number, uint32_t re
 
   // Clear buffer for display data
   memset(pLgMaster->gSensorBuffer, 0xFF, (kNumberOfFlexPoints * 2 * gPlysToDisplay * sizeof(uint32_t)));
+  // Try to open shutter for display operation here, optic status is checked later
+  // during actual display operation
+  doSetShutterENB(pLgMaster);
+
   pResp->hdr.status = RESPGOOD;
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
     HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);

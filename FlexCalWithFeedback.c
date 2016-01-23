@@ -11,7 +11,7 @@ static char rcsid[] = "$Id$";
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -102,7 +102,7 @@ fprintf( stderr, "CalcTrans ext ang %lf %lf\n", angX, angY );
             ConvertMirrorToGeometricAngles ( &Xgeo, &Ygeo );
             foundAngles[2*i  ] = Xgeo;
             foundAngles[2*i+1] = Ygeo;
-            ConvertExternalAnglesToBinary ( angX, angY, &Xbin, &Ybin );
+            ConvertExternalAnglesToBinary(pLgMaster, angX, angY, &Xbin, &Ybin);
             Xarr[i] = Xbin;
             Yarr[i] = Ybin;
 #ifdef SDEBUG    

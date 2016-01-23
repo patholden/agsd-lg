@@ -15,6 +15,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
@@ -31,19 +32,14 @@
 #include "Init.h"
 #include "FOM.h"
 #include "Hobbs.h"
-#include "asciiID.h"
-#include "DoLevelScan.h"
 #include "DoCoarseScan.h"
 #include "Video.h"
 #include "3DTransform.h"
-#include "compile.h"
 #include "APTParser.h"
 #include "DoAutoFocusCmd.h"
 
 const char *ags_banner =
-  "AGS version " AGS_COMPILE_TIME  
-  "  " AGS_UNIX_TIME "\n"
-  AGS_ASCII_ID "\n";
+    "AGS LaserGuide";
 
 
 static	int	InitUserStuff (struct lg_master *pLgMaster);
@@ -51,6 +47,8 @@ static	int32_t	UserGoAhead ( void );
 static void	CloseUserStuff(struct lg_master *pLgMaster);
 
 char * gQCsaveData=0;
+uint32_t *scandata=0;
+uint32_t *gScan=0;
 uint32_t gQClengthOfData;
 unsigned char                   gHeaderSpecialByte = 0;
 
@@ -231,7 +229,7 @@ int main ( int argc, char **argv )
   fprintf( stderr, "MultipleSweeps %d ",   gMultipleSweeps );
   fprintf( stderr, "webhostIP %s \n", pConfigMaster->webhost );
 
-  ClearLinkLED(pConfigMaster);
+  doClearLinkLED(pConfigMaster);
   StopPulse(pConfigMaster); 
   if ((InitUserStuff (pConfigMaster)) < 0)
     {
@@ -295,11 +293,14 @@ int InitUserStuff (struct lg_master *pLgMaster)
                          + kMaxParametersLength
                          + kMaxDataLength
                          + kCRCSize ) );
-  if (!gQCsaveData)
+ 
+  scandata = (uint32_t *)calloc(67*67, sizeof(uint32_t));
+  gScan = (uint32_t *)calloc(1024, sizeof(uint32_t));
+  if (!gQCsaveData || !scandata || !gScan)
     return(-1);
   
   FlashLed(pLgMaster, 3);
-  LedBoot(pLgMaster);
+  doClearReadyLED(pLgMaster);
   SearchBeamOff(pLgMaster);
   InitCRCHandler (  );
   InitLaserInterface (pLgMaster);
@@ -308,7 +309,6 @@ int InitUserStuff (struct lg_master *pLgMaster)
     return(-1);
   InitAPTParser (  );
   InitSensorSearch (  );
-  InitLevelScan( );
   InitCoarseScan( );
   return(0);
 }

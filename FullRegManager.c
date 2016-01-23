@@ -13,7 +13,7 @@ static char rcsid[] = "$Id: FullRegManager.c,v 1.10 2006/06/15 18:34:22 pickle E
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
-
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -104,7 +104,7 @@ void PerformAndSendFullReg (struct lg_master *pLgMaster,
 			lostSensors += 1U << i;
 		} else {
                         foundTarget[i] = 1;
-			ConvertBinaryToGeometricAngles(fndX,fndY,curX,curY);
+			ConvertBinaryToGeometricAngles(pLgMaster,fndX,fndY,curX,curY);
 #ifdef ZDEBUG
 fprintf( stderr, "fndX %x ", fndX );
 fprintf( stderr, "fndY %x ", fndY );

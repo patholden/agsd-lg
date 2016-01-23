@@ -11,6 +11,7 @@ static char rcsid[] = "$Id: SearchStopHandler.c,v 1.1 1997/01/10 14:34:03 ags-sw
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 

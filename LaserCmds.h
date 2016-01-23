@@ -8,26 +8,17 @@
 #ifndef LASERCMDS_H
 #define LASERCMDS_H
 
-extern	void	CloseLaserCommands (void);
-extern	void	InitLaserCommands ( void );
-extern	void	DoStop ( struct lg_master *pLgMaster, uint32_t respondToWhom );
-extern	void	DoGoAngle(struct lg_master *pLgMaster,
-			  double x, double y, uint32_t respondToWhom );
-extern void DoEtherAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom );
-extern void DarkAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom );
-void AngleOffset(struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom );
-extern	void	DoSearchForASensor
-			( double x, double y, uint32_t respondToWhom );
-
-extern	void	DoFullReg(struct lg_master *pLgMaster,
-				struct parse_dofullreg_parms* pInp,
+void ResetFlexPlyCounter(void);
+void CloseLaserCommands (void);
+void InitLaserCommands ( void );
+void DoStop ( struct lg_master *pLgMaster, uint32_t respondToWhom );
+void DoGoAngle(struct lg_master *pLgMaster,struct parse_goangle_parms *pInp, uint32_t respondToWhom );
+void DoEtherAngle(struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom );
+void DarkAngle(struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom);
+void DoSearchForASensor(double x, double y, uint32_t respondToWhom);
+void DoFullReg(struct lg_master *pLgMaster, struct parse_dofullreg_parms* pInp,
 				uint32_t respondToWhom );
-
-extern	void	DoDisplay ( struct lg_master *pLgMaster,
-			    uint32_t dataLength
-                          , char * otherParameters
-                          , char * patternData
-			  );
+void DoDisplay(struct lg_master *pLgMaster, uint32_t dataLength, char *otherParameters, char *patternData);
 
 extern	void	DoNewDisplay ( uint32_t dataLength,
 			char * otherParameters, char * patternData,
@@ -47,8 +38,8 @@ void DoDisplayChunks(struct lg_master *pLgMaster,
 
 void DoDisplayKitVideo (struct lg_master *pLgMaster,
 			uint32_t dataLength,
-			char * otherParameters,
-			char * patternData,
+			unsigned char * otherParameters,
+			unsigned char * patternData,
 			uint32_t respondToWhom);
 extern	void	AddDisplayChunksData (struct lg_master *pLgMaster,
 				      uint32_t dataLength,

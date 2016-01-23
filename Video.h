@@ -16,8 +16,6 @@ extern   int gVideoCount;
 extern   int gVideoCheck;
 extern   uint32_t gVideoPreDwell;
 
-extern uint32_t gXcheck;
-extern uint32_t gYcheck;
 
 extern double gMinIntenStep;
 extern double gLastInten;

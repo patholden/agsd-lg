@@ -36,7 +36,6 @@ and to create (kQuickCheckSensor + kQuickCheckSensorUnit * sensorToCheck) */
 #define	kTakePicture				0x30
 #define	kCheckForEdge				0x31
 #define	kMultipleFOD				0x32
-#define	kAngleOffset				0x33
 #define	kDarkAngle				0x34
 #define	kROI					0x35
 #define	kAutoCert				0x36
@@ -73,7 +72,6 @@ and to create (kQuickCheckSensor + kQuickCheckSensorUnit * sensorToCheck) */
 #define kHobbsGet        			0x68
 #define kHobbsSet        			0x69
 #define kSetBit          			0x71
-#define kLevelScan          			0x79
 #define kEtherAngle                             0x7A
 #define kSuperLevelScan        			0x7B
 #define kFlexDisplay                            0x82
@@ -228,8 +226,6 @@ properly interpret them can easily be added */
 
 #define	kSizeOfDimAngleParameters					\
         ( 2 * sizeof ( double )  +  2 * sizeof ( int32_t ) )
-
-#define	kSizeOfAngleOffsetParameters		2 * sizeof ( double )
 
 #define	kSizeOfSegmentDisplayParameters		2 * sizeof ( double )
 

@@ -1,5 +1,9 @@
-#include <stdint.h>
-/* $Id: Files.h,v 1.4 2001/01/03 17:57:21 ags-sw Exp $ */
+/*
+ $Id: Files.h,v 1.4 2001/01/03 17:57:21 ags-sw Exp $
+ */
+#ifndef FILES_H
+#define FILES_H
+#define LSCNTSTEP 0x80000
 #define  KERNEL_SIZE  (400*1024)
 #define  KERNEL_OFFSET     0
 
@@ -26,9 +30,11 @@
 #define  AUTO_SIZE      (2*1024)
 #define  AUTO_OFFSET   (1485*1024)
 
-extern void HandleFilePutData(struct lg_master *pLgMaster, char * parameters, uint32_t respondTo );
-extern void DoFilePutStart (struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom );
-extern void DoFileGetStart(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
-extern void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom );
-extern void DoFilePutDone  (struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom );
+void HandleFilePutData(struct lg_master *pLgMaster, char * parameters, uint32_t respondTo);
+void DoFilePutStart(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
+void DoFileGetStart(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
+void DoFileGetData(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
+void DoFilePutDone(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
+int InitCheckVersion(struct lg_master *pLgMaster);
 
+#endif // FILES_H

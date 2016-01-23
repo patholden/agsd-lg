@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <linux/laser_api.h>
 #include <unistd.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
@@ -59,8 +60,6 @@ static	void	OldRemoveCorrection
 					
 static	void	OldApplyCorrection
 					( double *x, double *y );
-
-		unsigned char		gCALIBFileOK = false;
 
 static	char **		gFileBuffer = (char **)NULL;
 static	int32_t		gFileLength = 0L;
@@ -119,9 +118,9 @@ static	unsigned char		GetParabolicCoefficients ( double *z,
 						short *indices, short type );
 #endif
 
-static	void		DoCorrection ( double *x, double *y,
-						double	xCoeffs[][kGridPointsY][6],
-						double	yCoeffs[][kGridPointsY][6] );
+static void DoCorrection(struct lg_master *pLgMaster, double *x, double *y,
+			 double	xCoeffs[][kGridPointsY][6],
+			 double	yCoeffs[][kGridPointsY][6]);
 						
 static	void		CleanupInit ( void );
 
@@ -165,19 +164,20 @@ enum
 };
 
 
-void ApplyCorrection ( double *x, double *y )
+void ApplyCorrection (struct lg_master *pLgMaster, double *x, double *y )
 {
-	if ( !gCALIBFileOK ) OldApplyCorrection ( x, y );
-	else DoCorrection ( x, y, gXActualCoeffs, gYActualCoeffs );
+	if ( !pLgMaster->gCALIBFileOK ) OldApplyCorrection ( x, y );
+	else DoCorrection(pLgMaster, x, y, gXActualCoeffs, gYActualCoeffs );
 }
 
-void RemoveCorrection ( double *x, double *y )
+void RemoveCorrection(struct lg_master *pLgMaster, double *x, double *y )
 {
-	if ( !gCALIBFileOK ) OldRemoveCorrection ( x, y );
-	else DoCorrection ( x, y, gXTheoryCoeffs, gYTheoryCoeffs );
+	if (!pLgMaster->gCALIBFileOK)
+	  OldRemoveCorrection ( x, y );
+	else DoCorrection(pLgMaster, x, y, gXTheoryCoeffs, gYTheoryCoeffs );
 }
 
-void DoCorrection ( double *x, double *y,
+static void DoCorrection(struct lg_master *pLgMaster, double *x, double *y,
 	double	xCoeffs[][kGridPointsY][6],
 	double	yCoeffs[][kGridPointsY][6] )
 {
@@ -186,7 +186,8 @@ void DoCorrection ( double *x, double *y,
 	double wDwL, wDwR, wUwL, wUwR;
 	short xIndex, yIndex, xIndex1, yIndex1; 
 
-	if ( !gCALIBFileOK ) return;
+	if (!pLgMaster->gCALIBFileOK)
+	  return;
 
 	/* setround ( DOWNWARD ); */
 #ifdef ANGDEBUG
@@ -534,8 +535,8 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
 	}
 	
 	CleanupInit (  );
-	gCALIBFileOK = true;
-fprintf( stderr, "gCALIBFileOK = true\n" );
+	pLgMaster->gCALIBFileOK = true;
+	fprintf( stderr, "gCALIBFileOK = true\n" );
 	return true;
 }
 
@@ -829,19 +830,6 @@ void CleanupInit ( void )
 	gSortedPoints = (short *)NULL;
 }
 
-#if 0
-static	void		ErrorWithSettingUpCorrections
-						( short stringNo, int theError );
-void ErrorWithSettingUpCorrections ( short stringNo, int theError )
-{
-	int32_t tempLong;
-
-	gCALIBFileOK = false;
-	CleanupInit (  );
-	CloseAngleCorrections (  );
-	return;
-}
-#endif
 
 unsigned char BuildTwoTables ( double *x, double *y,
 	double *zX, double *zY,
