@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
@@ -18,6 +19,7 @@
 #include "AppCommon.h"
 #include "BoardComm.h"
 #include "comm_loop.h"
+#include "parse_data.h"
 #include "LaserInterface.h"
 #include "LaserPattern.h"
 #include "Init.h"
@@ -25,19 +27,22 @@
 #include "QuickCheckManager.h"
 #include "Video.h"
 #include "Files.h"
+#include "Hobbs.h"
 
 void DoReInit( struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
-  int  return_code=0;
+  struct parse_basic_resp *pResp;
 
+  pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+  
   memset(pLgMaster->theResponseBuffer, 0, sizeof(COMM_RESP_MIN_LEN));
   
-  fprintf( stderr, "OPBDoReInit\n" );
-  ConfigDataInit(pLgMaster);
+  syslog(LOG_NOTICE, "OPBDoReInit\n" );
+  if(ConfigDataInit(pLgMaster))
+    pResp->hdr.status = RESPFAIL;
   FlashLed(pLgMaster, 5 );
 
-  return_code = kOK;
-  memcpy(pLgMaster->theResponseBuffer, &return_code, sizeof(uint32_t));
+  pResp->hdr.status = RESPGOOD;
   HandleResponse(pLgMaster, sizeof(uint32_t), respondToWhom);
   return;
 }
@@ -53,12 +58,10 @@ int ConfigDataInit(struct lg_master* pLgMaster)
   char *ptr;
   int32_t i;
   uint32_t ufactor;
-  uint32_t inaddr;
   long     file_size;
   size_t   length;
   int      count;
   double ArcSteps = 60.0;
-  int d1,d2,d3,d4;
   double dTemp;
   uint32_t return_code;
   
@@ -70,7 +73,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
   memset(testStr, 0, sizeof(testStr));
   handle = fopen("/etc/ags/conf/init", "rw");
   if (handle == NULL) { 
-    fprintf( stderr, "/etc/ags/conf/init file not found\n" );
+    syslog(LOG_ERR, "/etc/ags/conf/init file not found\n" );
     return(-1);
   }
 
@@ -79,20 +82,20 @@ int ConfigDataInit(struct lg_master* pLgMaster)
   fseek(handle, 0L, SEEK_SET);   // Reset back to beginning of file
   // Get length of file, get a local buffer, and then read it.
   if (file_size <=0) {
-    fprintf( stderr, "/etc/ags/conf/init incorrect file size %lx\n", file_size );
+    syslog(LOG_ERR, "/etc/ags/conf/init incorrect file size %lx\n", file_size );
     return(-2);
   }
   localBuff = malloc(file_size);
   if (localBuff <=0)
     {
-      fprintf( stderr, "Unable to malloc a local buffer\n" );
+      syslog(LOG_ERR, "Unable to malloc a local buffer\n" );
       return(-3);
     }
   length = (int)fread((void *)localBuff, (size_t)file_size, 1, handle );
   if (length <=0)
-    fprintf( stderr, "initialization file bad size %ld,errno %d\n",(long)file_size,errno);
+    syslog(LOG_ERR, "initialization file bad size %ld,errno %d\n",(long)file_size,errno);
   else
-    fprintf( stderr, "initialization file size %ld\n",(long)file_size);
+    syslog(LOG_NOTICE, "initialization file size %ld\n",(long)file_size);
   fclose(handle);
 
   ptr = localBuff;
@@ -199,12 +202,6 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	  gDwell = 0;
 	}
       }
-      strcpy( testStr, "ipaddress =" );
-      if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
-	sscanf( token, "ipaddress = %d.%d.%d.%d", &d1, &d2, &d3, &d4);
-	memset( pLgMaster->webhost, 0, 128 );
-	sprintf(pLgMaster->webhost, "%d.%d.%d.%d", d1, d2, d3, d4 );
-      }
 #if 0
       strcpy( testStr, "commtype =" );
       if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
@@ -231,12 +228,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
       }
     }
 
-  if ((inaddr = inet_addr(pLgMaster->webhost)) == INADDR_NONE)
-    {
-      return(-4);
-    }
-  else
-    free(localBuff);
+  free(localBuff);
   return(0);
 }
 int LGMasterInit(struct lg_master *pLgMaster)
@@ -257,7 +249,7 @@ int LGMasterInit(struct lg_master *pLgMaster)
       || !pLgMaster->theResponseBuffer || !pLgMaster->gAFInputBuffer
       || !pLgMaster->gDataChunksBuffer || !pLgMaster->gSensorBuffer)
     {
-      perror("\nMalloc failed for one or more master buffers");
+      syslog(LOG_ERR,"\nMalloc failed for one or more master buffers");
       return(-1);
     }
     
@@ -265,16 +257,13 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gTolerance = 0.0300;
   pLgMaster->gArgTol = GARGTOL_DEFAULT;
   pLgMaster->gProjectorSerialNumber = -1L;
-  pLgMaster->gPeriod  = KETIMER_75U;
   pLgMaster->gSrchStpPeriod = 32;
   pLgMaster->gQCcount = GQCCOUNT_DEFAULT;
   pLgMaster->dmax = 4294967296.0 / 60.0;
   pLgMaster->gCALIBFileOK = false;
-#if 0
-  // FIXME---PAH---not working yet
+  pLgMaster->gCoarse2SearchStep = 0x8;
   if (HobbsCountersInit(pLgMaster))
     return(-2);
-#endif
   return(0);
 }
 void LGMasterFree(struct lg_master *pLgMaster)

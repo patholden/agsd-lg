@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
+#include <syslog.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "parse_data.h"
@@ -29,11 +30,9 @@ pingClient( char* peerAddr );
 int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
   int                sockaddr_len = sizeof(struct sockaddr_in);
-  in_addr_t          inaddr;
   int                error;
   
   // Initialize buffers to 0
-  memset(&pLgMaster->webhost_addr, 0, sizeof(pLgMaster->webhost_addr));
   memset(&pLgMaster->webhost_addr, 0, sockaddr_len);
   
   // Just in case this is a re-config, check for open socketfd & close first
@@ -46,19 +45,14 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
       pLgMaster->socketfd = -1;
       pLgMaster->datafd = -1;
     }
-  
-    if ((inaddr = inet_addr(pLgMaster->webhost)) == INADDR_NONE)
-      {
-	perror("Bad WebHost IP addr: ");
-	return(-2);
-      }
-    // Set up comm interface with PC Host`<
-    pLgMaster->socketfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (pLgMaster->socketfd < 0)
-      {
-	perror("server socket: ");
-	return(-3);
-      }
+
+  // Set up comm interface with PC Host
+  pLgMaster->socketfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  if (pLgMaster->socketfd < 0)
+    {
+      perror("server socket: ");
+      return(-1);
+    }
 
   pLgMaster->webhost_addr.sin_family = AF_INET;
   pLgMaster->webhost_addr.sin_port = htons(AGS_PORT);
@@ -67,13 +61,13 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
   if (error < 0)
     {
       perror("COMMCFGSCK: Bind failed ");
-      exit(-3);
+      return(-2);
     }
   error = listen(pLgMaster->socketfd, MAXPENDING);
   if (error < 0)
     {
       perror("COMMCFGSCK: connect failed ");
-      exit(-3);
+      return(-3);
     }
 
   pLgMaster->enet_retry_count++;
@@ -100,20 +94,19 @@ int CommInit(struct lg_master *pLgMaster)
       perror("opensock");
       return(error);
     }
-  fprintf( stderr, "\ncomm port to Web Host %s initialized\n",pLgMaster->webhost );
+  syslog(LOG_NOTICE, "\nPC host comm port initialized\n");
 
   // Try to open AutoFocus serial port
   pLgMaster->af_serial = open("/dev/ttyS2", O_RDWR | O_NONBLOCK | O_NOCTTY);
   if (pLgMaster->af_serial <= 0)
     {
-      perror("openserial2");
+      syslog(LOG_ERR,"open serial port 2 failed");
       return(-5);
     }
-  fprintf( stderr, "\nAutoFocus /dev/ttyS2 fd=%d\n", pLgMaster->af_serial );
   // Need to zero struct, driver may not return all parms
   memset(&term, 0, sizeof(term));
   if( tcgetattr( pLgMaster->af_serial, &term) < 0 ){
-    perror("tcgetattr2");
+    syslog(LOG_ERR,"Unable to get serial port 2 attributes");
     return(-6);
   }
   // Set up device to our settings
@@ -160,6 +153,7 @@ int CommInit(struct lg_master *pLgMaster)
       return(-8);
     }
 
+  syslog(LOG_NOTICE, "\nAutoFocus port initialized, baud %d\n", baud);
   // This sets the correct data presentation on send/recv from webhost
   pLgMaster->gHEX = 1;
   return(0);
@@ -199,7 +193,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 	    }
 	  else
 	    {
-	      perror("\nRecv data error:");
+	      syslog(LOG_ERR,"\nRecv data error:");
 	      free(recv_data);
 	      return(-5);
 	    }
@@ -215,7 +209,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   error = parse_data(pLgMaster, recv_data, data_len, &parsed_count );
   if (error < 0)
     {
-      fprintf(stderr,"Bad parse, error %d",error);
+      syslog(LOG_ERR, "Bad parse, error %d",error);
       free(recv_data);
       return(error);
     }
@@ -290,7 +284,7 @@ void SendA3(struct lg_master *pLgMaster)
   if ((pLgMaster->serial_ether_flag == 2)  && (pLgMaster->datafd >= 0))
     sent = send(pLgMaster->datafd, (char *)&gOutputBuffer, sizeof(struct k_header), MSG_NOSIGNAL );
   if (sent <= 0)
-    fprintf(stderr,"\nUnable to send data, errno %d, sent %d", errno, sent);
+    syslog(LOG_ERR,"\nUnable to send data, errno %d, sent %d", errno, sent);
   return;
 }
 
@@ -388,21 +382,18 @@ pingClient(char* peerAddr )
    pclose(p);
    if ( strcmp( c,"0\n" ) == 0 )
      {
-#ifdef ZDEBUG
-       fprintf(stderr, "#");
-#endif
        return( 1 );
      }
    else
      {
-       fprintf( stderr, "NO Reply from %s\n", peerAddr );
+       syslog(LOG_ERR, "NO Reply from %s", peerAddr );
        return( 0 );
      }
 #else
    sprintf(buffer, "ping %s -c 1 > /dev/null 2>&1", peerAddr);
    return_code = system(buffer);
    if (return_code != 0) {
-     fprintf( stderr, "Ping to %s FAILED\n", peerAddr );
+     syslog(LOG_ERR, "Ping to %s FAILED", peerAddr );
      return(-1);
    }
     
@@ -431,18 +422,32 @@ int CheckInput(struct lg_master *pLgMaster)
 int DoProcEnetPackets(struct lg_master *pLgMaster)
 {
   struct sockaddr_in client_addr;
-  int                sockaddr_len = sizeof(struct sockaddr_in);
-  long    comm_loop_count=0;
-  int  error=0;
+  struct sockaddr_in haddr;
+  socklen_t          sockaddr_len = sizeof(struct sockaddr_in);
+  long               comm_loop_count=0;
+  int                error=0;
 
-  memset(&client_addr, 0, sizeof(struct sockaddr_in));
+  // Initialize buffers
+  memset(&client_addr, 0, sockaddr_len);
+  memset(&haddr, 0, sockaddr_len);
+
+  // Accept connection with host
   pLgMaster->datafd = accept(pLgMaster->socketfd, (struct sockaddr *)&client_addr, (socklen_t *)&sockaddr_len);
   if (pLgMaster->datafd < 0)
     {
-      fprintf(stderr,"\nCOMMLOOP:  unable to accept data from %s", pLgMaster->webhost);
+      syslog(LOG_ERR,"\nCOMMLOOP:  unable to accept data from %s", pLgMaster->webhost);
       return(-1);
     }
-  fprintf(stderr, "\nreceiving data from %s, recvfd %x", pLgMaster->webhost, pLgMaster->datafd);
+  // Get host's IP address
+    error = getpeername(pLgMaster->datafd, (struct sockaddr *)&haddr, &sockaddr_len);
+  if (error < 0)
+    {
+      syslog(LOG_ERR,"COMMCFGSCK: getpeername failed");
+      return(-2);
+    }
+  strcpy(pLgMaster->webhost, inet_ntoa(haddr.sin_addr));
+
+  syslog(LOG_NOTICE, "receiving data from %s, recvfd %x", pLgMaster->webhost, pLgMaster->datafd);
   while (pLgMaster->datafd >= 0)
     {
       error = ProcEnetPacketsFromHost(pLgMaster);

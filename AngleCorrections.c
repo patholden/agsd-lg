@@ -61,28 +61,24 @@ static	void	OldRemoveCorrection
 static	void	OldApplyCorrection
 					( double *x, double *y );
 
-static	char **		gFileBuffer = (char **)NULL;
-static	int32_t		gFileLength = 0L;
+static	char **		gFileBuffer = 0;
+static	int32_t		gFileLength = 0;
 
-static	double	**gXTheoryHdl = (double **)NULL;
-static	double	**gYTheoryHdl = (double **)NULL;
+static	double	**gXTheoryHdl = 0;
+static	double	**gYTheoryHdl = 0;
 
-static	double	**gXActualHdl = (double **)NULL;
-static	double	**gYActualHdl = (double **)NULL;
+static	double	**gXActualHdl = 0;
+static	double	**gYActualHdl = 0;
 
 static	short		gNumberOfPoints = 0;
 
-static	double	(*gXTheoryCoeffs)[kGridPointsY][6] =
-						(double (*)[kGridPointsY][6])NULL;
-static	double	(*gYTheoryCoeffs)[kGridPointsY][6] =
-						(double (*)[kGridPointsY][6])NULL;
+static	double	(*gXTheoryCoeffs)[kGridPointsY][6] = 0;
+static	double	(*gYTheoryCoeffs)[kGridPointsY][6] = 0;
 
-static	double	(*gXActualCoeffs)[kGridPointsY][6] =
-						(double (*)[kGridPointsY][6])NULL;
-static	double	(*gYActualCoeffs)[kGridPointsY][6] =
-						(double (*)[kGridPointsY][6])NULL;
+static	double	(*gXActualCoeffs)[kGridPointsY][6] = 0;
+static	double	(*gYActualCoeffs)[kGridPointsY][6] = 0;
 
-static	short		*gSortedPoints = (short *)NULL;
+static	short	*gSortedPoints = 0;
 
 static	double	gCurrentX;
 static	double gCurrentY;
@@ -389,13 +385,13 @@ void OldRemoveCorrection ( double *x, double *y )
 void CloseAngleCorrections ( void )
 {
 	if ( gXTheoryCoeffs ) free( (void *)gXTheoryCoeffs );
-	gXTheoryCoeffs = (double (*)[kGridPointsY][6])NULL;
+	gXTheoryCoeffs = 0;
 	if ( gYTheoryCoeffs ) free( (void *)gYTheoryCoeffs );
-	gYTheoryCoeffs = (double (*)[kGridPointsY][6])NULL;
+	gYTheoryCoeffs = 0;
 	if ( gXActualCoeffs ) free( (void *)gXActualCoeffs );
-	gXActualCoeffs = (double (*)[kGridPointsY][6])NULL;
+	gXActualCoeffs = 0;
 	if ( gYActualCoeffs ) free( (void *)gYActualCoeffs );
-	gYActualCoeffs = (double (*)[kGridPointsY][6])NULL;
+	gYActualCoeffs = 0;
 }
 
 #if kSIX
@@ -412,22 +408,22 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
         char * ptr;
 
 	gFileLength = 0L;
-	gFileBuffer = (char **)NULL;
-	gXTheoryHdl = (double **)NULL;
-	gYTheoryHdl = (double **)NULL;
-	gXActualHdl = (double **)NULL;
-	gYActualHdl = (double **)NULL;
-	gXTheoryCoeffs = (double (*)[kGridPointsY][6])NULL;
-	gYTheoryCoeffs = (double (*)[kGridPointsY][6])NULL;
-	gXActualCoeffs = (double (*)[kGridPointsY][6])NULL;
-	gYActualCoeffs = (double (*)[kGridPointsY][6])NULL;
-	gSortedPoints = (short *)NULL;
+	gFileBuffer = 0;
+	gXTheoryHdl = 0;
+	gYTheoryHdl = 0;
+	gXActualHdl = 0;
+	gYActualHdl = 0;
+	gXTheoryCoeffs = 0;
+	gYTheoryCoeffs = 0;
+	gXActualCoeffs = 0;
+	gYActualCoeffs = 0;
+	gSortedPoints = 0;
 	
         
 	filenum = open( "/etc/ags/conf/calib", O_RDONLY );
 	if ( filenum <= 0 ) { 
              printf( "calibration file missing\n" );
-             exit(1);
+             return(false);
         }
         gTempBuff = (char *)malloc( (size_t)CALIB_SIZE );
         length = read( filenum, gTempBuff, CALIB_SIZE );
@@ -447,18 +443,16 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
         gFileLength = j;
 
         gFileBuffer = (char **)malloc( sizeof(void *) + (size_t)gFileLength );
-        if( gFileBuffer ) {
-                *(void **)gFileBuffer = (void *)gFileBuffer + sizeof (void *);
-        } else {
-		gFileBuffer = (char **)NULL;
-		return false;
-	}
+        if (gFileBuffer)
+	  *(void **)gFileBuffer = (void *)gFileBuffer + sizeof (void *);
+        else
+	  {
+	    gFileBuffer = 0;
+	    return false;
+	  }
 	
         memmove( *gFileBuffer, gTempBuff, (size_t)gFileLength );
-
 	if ( !AllocateAngleBuffers (  ) ) return false;
-	
-	
 	if ( !ProcessFile (pLgMaster) ) return false;
 
         fprintf( stderr, "gDeltaMirror %lf\n", gDeltaMirror );
@@ -466,73 +460,35 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
         fprintf( stderr, "gHalfMirror %lf\n",  gHalfMirror );
 	
 	if ( gFileBuffer ) free((void *)gFileBuffer );
-	gFileBuffer = (char **)NULL;
+	gFileBuffer = 0;
 	
 	if ( !AllocateCorrectionTables (  ) ) return false;
 	
 	gSortedPoints = (short *)
 		malloc ( gNumberOfPoints * sizeof ( short ) );
-	if ( ( gSortedPoints == (short *)NULL )  )
-	{
-		gSortedPoints = (short *)NULL;
-		return false;
-	}
+	if (!gSortedPoints)
+	  return false;
 	
 	i = gNumberOfPoints;
 	while ( i-- ) gSortedPoints[i] = i;
 	
 	gHalfWayThru = false;
 	
-/*
-**	theXTheoryHdlState = HGetState ( (char **)gXTheoryHdl );
-**	theYTheoryHdlState = HGetState ( (char **)gYTheoryHdl );
-**	theXActualHdlState = HGetState ( (char **)gXActualHdl );
-**	theYActualHdlState = HGetState ( (char **)gYActualHdl );
-**	HLock ( (char **)gXTheoryHdl );
-**	HLock ( (char **)gYTheoryHdl );
-**	HLock ( (char **)gXActualHdl );
-**	HLock ( (char **)gYActualHdl );
-*/
 	fTableBuilt = BuildTwoTables ( *gXTheoryHdl, *gYTheoryHdl,
 		*gXActualHdl, *gYActualHdl, gXActualCoeffs, gYActualCoeffs );
-/*
-**	HSetState ( (char **)gXTheoryHdl, theXTheoryHdlState );
-**	HSetState ( (char **)gYTheoryHdl, theYTheoryHdlState );
-**	HSetState ( (char **)gXActualHdl, theXActualHdlState );
-**	HSetState ( (char **)gYActualHdl, theYActualHdlState );
-*/
-
 	if ( !fTableBuilt )
-	{
-		return false;
-	}
-	
+	  return false;
 
 	gHalfWayThru = true;
-	
-/*
-**	HLock ( (char **)gXTheoryHdl );
-**	HLock ( (char **)gYTheoryHdl );
-**	HLock ( (char **)gXActualHdl );
-**	HLock ( (char **)gYActualHdl );
-*/
 	fTableBuilt = BuildTwoTables ( *gXActualHdl, *gYActualHdl,
 		*gXTheoryHdl, *gYTheoryHdl, gXTheoryCoeffs, gYTheoryCoeffs );
-/*
-**	HSetState ( (char **)gXTheoryHdl, theXTheoryHdlState );
-**	HSetState ( (char **)gYTheoryHdl, theYTheoryHdlState );
-**	HSetState ( (char **)gXActualHdl, theXActualHdlState );
-**	HSetState ( (char **)gYActualHdl, theYActualHdlState );
-**	EndProgressBar (  );
-*/
-	
-	if ( gSortedPoints ) free( (void *)gSortedPoints );
-	gSortedPoints = (short *)NULL;
-		
-	if ( !fTableBuilt )
-	{
-		return false;
-	}
+	if (gSortedPoints)
+	  {
+	    free(gSortedPoints );
+	    gSortedPoints = 0;
+	  }
+	if (!fTableBuilt )
+	  return false;
 	
 	CleanupInit (  );
 	pLgMaster->gCALIBFileOK = true;
@@ -739,95 +695,103 @@ fprintf( stderr, "SerialNumber %ld\n", pLgMaster->gProjectorSerialNumber );
 unsigned char AllocateAngleBuffers ( void )
 {
 		
-	gXTheoryHdl = malloc( sizeof (void *) +
-         (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
-        if( gXTheoryHdl ) {
-                *(void **)gXTheoryHdl = (void *)gXTheoryHdl + sizeof (void *);
-        } else {
-		gXTheoryHdl = (double **)NULL;
-		return false;
-	}
+    gXTheoryHdl = malloc( sizeof (void *) +
+			  (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
+    if (gXTheoryHdl)
+      *(void **)gXTheoryHdl = (void *)gXTheoryHdl + sizeof (void *);
+    else
+      {
+	gXTheoryHdl = 0;
+	return false;
+      }
 
-	gYTheoryHdl = malloc( sizeof (void *) +
-         (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
-        if( gYTheoryHdl ) {
-                *(void **)gYTheoryHdl = (void *)gYTheoryHdl + sizeof (void *);
-        } else {
-		gYTheoryHdl = (double **)NULL;
-		return false;
-	}
+    gYTheoryHdl = malloc( sizeof (void *) +
+			  (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
+    if (gYTheoryHdl)
+      *(void **)gYTheoryHdl = (void *)gYTheoryHdl + sizeof (void *);
+    else
+      {
+	gYTheoryHdl = 0;
+	return false;
+      }
 
-	gXActualHdl = malloc( sizeof (void *) +
-         (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
-        if( gXActualHdl ) {
-                *(void **)gXActualHdl = (void *)gXActualHdl + sizeof (void *);
-        } else {
-		gXActualHdl = (double **)NULL;
-		return false;
-	}
+    gXActualHdl = malloc( sizeof (void *) +
+			  (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
+    if (gXActualHdl)
+      *(void **)gXActualHdl = (void *)gXActualHdl + sizeof (void *);
+    else
+      {
+	gXActualHdl = 0;
+	return false;
+      }
 
-	gYActualHdl = malloc( sizeof (void *) +
-         (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
-        if( gYActualHdl ) {
-                *(void **)gYActualHdl = (void *)gYActualHdl + sizeof (void *);
-        } else {
-		gYActualHdl = (double **)NULL;
-		return false;
-	}
-
-	return true;
+    gYActualHdl = malloc( sizeof (void *) +
+			  (size_t) ( kMaxNumberOfCALIBAngles * sizeof ( double ) ) );
+    if (gYActualHdl)
+      *(void **)gYActualHdl = (void *)gYActualHdl + sizeof (void *);
+    else
+      {
+	gYActualHdl = 0;
+	return false;
+      }
+    return true;
 }
 
 
 unsigned char AllocateCorrectionTables ( void )
 {
-	
-	gXTheoryCoeffs = (double (*)[kGridPointsY][6])malloc
-		( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
-	if ( gXTheoryCoeffs == (double (*)[kGridPointsY][6])NULL ) {
-		gXTheoryCoeffs = (double (*)[kGridPointsY][6])NULL;
-		return false;
-	}
-	
-	gYTheoryCoeffs = (double (*)[kGridPointsY][6])malloc
-		( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
-	if ( gYTheoryCoeffs == (double (*)[kGridPointsY][6])NULL ) {
-		gYTheoryCoeffs = (double (*)[kGridPointsY][6])NULL;
-		return false;
-	}
-	
-	gXActualCoeffs = (double (*)[kGridPointsY][6])malloc
-		( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
-	if ( gXActualCoeffs == (double (*)[kGridPointsY][6])NULL ) {
-		gXActualCoeffs = (double (*)[kGridPointsY][6])NULL;
-		return false;
-	}
-	
-	gYActualCoeffs = (double (*)[kGridPointsY][6])malloc
-		( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
-	if ( gYActualCoeffs == (double (*)[kGridPointsY][6])NULL )
-	{
-		gYActualCoeffs = (double (*)[kGridPointsY][6])NULL;
-		return false;
-	}
-	
-	return true;
+    gXTheoryCoeffs = (double (*)[kGridPointsY][6])malloc
+      ( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
+    if (!gXTheoryCoeffs)
+      return false;
+    gYTheoryCoeffs = (double (*)[kGridPointsY][6])malloc
+      ( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
+    if (!gYTheoryCoeffs)
+      return false;
+    gXActualCoeffs = (double (*)[kGridPointsY][6])malloc
+      ( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
+    if (!gXActualCoeffs)
+      return false;
+    gYActualCoeffs = (double (*)[kGridPointsY][6])malloc
+      ( kGridPointsX * kGridPointsY * 6 * sizeof ( double ) );
+    if (!gYActualCoeffs)
+      return false;
+    return true;
 }
 
 void CleanupInit ( void )
 {
-	if ( gXTheoryHdl ) free ( (void *)gXTheoryHdl );
-	gXTheoryHdl = (double **)NULL;
-	if ( gYTheoryHdl ) free ( (void *)gYTheoryHdl );
-	gYTheoryHdl = (double **)NULL;
-	if ( gXActualHdl ) free ( (void *)gXActualHdl );
-	gXTheoryHdl = (double **)NULL;
-	if ( gYActualHdl ) free ( (void *)gYActualHdl );
-	gYActualHdl = (double **)NULL;
-	if ( gFileBuffer ) free ( (void *)gFileBuffer );
-	gFileBuffer = (char **)NULL;
-	if ( gSortedPoints ) free ( (void *)gSortedPoints );
-	gSortedPoints = (short *)NULL;
+    if (gXTheoryHdl)
+      {
+	free(gXTheoryHdl);
+	gXTheoryHdl = 0;
+      }
+    if (gYTheoryHdl)
+      {
+	free(gYTheoryHdl);
+	gYTheoryHdl = 0;
+      }
+    if (gXActualHdl)
+      {
+	free ( (void *)gXActualHdl );
+	gXTheoryHdl = 0;
+      }
+    if (gYActualHdl)
+      {
+	free(gYActualHdl);
+	gYActualHdl = 0;
+      }
+    if (gFileBuffer)
+      {
+	free(gFileBuffer);
+	gFileBuffer = 0;
+      }
+    if (gSortedPoints)
+      {
+	free(gSortedPoints);
+	gSortedPoints = 0;
+      }
+    return;
 }
 
 

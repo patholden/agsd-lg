@@ -114,7 +114,7 @@ void   PerformVideoCheck( struct lg_master *pLgMaster, int respondFlag )
     Green  = 0.0;
     Blue   = 0.0;
     gonetest = 0;
-    while( (token = strtok((char *)NULL, "\n")) ) {
+    while( (token = strtok(NULL, "\n")) ) {
       if( strncmp( token, "red =", 5 ) == 0 ) {
            sscanf( token, "red = %lf", &Red );
       }

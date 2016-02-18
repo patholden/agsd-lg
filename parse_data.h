@@ -14,6 +14,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 #define MAX_TGTS_USED    128
 #define MAX_NEW_TRANSFORM_ITEMS  12
 #define MAX_TGTS_PER_PROJ_OLD    18   // kNumberOfRegPoints * 3
+#define MAX_ANGLEPAIRS   24    // kNumberOfFlexPoints
 #define OLDTRANSFORMLEN  144   // 12 * kSizeOldLongDouble
 #define NEWTRANSFORMLEN  MAX_NEW_TRANSFORM_ITEMS * (sizeof(double))   // 12 * 8
 #define OLDANGLEPAIRSLEN 48     // kNumberOfFlexPoints * 2 * sizeof(uint32_t)
@@ -47,6 +48,13 @@ struct tgt_angles
   double   Yangle;
   double   Zangle;
 } __attribute__ ((packed));
+struct show_anglepair
+{
+  double   Xangle;
+  double   Yangle;
+  uint32_t flag;
+} __attribute__ ((packed));
+
 struct parse_dispsev_parms {
   uint32_t         num_seq;
 } __attribute__ ((packed));
@@ -100,8 +108,8 @@ struct parse_rtoncert_parms {
   double           inp_Xin;
   double           inp_Yin;
   double           inp_Zin;
-  uint32_t         inp_XrawAngle;
-  uint32_t         inp_YrawAngle;
+  int32_t         inp_XrawAngle;
+  int32_t         inp_YrawAngle;
   double           inp_XgeomAngle;
   double           inp_YgeomAngle;
 } __attribute__ ((packed));
@@ -181,7 +189,11 @@ struct parse_setbit_parms {
   uint32_t  bit_id;
   uint32_t  bit_value;
 };
-
+struct parse_showtgt_parms
+{
+  uint32_t         inp_numpairs;
+  struct show_anglepair inp_targetpairs[MAX_ANGLEPAIRS];
+};
 // Send Confirm
 struct send_cnfm {
   unsigned char   cmd;

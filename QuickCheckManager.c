@@ -244,8 +244,8 @@ int ShouldDoQuickCheck ( void )
         for ( i=0; i<kNumberOfFlexPoints; i++ ) {
             xRaw = gQuickCheckAngles[gCurrentQCSet*2*kNumberOfFlexPoints+2*i  ];
             yRaw = gQuickCheckAngles[gCurrentQCSet*2*kNumberOfFlexPoints+2*i+1];
-            if ( (xRaw&0xFFFFC000U) ) { doCheck = 1; }
-            if ( (yRaw&0xFFFFC000U) ) { doCheck = 1; }
+            if ((xRaw & kMaxSigned) || (yRaw & kMaxSigned))
+	      doCheck = 1;
         }
 
         return doCheck;
@@ -253,12 +253,17 @@ int ShouldDoQuickCheck ( void )
 
 void DummyQuickCheck(void)
 {
-  gCurrentQCSensor = (++gCurrentQCSensor) % kNumberOfFlexPoints;
+  gCurrentQCSensor++;
+  gCurrentQCSensor = gCurrentQCSensor % kNumberOfFlexPoints;
   if (!gCurrentQCSensor)
     {
-      gCurrentQCSet = (gNumberOfSets ? ((++gCurrentQCSet) % gNumberOfSets) : 0 );
+      gCurrentQCSet++;
+      gCurrentQCSet = (gNumberOfSets ? (gCurrentQCSet % gNumberOfSets) : 0 );
       if (!gCurrentQCSet)
-	gCurrentQC = (++gCurrentQC) % kQCHistoryLength;
+	{
+	  gCurrentQC++;
+	  gCurrentQC = gCurrentQC % kQCHistoryLength;
+	}
     }
   return;
 }
@@ -292,20 +297,21 @@ int PerformPeriodicQuickCheck (struct lg_master *pLgMaster)
   if ( gCurrentQCSensor == gQuickCheckTargetNumber[gCurrentQCSet] ) {
     gCurrentQCSensor = 0;
   }
-  if ( gCurrentQCSensor > gQuickCheckTargetNumber[gCurrentQCSet] ) {
-    fprintf( stderr, "QuickCheckManager 301 BAD ERROR  %d %d %d\n"
-	     , gNumberOfSets
-	     , gCurrentQCSensor
-	     , gQuickCheckTargetNumber[gCurrentQCSet]
-	     );
-    gCurrentQCSensor = 0;
-  }
-  if ( !gCurrentQCSensor )
+  if (gCurrentQCSensor > gQuickCheckTargetNumber[gCurrentQCSet])
     {
-      gCurrentQCSet = (gNumberOfSets ?
-		       (++gCurrentQCSet % gNumberOfSets) : 0);
-      if ( !gCurrentQCSet ) gCurrentQC =
-			      ++gCurrentQC % kQCHistoryLength;
+      fprintf(stderr, "QuickCheckManager 301 BAD ERROR  %d %d %d\n", gNumberOfSets,
+	      gCurrentQCSensor, gQuickCheckTargetNumber[gCurrentQCSet]);
+      gCurrentQCSensor = 0;
+    }
+  if (!gCurrentQCSensor)
+    {
+      gCurrentQCSet++;
+      gCurrentQCSet = (gNumberOfSets ? (gCurrentQCSet % gNumberOfSets) : 0);
+      if (!gCurrentQCSet)
+	{
+	  gCurrentQC++;
+	  gCurrentQC = gCurrentQC % kQCHistoryLength;
+	}
     }
   return(result);
 }

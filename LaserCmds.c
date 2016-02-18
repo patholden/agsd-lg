@@ -6,12 +6,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stddef.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
+#include <syslog.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -101,8 +103,12 @@ void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_
     }
   else
     {
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"\nDISPSTART: length %d",dataLength);
+#endif
+      memset(pLgMaster->gDataChunksBuffer, 0, kMaxDataLength);
       pLgMaster->gDataChunksLength = dataLength;
-      gTransmittedLengthSum = 0U;
+      gTransmittedLengthSum = 0;
       pResp->hdr.status = RESPGOOD;
     }
   // If no-response flag is set, don't send response
@@ -116,12 +122,10 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
   struct displayData  dispData;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   char *tmpPtr;
-  char *tmpInp;
   double *p_transform;
-  uint32_t *p_angles;
   int index;
   int i;
-  double tmpDoubleArr[12];
+  double tmpDoubleArr[MAX_NEW_TRANSFORM_ITEMS];
   int numberOfTargets;
   int checkQC;
   int error;
@@ -143,21 +147,21 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
     }
 	
   index  = gPlysReceived * kNumberOfRegPoints * 2 * sizeof(uint32_t);
-  tmpPtr = (char *)&pLgMaster->gSensorBuffer[index];
-  tmpInp = (char *)pInp;
-  numberOfTargets = 6;
+  tmpPtr = (char *)((char *)pLgMaster->gSensorBuffer + index);
+  numberOfTargets = PARSE_MAX_TARGETSOLD;
   gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
-  index = 0;
-  memmove(tmpPtr, &tmpInp[index], (size_t)(kNumberOfRegPoints * 2 * sizeof(uint32_t)));
+#ifdef PATDEBUG
+  syslog(LOG_ERR,"\nDISPCHUNKS: targets %d, plynum %d, index %x",numberOfTargets,gPlysReceived,index);
+#endif
+  // Get angle pairs
+  memcpy(tmpPtr, pInp->chunk_anglepairs, (kNumberOfRegPoints * 2 * sizeof(uint32_t)));
 
   //  KLUDGE to prevent quickcheck
   checkQC = 0;
-  p_angles = (uint32_t *)&pInp->chunk_anglepairs[0];
   for (i = 0; i < numberOfTargets; i++)
     {
-      if (p_angles[2*i] != 0)  // Check first uint32 of pair
-	checkQC++;
-      if (p_angles[2*(i+1)] != 0)  // Check second uint32 of pair
+      // Check pair
+      if ((pInp->chunk_anglepairs[i] != 0) || (pInp->chunk_anglepairs[i+1] != 0))
 	checkQC++;
     }
   if (checkQC == 0)
@@ -166,56 +170,41 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
       initQCcounter(pLgMaster);
     }
 
+  p_transform = (double *)((char *)pInp + offsetof(struct parse_chunksdo_parms,chunk_transform));
+  error = 0;
+  for (i=0; i<12; i++)
+    {
+      tmpDoubleArr[i] = p_transform[i];
+      if (isnan(tmpDoubleArr[i]))
+	error = 1;
+      if (isinf(tmpDoubleArr[i]))
+	error = 1;
+      if ((i < 9) && (fabs(tmpDoubleArr[i]) > 10.0))
+	error = 1;
+    }
+  if (error)
+    {
+      pResp->hdr.status = RESPFAIL;
+      pResp->hdr.errtype = RESPOTHERERROR; 
+      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) -kCRCSize), respondToWhom);
+      ResetPlyCounter();
+      return;
+    }
   if (gPlysReceived++)
     {
-      p_transform = (double *)&pInp->chunk_transform[0];
-      error = 0;
-      for (i=0; i<12; i++)
-	{
-	  tmpDoubleArr[i] = p_transform[i];
-	  if (isnan(tmpDoubleArr[i]))
-	    error = 1;
-	  if (isinf(tmpDoubleArr[i]))
-	    error = 1;
-	  if ((i < 9) && (fabs(tmpDoubleArr[i]) > 10.0))
-	    error = 1;
-	}
-      if (error)
-	{
-	  pResp->hdr.status = RESPFAIL;
-	  pResp->hdr.errtype = RESPOTHERERROR; 
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) -kCRCSize), respondToWhom);
-	  ResetPlyCounter();
-	  return;
-	}
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"Calling ChangeTransform");
+#endif
       ChangeTransform((double *)&tmpDoubleArr);
     }
   else
     {
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"Calling SetupLaserPattern");
+#endif
       dispData.numberOfSensorSets = gPlysToDisplay;
-      dispData.sensorAngles = (uint32_t *)pLgMaster->gSensorBuffer;
-      index  = kNumberOfRegPoints * 2 * sizeof(uint32_t);
-      p_transform = (double *)&pInp->chunk_transform[0];
-      error = 0;
-      for (i=0; i < 12 ; i++)
-	{
-	  tmpDoubleArr[i] = p_transform[i];
-	  if (isnan(tmpDoubleArr[i]))
-	    error = 1;
-	  if (isinf(tmpDoubleArr[i]))
-	    error = 1;
-	  if ((i < 9) && (fabs(tmpDoubleArr[i]) > 10.0))
-	    error = 1;
-	}
-      if (error)
-	{
-	  pResp->hdr.status = RESPFAIL;
-	  pResp->hdr.errtype = RESPOTHERERROR;
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), respondToWhom);
-	  ResetPlyCounter();
-	  return;
-	}
-      SetUpLaserPattern(pLgMaster, tmpDoubleArr);
+      dispData.sensorAngles = (int32_t *)pLgMaster->gSensorBuffer;
+      dispData.pattern = SetUpLaserPattern(pLgMaster, tmpDoubleArr);
     }
   pResp->hdr.errtype = ProcessPatternData(pLgMaster, pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
   if (pResp->hdr.errtype)
@@ -227,13 +216,11 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
       return;
     }
   
-  if ( gPlysReceived < gPlysToDisplay )
+  if (gPlysReceived < gPlysToDisplay)
     {
       pResp->hdr.errtype = (uint16_t)SetPenUp();
       if (!pResp->hdr.errtype)
-	{
-	  pResp->hdr.errtype = (uint16_t)PendPenDown();
-	}
+	pResp->hdr.errtype = (uint16_t)PendPenDown();
     }
   else
     {
@@ -253,6 +240,7 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
 	{
 	  pResp->hdr.status  = RESPGOOD;
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	  ResetPlyCounter();
 	  return;
 	}
       else
@@ -275,6 +263,9 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
 	      ResetPlyCounter();
 	      return;
 	    }
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"\nPostCmdDisp from DoDisplayChunks");
+#endif
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, respondToWhom);
 	  ResetPlyCounter();
 	}
@@ -286,41 +277,49 @@ void AddDisplayChunksData ( struct lg_master *pLgMaster, uint32_t dataLength,
 				uint32_t dataOffset, char * patternData,
 					uint32_t respondToWhom )
 {
-  struct displayData     dispData;
-  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+    struct displayData     dispData;
+    struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   
-  /*  wild_debug(); */
+    /*  wild_debug(); */
 
-  memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
-  memset((char *)&dispData, 0, sizeof(struct displayData));
+    memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
+    memset((char *)&dispData, 0, sizeof(struct displayData));
   
-  if ( !CheckSourceAndMode ( respondToWhom ) ) return;
-  if ( ( dataLength + dataOffset ) > pLgMaster->gDataChunksLength )
-    {
-      pResp->hdr.status = RESPFAIL;
-      pResp->hdr.errtype = htons(RESPDATATOOLARGE);
-      if (!(pLgMaster->gHeaderSpecialByte & 0x80))
-	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-      return;
-    }
-  gTransmittedLengthSum += dataLength;
-  memmove ( &pLgMaster->gDataChunksBuffer[dataOffset], patternData,
-	    (size_t)dataLength );
-  pResp->hdr.status = RESPGOOD;
-  if (!(pLgMaster->gHeaderSpecialByte & 0x80))
-    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+    if ( !CheckSourceAndMode ( respondToWhom ) ) return;
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"\nDISPADDCHUNK:length %d, offset %d, total %d",dataLength,dataOffset,pLgMaster->gDataChunksLength);
+#endif
+    if ((dataLength + dataOffset) > pLgMaster->gDataChunksLength)
+      {
+	pResp->hdr.status = RESPFAIL;
+	pResp->hdr.errtype = htons(RESPDATATOOLARGE);
+	if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
+    gTransmittedLengthSum += dataLength;
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"\nDISPCHUNKS:transmitted %d, offset %d, length %d",gTransmittedLengthSum,dataOffset,pLgMaster->gDataChunksLength);
+#endif
+    memmove(&pLgMaster->gDataChunksBuffer[dataOffset], patternData, (size_t)dataLength);
+    pResp->hdr.status = RESPGOOD;
+    if (!(pLgMaster->gHeaderSpecialByte & 0x80))
+      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+    return;
 }
 
-void DoStop ( struct lg_master *pLgMaster, uint32_t respondToWhom )
+void DoStop(struct lg_master *pLgMaster, uint32_t respondToWhom)
 {
-  PostCommand ( pLgMaster, kStop, 0, respondToWhom );
+    PostCommand(pLgMaster, kStop, 0, respondToWhom);
+    return;
 }
 
 
 void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, uint32_t respondToWhom )
 {
   struct lg_xydata xydata;
-  uint32_t theBuffer[2];
+  int32_t xPoint=0;
+  int32_t yPoint=0;
   double   x;
   double   y;
   int      return_val;
@@ -335,7 +334,7 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
   x = pInp->xData;
   y = pInp->yData;
   return_val = ConvertExternalAnglesToBinary(pLgMaster, x, y,
-					     &theBuffer[0], &theBuffer[1]);
+					     &xPoint, &yPoint);
   if (return_val)
     {
       pResp->hdr.status1 = RESPFAIL;
@@ -351,8 +350,8 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
-      xydata.xdata = theBuffer[0] & kMaxUnsigned;
-      xydata.ydata = theBuffer[1] & kMaxUnsigned;
+      xydata.xdata = (int16_t)xPoint & kMaxSigned;
+      xydata.ydata = (int16_t)yPoint & kMaxSigned;
       PostCmdGoAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom );
     }
   return;
@@ -361,13 +360,13 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
 void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom )
 {
   struct lg_xydata xydata;
-  uint32_t theBuffer[2];
+  int32_t xPoint=0;
+  int32_t yPoint=0;
   double   x, y;
   int      return_val;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
 	
   memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
-  memset((char *)&theBuffer[0], 0, sizeof(theBuffer));
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
   if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 
@@ -375,13 +374,7 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
     return;
   x = pInp->xData;
   y = pInp->yData;
-#ifdef PATDEBUG
-  fprintf(stderr,"\nDOETHANGL: B4 CNVRT x%f, y%f", x, y);
-#endif
-  return_val =  ConvertExternalAnglesToBinary(pLgMaster, x, y, &theBuffer[0], &theBuffer[1]);
-#ifdef PATDEBUG
-  fprintf(stderr,"\nDOETHANGL: AFTER CNVRT x%d, y%d", theBuffer[0], theBuffer[1]);
-#endif
+  return_val =  ConvertExternalAnglesToBinary(pLgMaster, x, y, &xPoint, &yPoint);
   if (return_val)
     {
       pResp->hdr.status1 = RESPFAIL;
@@ -397,85 +390,18 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
-      xydata.xdata = theBuffer[0] & kMaxUnsigned;
-      xydata.ydata = theBuffer[1] & kMaxUnsigned;
+      xydata.xdata = (int16_t)(xPoint & kMaxSigned);
+      xydata.ydata = (int16_t)(yPoint & kMaxSigned);
       PostCmdEtherAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom);
     }
   return;
 }
-#if 0
-// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
-void DarkAngle (struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom )
-{
-        uint32_t theBuffer[2];
-	int      return_val;
-        struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-
-	memset(theBuffer, 0, sizeof(theBuffer));
-	memset(pResp, 0, sizeof(struct parse_basic_resp));
-	
-        if ( !CheckSourceAndMode ( respondToWhom ) ) return;
-
-        return_val = ConvertExternalAnglesToBinary(pLgMaster, x, y, &theBuffer[0], &theBuffer[1]);
-
-        if (return_val)
-        {
-	  pResp->hdr.status1 = RESPFAIL;
-	  pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	  return;
-        }
-        else
-        {
-	  PostCommand (pLgMaster, kDarkAngle, (char *)theBuffer, respondToWhom );
-        }
-}
-
-void DimAngle (struct lg_master *pLgMaster, char * parameters )
-{
-        double x;
-        double y;
-        int32_t   pulseoffvalue;
-        int32_t   pulseonvalue;
-        uint32_t xRaw;
-        uint32_t yRaw;
-        int index;
-        char *ptr;
-        
-
-        index = 0;
-        ptr = &(parameters[index]);
-        x = ((double *)ptr)[0];
-        y = ((double *)ptr)[1];
-#ifdef SDEBUG
-	fprintf( stderr,  "dim a xy %lf %lf\n", x, y );
-#endif
-
-        index = 2 * sizeof(double);
-        ptr = &(parameters[index]);
-        pulseoffvalue = ((int32_t *)ptr)[0];
-
-        index = 2 * sizeof(double) + sizeof(int32_t);
-        ptr = &(parameters[index]);
-        pulseonvalue = ((int32_t *)ptr)[0];
-
-	// FIXME---PAH---Supposed to check return & send back bad response if bad???
-#if 0
-        uint32_t  resp;
-        resp = ConvertExternalAnglesToBinary(pLgMaster, x, y, &xRaw, &yRaw );
-#else
-        ConvertExternalAnglesToBinary(pLgMaster, x, y, &xRaw, &yRaw );
-#endif
-	
-        GoToPulse (pLgMaster, &xRaw, &yRaw, pulseoffvalue, pulseonvalue );
-}
-#endif
 void DoFullReg (struct lg_master *pLgMaster, 
 		struct parse_dofullreg_parms *pInp, 
 		uint32_t respondToWhom )
 {
 	double theCoordinateBuffer[kNumberOfRegPoints * 3];
-	uint32_t theAngleBuffer[kNumberOfRegPoints * 2];
+	int32_t theAngleBuffer[kNumberOfRegPoints * 2];
 	struct lg_xydata *pXYData;
 	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
 	double    *currentData;
@@ -556,198 +482,8 @@ void DoFullReg (struct lg_master *pLgMaster,
         PerformAndSendFullReg( pLgMaster, (char *)theAngleBuffer, gRespondToWhom );
 	return;
 }
-#if 0
-// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
-void DoDisplay (struct lg_master *pLgMaster,
-		uint32_t dataLength
-               , char * otherParameters
-               , char * patternData
-               )
-{
-	short i;
-	double tmpDoubleArr[12];
-	struct displayData dispData;
-	double *currentData;
-	uint32_t *currentAnglePair, anglesBuffer[2 * kNumberOfRegPoints];
-	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-        int index;
-	int return_val;
-	char * tmpPtr;
-        int zeroTarget;
-        double x, y, z;
-
-	memset(pResp, 0, sizeof(struct parse_basic_resp));
-	memset((char *)&tmpDoubleArr, 0, sizeof(tmpDoubleArr));
-	memset((char *)&dispData, 0, sizeof(struct displayData));
-	
-	gAbortDisplay = false;
-
-	currentData = (double *)otherParameters;
-	currentAnglePair = anglesBuffer;
-
-	index  = kNumberOfRegPoints * 3 * sizeof ( double );
-	tmpPtr = &otherParameters[index];
-	for( i=0; i<12; i++ ) {
-		tmpDoubleArr[i] = (double)(((double *)tmpPtr)[i]);
-	}
-	ChangeTransform((double *)&tmpDoubleArr);
-
-	i = 0;
-        zeroTarget = 1;
-	while ( i++ < kNumberOfRegPoints )
-	{
-                x = ( double )DoubleFromCharConv (
-                         (unsigned char *)&currentData[0] );
-                y = ( double )DoubleFromCharConv (
-                         (unsigned char *)&currentData[1] );
-                z = ( double )DoubleFromCharConv (
-                         (unsigned char *)&currentData[2] );
-	        return_val = Transform3DPointToBinary(pLgMaster,x, y, z,
-						       &currentAnglePair[0],
-						       &currentAnglePair[1] );
-                if ( fabs(x) > 0.0001 ) { zeroTarget = 0; }
-                if ( fabs(y) > 0.0001 ) { zeroTarget = 0; }
-		SetHighBeam ( &currentAnglePair[0], &currentAnglePair[1] );
-		if (return_val)
-		{
-		  pResp->hdr.status1 = RESPFAIL;
-		  pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
-		  switch ( i )
-		    {
-		    case 1:
-		      pResp->hdr.errtype2 = kFirstSensor;
-		      break;
-		    case 2:
-		      pResp->hdr.errtype2 = kSecondSensor;
-		      break;
-		    case 3:
-		      pResp->hdr.errtype2 = kThirdSensor;
-		      break;
-		    case 4:
-		      pResp->hdr.errtype2 = kFourthSensor;
-		      break;
-		    case 5:
-		      pResp->hdr.errtype2 = kFifthSensor;
-		      break;
-		    case 6:
-		      pResp->hdr.errtype2 = kSixthSensor;
-		      break;
-		    }
-		  if ( !(pLgMaster->gHeaderSpecialByte & 0x80)  ) {
-#ifdef ZDEBUG
-		    fprintf( stderr
-			     , "LaserCmds sending error response %x%x%x\n"
-			     , pResp->hdr.status,pResp->hdr.errtype1,pResp->hdr.errtype2);
-#endif
-		    pResp->hdr.errtype2 = htons(pResp->hdr.errtype2);
-		    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
-		  }
-		  return;
-		}
-		SetHighBeam ( &currentAnglePair[0], &currentAnglePair[1] );
-		currentData += 3;
-		currentAnglePair += 2;
-	}
-	
-        if ( zeroTarget ) {
-            for ( i = 0; i < kNumberOfRegPoints; i++ ) {
-	        anglesBuffer[2*i + 0] = 0;
-	        anglesBuffer[2*i + 1] = 0;
-            }
-        }
-	
-	memmove ( &pLgMaster->gSensorBuffer[ gPlysReceived *
-			kNumberOfRegPoints * 2 * sizeof ( uint32_t ) ],
-                (char *)anglesBuffer,
-		(size_t)( kNumberOfRegPoints * 2 * sizeof ( uint32_t ) ) );
-	if ( gPlysReceived++ )
-	{
-#ifdef ZDEBUG
-fprintf( stderr , "1038 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-	}
-	else
-	{
-#ifdef ZDEBUG
-fprintf( stderr , "1046 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-		dispData.numberOfSensorSets = gPlysToDisplay;
-		dispData.sensorAngles = (uint32_t *)pLgMaster->gSensorBuffer;
-	        index  = kNumberOfRegPoints * 3 * sizeof ( double );
-	        tmpPtr = &otherParameters[index];
-		for( i=0; i<12; i++ ) {
-		        tmpDoubleArr[i] = (double)(((double *)tmpPtr)[i]);
-	        }
-		SetUpLaserPattern(pLgMaster, tmpDoubleArr);
-	}
-	
-	pResp->hdr.errtype = ProcessPatternData(pLgMaster, patternData, dataLength);
-	if (pResp->hdr.errtype)
-	{
-		pResp->hdr.status = RESPFAIL; 
-                if ( !(pLgMaster->gHeaderSpecialByte & 0x80)  ) {
-		  pResp->hdr.errtype = htons(pResp->hdr.errtype);
-		  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
-                }
-		ResetPlyCounter (  );
-		return;
-	}
-	
-#ifdef ZDEBUG
-fprintf( stderr , "1080 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-	if ( gPlysReceived < gPlysToDisplay )
-	  pResp->hdr.errtype = (uint16_t)SetPenUp (  );
-	else
-	  pResp->hdr.errtype = (uint16_t)FinishPattern (pLgMaster);
-
-	if (pResp->hdr.errtype)
-	{
-		pResp->hdr.status = RESPFAIL; 
-                if ( !(pLgMaster->gHeaderSpecialByte & 0x80)  ) {
-		  pResp->hdr.errtype = htons(pResp->hdr.errtype);
-		  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
-                }
-		ResetPlyCounter (  );
-	}
-	else
-	{
-		if ( gAbortDisplay || ( gPlysReceived < gPlysToDisplay ) )
-		{
-#ifdef ZDEBUG
-		  fprintf( stderr , "1107 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
-#endif
-		  pResp->hdr.status = RESPGOOD;
-		  if ( !(pLgMaster->gHeaderSpecialByte & 0x80)  ) {
-#ifdef ZDEBUG
-		    fprintf( stderr
-			     , "LaserCmds sending response %x\n"
-			     , pResp->hdr.status);
-#endif
-		    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
-		  }
-		}
-		else
-		{
-                        gVideoCheck = 0;
-			SearchBeamOff(pLgMaster);
-                        if ( (CDRHflag(pLgMaster) )  ) {
-			  pResp->hdr.status1 = RESPFAIL;
-			  pResp->hdr.errtype1 = RESPE1BOARDERROR;
-			  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
-			  ResetPlyCounter (  );
-			  return;
-                        }
-			PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, 0);
-			ResetPlyCounter (  );
-		}
-	}
-}
-#endif
-void DoDisplayKitVideo (struct lg_master *pLgMaster,
-			uint32_t dataLength,
-			unsigned char *otherParameters,
-			unsigned char *patternData,
+void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
+			unsigned char *otherParameters, char *patternData,
 			uint32_t respondToWhom)
 {
     short i;
@@ -784,7 +520,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster,
        gVideoPreDwell = 1000;
     }
 #if defined(SDEBUG) || defined(KITDEBUG)
-fprintf( stderr, "gVideoPreDwell %d\n", gVideoPreDwell );
+    syslog(LOG_NOTICE, "gVideoPreDwell %d\n", gVideoPreDwell );
 #endif
 
 
@@ -800,7 +536,7 @@ fprintf( stderr, "gVideoPreDwell %d\n", gVideoPreDwell );
        gVideoCount = 5000;
     }
 #if defined(SDEBUG) || defined(KITDEBUG)
-fprintf( stderr, "gVideoCount %d\n", gVideoCount );
+    syslof(LOG_NOTICE, "gVideoCount %d\n", gVideoCount );
 #endif
     
 
@@ -814,11 +550,8 @@ fprintf( stderr, "gVideoCount %d\n", gVideoCount );
     inputPoint[1] = ((double *)tmpPtr)[1];
     inputPoint[2] = ((double *)tmpPtr)[2];
 #if defined(SDEBUG) || defined(KITDEBUG)
-    fprintf( stderr, "XYZ " );
-    fprintf( stderr, " %.5lf", ((double *)tmpPtr)[0] );
-    fprintf( stderr, " %.5lf", ((double *)tmpPtr)[1] );
-    fprintf( stderr, " %.5lf", ((double *)tmpPtr)[2] );
-    fprintf( stderr, "\n" );
+    syslog(LOG_NOTICE, "XYZ %.5lf %.lf %.lf\n",((double *)tmpPtr)[0],
+	   ((double *)tmpPtr)[1], ((double *)tmpPtr)[3]);
 #endif
     TransformPoint ( &CurrentTransform, inputPoint, outputPoint );
 #if defined(SDEBUG) || defined(KITDEBUG)
@@ -826,20 +559,14 @@ fprintf( stderr, "gVideoCount %d\n", gVideoCount );
     Xpoint = outputPoint[0];
     Ypoint = outputPoint[1];
     Zpoint = outputPoint[2];
-    fprintf( stderr, "check XYZ " );
-    fprintf( stderr, " %.5lf", outputPoint[0] );
-    fprintf( stderr, " %.5lf", outputPoint[1] );
-    fprintf( stderr, " %.5lf", outputPoint[2] );
-    fprintf( stderr, "\n" );
+    syslog(LOG_NOTICE, "check XYZ  %.5lf %.5lf %.5lf",outputPoint[0],
+	     outputPoint[1], outputPoint[2]);
 #endif
 
     PointToBinary(pLgMaster, outputPoint, &pLgMaster->gXcheck, &pLgMaster->gYcheck );
 
 #if defined(SDEBUG) || defined(KITDEBUG)
-    fprintf( stderr, "check XY raw " );
-    fprintf( stderr, " %x", pLgMaster->gXcheck );
-    fprintf( stderr, " %x", pLgMaster->gYcheck );
-    fprintf( stderr, "\n" );
+    syslog(LOG_NOTICE, "check XY raw %x %x", pLgMaster->gXcheck, pLgMaster->gYcheck);
 #endif
 
 	gAbortDisplay = false;
@@ -853,20 +580,20 @@ fprintf( stderr, "gVideoCount %d\n", gVideoCount );
 	ChangeTransform((double *)&tmpDoubleArr);
 	
 	dispData.numberOfSensorSets = 0;
-	dispData.sensorAngles = (uint32_t *)pLgMaster->gSensorBuffer;
-	SetUpLaserPattern(pLgMaster, tmpDoubleArr);
+	dispData.sensorAngles = (int32_t *)pLgMaster->gSensorBuffer;
+	dispData.pattern = SetUpLaserPattern(pLgMaster, tmpDoubleArr);
 	pResp->hdr.errtype = ProcessPatternData(pLgMaster, patternData, dataLength);	
  	if (pResp->hdr.errtype)
 	  {
 	    pResp->hdr.status = RESPFAIL;
 	    pResp->hdr.errtype = htons(pResp->hdr.errtype);
 	    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	    ResetPlyCounter (  );
+	    ResetPlyCounter();
 	    return;
 	  }
  	
 #if defined(ZDEBUG) || defined(KITDEBUG)
-fprintf( stderr , "1555 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
+	syslog(LOG_NOTICE, "1555 plys rcvd %d  disp %d", gPlysReceived, gPlysToDisplay);
 #endif
  	if ( gPlysReceived < gPlysToDisplay )
 	  pResp->hdr.errtype = (uint16_t)SetPenUp (  );
@@ -885,7 +612,7 @@ fprintf( stderr , "1555 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay 
 	  if ( gAbortDisplay || ( gPlysReceived < gPlysToDisplay ) )
 	    {
 #if defined(ZDEBUG) || defined(KITDEBUG)
-	      fprintf( stderr , "1574 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay );
+	      syslog(LOG_NOTICE, "1574 plys rcvd %d  disp %d", gPlysReceived, gPlysToDisplay);
 #endif
 	      pResp->hdr.status = RESPGOOD;
 	      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
@@ -903,7 +630,7 @@ fprintf( stderr , "1555 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay 
 #if defined(ZDEBUG) || defined(KITDEBUG)
 			int slen;
 			slen = GetWebVideo(pLgMaster, ToVideo, count, FromVideo );
-			fprintf( stderr , "1634 getweb slen %d gVideoCount %d\n", slen, gVideoCount );
+			syslog(LOG_NOTICE, "1634 getweb slen %d gVideoCount %d\n", slen, gVideoCount);
 #else
 			GetWebVideo(pLgMaster, ToVideo, count, FromVideo );
 #endif
@@ -912,16 +639,19 @@ fprintf( stderr , "1555 plys rcvd %d  disp %d\n", gPlysReceived, gPlysToDisplay 
 			  pResp->hdr.status1 = RESPFAIL;
 			  pResp->hdr.errtype1 = RESPE1BOARDERROR;
 			  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-			  ResetPlyCounter (  );
+			  ResetPlyCounter();
 			  return;
                         }
 #if defined(KITDEBUG)
-			fprintf( stderr, "LC1651 setVideoCount %d\n", gVideoCount );
+			syslog(LOG_NOTICE, "LC1651 setVideoCount %d\n", gVideoCount );
 #endif
 			SetQCcounter(pLgMaster, gVideoCount );
                         gQCtimer = -1;
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"\nPostCmdDisp from DoDisplayKitVideo");
+#endif
  			PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, respondToWhom );
- 			ResetPlyCounter (  );
+ 			ResetPlyCounter();
  		}
   	}
 }
@@ -960,20 +690,12 @@ void DoQuickCheck (struct lg_master *pLgMaster, char * angles, uint32_t respondT
 
 	if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 	gRespondToWhom = respondToWhom;
-#ifdef ZDEBUG
-        int i;
-        fprintf( stderr, "\nDoQuickCheck" );
-        for ( i=0; i<12; i++ ) {
-            fprintf( stderr, " %8x", ((int *)(angles))[i] );
-        }
-        fprintf( stderr, "\n" );
-#endif
         PerformAndSendQuickCheck (pLgMaster, angles, 6 );  // must now set target number
 }
 
 void CloseLaserCommands (void)
 {
-	ResetPlyCounter (  );
+	ResetPlyCounter();
 }
 
 double DoubleFromCharConv ( unsigned char *theChar )
@@ -982,22 +704,6 @@ double DoubleFromCharConv ( unsigned char *theChar )
 
   memcpy((char *)&return_val, theChar, sizeof(double));
   return(return_val);
-}
-
-uint32_t LongFromCharConv ( unsigned char *theChar )
-{
-  uint32_t   return_val=0;
-
-  memcpy((char *)&return_val, theChar, sizeof(uint32_t));
-  return(ntohl(return_val));
-}
-
-unsigned short ShortFromCharConv ( unsigned char *theChar )
-{
-  uint16_t   return_val=0;
-
-  memcpy((char *)&return_val, theChar, sizeof(uint16_t));
-  return(ntohs(return_val));
 }
 
 void DoubleConv ( unsigned char *theChar )
@@ -1062,5 +768,5 @@ void ShortConv ( unsigned char *theChar )
 
 void InitLaserCommands ( void )
 {
-	ResetPlyCounter (  );
+	ResetPlyCounter();
 }

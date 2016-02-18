@@ -14,30 +14,31 @@
 #include "DoCoarseScan2.h"
 #include "SensorSearch.h"
 #include "Protocol.h"
+#include "LaserInterface.h"
 
-extern uint32_t * coarsedata;
-uint32_t * gScan;
+extern int32_t * gLsort;
+extern int32_t * coarsedata;
+int32_t * gScan;
+extern int32_t * gScan;
 uint32_t DCS2minlevel = 70;
 
 #define DELLEV 30
 
-extern
-uint32_t * gLsort;
-
-extern
-uint32_t * gScan;
-
-int c2int32_tsort( const void *elem1, const void *elem2 );
+static int c2intsort( const void *elem1, const void *elem2 );
 
 int DoCoarseScan2(struct lg_master *pLgMaster,
-		  uint32_t dX, uint32_t dY,
+		  int32_t dX, int32_t dY,
 		  uint32_t lsstep, int lscount,
-		  uint32_t *xfound, uint32_t *yfound)
+		  int32_t *xfound, int32_t *yfound)
 {
       struct lg_xydata  xydata;
       struct lg_xydata  xydelta;
-      uint32_t xoff, yoff;
-      uint32_t x, y;
+      int32_t Xarray[65536];
+      int32_t Yarray[65536];
+      double Dxsum, Dysum;
+      double Dcount;
+      int32_t xoff, yoff;
+      int32_t x, y;
       uint32_t nSteps;
       int firstCoarse = 1;
       int index;
@@ -49,12 +50,8 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
       uint32_t testlevel;
       uint32_t xmid;
       uint32_t ymid;
-      double Dxsum, Dysum;
-      double Dcount;
       int Icount;
       int Ihalf;
-      int32_t Xarray[65536];
-      int32_t Yarray[65536];
       int32_t Ixavg;
       int32_t Iyavg;
 
@@ -65,6 +62,8 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
 
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
+      memset((char *)&Xarray[0], 0, sizeof(Xarray));
+      memset((char *)&Yarray[0], 0, sizeof(Yarray));
       memset( (void *)&(coarsedata[0]), 0, 512*512*sizeof(uint32_t) );
 
       xoff = xmid - ((lscount * lsstep) / 2 );
@@ -73,8 +72,8 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
       testlevel = DELLEV;
       for ( x = 0x1U; x <= lscount+1; x += 0x2U ) {
           notarget = 0;
-          xydata.xdata = ((x * lsstep) + xoff) & kMaxUnsigned;
-          xydata.ydata = (lsstep + yoff) & kMaxUnsigned;
+          xydata.xdata = ((x * lsstep) + xoff) & kMaxSigned;
+          xydata.ydata = (lsstep + yoff) & kMaxSigned;
           xydelta.xdata   = 0;
           xydelta.ydata = lsstep;
           nSteps = lscount;
@@ -91,7 +90,7 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
                  }
                  gLsort[y-1] = gScan[y-1];
           }
-          qsort( gLsort, lscount, sizeof(uint32_t), c2int32_tsort );
+          qsort( gLsort, lscount, sizeof(uint32_t), c2intsort);
           halfStep = lsstep / 2;
           testlevel = gLsort[halfStep];
           if ( firstCoarse == 1 ) {
@@ -112,8 +111,8 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
           if ( notarget == 1 && target_cnt >= 1 ) break;
           if ( target_cnt >= min_target ) break;
 
-          xydata.xdata = (((x + 1) * lsstep) + xoff) & kMaxUnsigned;
-          xydata.ydata = ((lscount * lsstep) + yoff) & kMaxUnsigned;
+          xydata.xdata = (((x + 1) * lsstep) + xoff) & kMaxSigned;
+          xydata.ydata = ((lscount * lsstep) + yoff) & kMaxSigned;
           xydelta.xdata = 0;
           xydelta.ydata = -lsstep;
           nSteps = lscount;
@@ -165,8 +164,8 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
           }
       }
       if ( Dcount < 1.0 ) return kCoarseNotFound;
-      qsort( Xarray, Icount, sizeof(int32_t), c2int32_tsort );
-      qsort( Yarray, Icount, sizeof(int32_t), c2int32_tsort );
+      qsort( Xarray, Icount, sizeof(int32_t), c2intsort);
+      qsort( Yarray, Icount, sizeof(int32_t), c2intsort);
       Ihalf = Icount / 2;
       Ixavg = Xarray[Ihalf];
       Iyavg = Yarray[Ihalf];
@@ -177,8 +176,7 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
 }
 
 
-int
-c2int32_tsort( const void *elem1, const void *elem2 )
+static int c2intsort(const void *elem1, const void *elem2)
 {
     uint32_t numone, numtwo;
 

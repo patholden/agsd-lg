@@ -2,10 +2,12 @@
  static char rcsid[] = "$Id: Files.c,v 1.7 2010/05/26 17:53:30 ags-sw Exp ags-sw $";
 */
 #include <stdint.h>
-#include <string.h>
 #include <stdio.h>
+#include <time.h>
 #include <stddef.h>
+#include <string.h>
 #include <fcntl.h>
+#include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -18,6 +20,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include "BoardComm.h"
 #include "AppCommon.h"
@@ -134,7 +137,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     local_len = strlen(lcName);
     if (!local_len)
       {
-	perror("\nFILEGETSTART: Get-Filesize error, Empty input string");
+	syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error, Empty input string");
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
@@ -162,7 +165,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
 #if 0
         strcpy( FSName, "/etc/ags/conf/polarizer" );
 #else
-	perror("\nFILEGETSTART: Polarizer not supported right now");
+	syslog(LOG_ERR,"\nFILEGETSTART: Polarizer not supported right now");
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
@@ -179,7 +182,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     }
     else
       {
-	fprintf(stderr,"\nFILEGETSTART: Get-Filesize error, unknown input file %s",lcName);
+	syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error, unknown input file %s",lcName);
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
@@ -192,10 +195,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
       {
 	err = (GetVersionSize(pLgMaster, &size));
 	if (err)
-	  {
-	    perror("\nFILEGETSTART: Get-Filesize error");
-	    fprintf(stderr,": infile %s, fsfile %s",lcName, FSName);
-	  }
+	    syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error");
       }
     else
       {
@@ -204,10 +204,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
 	system(system_buff);
 	err = GetFileSize(FSName, &size);
 	if (err)
-	  {
-	    perror("\nFILEGETSTART: Get-Filesize error");
-	    fprintf(stderr,": infile %s, fsfile %s",lcName, FSName);
-	  }
+	    syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error");
       }
 
     if (err || (size == 0))
@@ -344,7 +341,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 	}
       else
 	{
-	  perror("\nFILEGETDATA: File not Found!");
+	  syslog(LOG_ERR,"\nFILEGETDATA: File not Found!");
 	  pRespErr->hdr.cmd = RESPFAIL;
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
@@ -358,7 +355,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 	    (request > (sizeof(struct parse_getdata_resp) - kCRCSize - offsetof(struct parse_getdata_resp,resp_buffer))))
 	  {
 	    err = -1;
-	    fprintf(stderr, "\nFILEGETDATA: BAD in-file %s, our-file %s\n\toffs %d, req %d, size%d", lcName, FSName,offset, request, MaxSize);
+	    syslog(LOG_ERR, "\nFILEGETDATA: BAD in-file %s, our-file %s\n\toffs %d, req %d, size%d", lcName, FSName,offset, request, MaxSize);
 	  }
 	else
 	  {
@@ -393,7 +390,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 handle_resp:
     if ( err )
       {
-	fprintf(stderr, "\nFILEGETDATA: failed file %s,our-file %s,offs %d,req %d,size%d", lcName, FSName,offset, request, MaxSize);
+	syslog(LOG_ERR, "\nFILEGETDATA: failed file %s,our-file %s,offs %d,req %d,size%d", lcName, FSName,offset, request, MaxSize);
 	pRespErr->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
       }
@@ -533,7 +530,7 @@ void   HandleFilePutData  (struct lg_master *pLgMaster, char * parameters, uint3
     local_len = strlen(lcName);
     if (!local_len)
       {
-	fprintf(stderr,"\nPUTDATA: file %s not found", pInp->inp_filename);
+	syslog(LOG_ERR,"\nPUTDATA: file %s not found", pInp->inp_filename);
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
@@ -544,21 +541,18 @@ void   HandleFilePutData  (struct lg_master *pLgMaster, char * parameters, uint3
     length  = pInp->inp_write_numbytes;
     if (length > (sizeof(struct parse_putdata_parms)-offsetof(struct parse_putdata_parms, inp_buffer)))
       {
-	fprintf(stderr,"\nPUTDATA: file %s bad buffer length %d", lcName,length);
+	syslog(LOG_ERR,"\nPUTDATA: file %s bad buffer length %d", lcName,length);
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
     if (request > sizeof(pInp->inp_buffer))
       {
-	fprintf(stderr,"\nPUTDATA: file %s bad buffer len %d", lcName, request);
+	syslog(LOG_ERR,"\nPUTDATA: file %s bad buffer len %d", lcName, request);
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
-#if defined(ZDEBUG)
-    fprintf(stderr, "Files515 off %d req %d len %d\n", offset, request, length );
-#endif
 
     if ( strcmp( ini_name, lcName ) == 0 ) {
       MaxSize =    INIT_SIZE;
@@ -590,9 +584,6 @@ void   HandleFilePutData  (struct lg_master *pLgMaster, char * parameters, uint3
     else
       {
 	err = WriteToBuffer(pInp->inp_buffer, offset, length  );
-#if defined(ZDEBUG)
-	fprintf( stderr, "line 470 file %s offs %d, len %d, err %s\n", lcName, offset, length, err );
-#endif
 	if (err)
 	  {
 	    pResp->hdr.cmd = RESPFAIL;
@@ -660,13 +651,13 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
     MaxSize = 0;
     if ( strcmp( ini_name, lcName) == 0)
       {
-	fprintf( stderr, "PUTDONE: file %s, length %d\n", lcName, saveLength );
+	syslog(LOG_ERR, "PUTDONE: file %s, length %d\n", lcName, saveLength );
         MaxSize = INIT_SIZE;
         strcpy( FSName, "/etc/ags/conf/init" );
         memset( (void *)localcopy, 0, INIT_SIZE );
         if (saveLength >= INIT_SIZE)
 	  {
-	    fprintf( stderr, "saveLength %d > expected len%d\n", saveLength, INIT_SIZE );
+	    syslog(LOG_ERR, "saveLength %d > expected len%d\n", saveLength, INIT_SIZE );
 	    pResp->hdr.cmd = RESPFAIL;
 	    HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	    return;
@@ -686,7 +677,7 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
 		if (!isprint(localcopy[i]))
 		  localcopy[i] = '?';
               }
-	    fprintf(stderr, "PUTDONE:  no transform tolerance\n%s\n",localcopy);
+	    syslog(LOG_ERR, "PUTDONE:  no transform tolerance\n%s\n",localcopy);
 	    MaxSize = 0;
 	  }
       }
@@ -731,7 +722,7 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
     else
         sprintf(FSName, "/etc/ags/conf/%s",pInp->inp_filename);
 
-    fprintf( stderr, "\nPUTDONE: file %s, write-len %d  MaxSize %d\n", FSName, saveLength, MaxSize );
+    syslog(LOG_ERR, "\nPUTDONE: file %s, write-len %d  MaxSize %d\n", FSName, saveLength, MaxSize );
 
     if (MaxSize)
       {
@@ -767,10 +758,6 @@ static int ReadLevel ( char *buff, uint32_t * size, int32_t offset, int32_t requ
   uint32_t x, y;
   uint32_t jndex;
 
-#ifdef ZZZDEBUG
-fprintf( stderr, "entering ReadLevel   buff %d\n", buff );
-#endif
-
   memset( buff, 0, BIG_SIZE );
   memset( BIG_Buffer, 0, BIG_SIZE );
   ptr = &(BIG_Buffer[0]);
@@ -785,13 +772,8 @@ fprintf( stderr, "entering ReadLevel   buff %d\n", buff );
   }
 
   strncpy( buff, &(BIG_Buffer[offset]), request );
-
   *size = strlen( buff );
-  
-#ifdef ZZZDEBUG
-fprintf( stderr, "ReadLevel  size %d\n", *size );
-#endif
-  return( 0 );
+    return( 0 );
 
 }
 
@@ -800,11 +782,6 @@ static int ReadReturn ( char *buff, uint32_t * size, int32_t offset, int32_t req
 {
   char * ptr;
   int nget;
-
-#if defined(ZZZDEBUG) || defined(LOUTDEBUG)
-  fprintf( stderr, "entering ReadReturn  buff %d  off %d req %d\n", *buff, offset, request );
-#endif
-
 
   if ( (offset + request) >= gLoutSize ) {
      nget = gLoutSize - offset;
@@ -815,10 +792,6 @@ static int ReadReturn ( char *buff, uint32_t * size, int32_t offset, int32_t req
 
   ptr = gLoutBase;
   memcpy( buff, (char *)(&(ptr[offset])), nget );
-  
-#if defined(ZZZDEBUG) || defined(LOUTDEBUG)
-fprintf( stderr, "ReadReturn  size %d\n", *size );
-#endif
   return( 0 );
 
 }
@@ -837,7 +810,8 @@ void ReadVersion(struct lg_master *pLgMaster)
   memset(hobb_buffer, 0, sizeof(hobb_buffer));
   memset(kernel_buffer, 0, sizeof(kernel_buffer));
   memset(time_buffer, 0, sizeof(time_buffer));
-
+  memset((char *)&utsbuff, 0, sizeof(utsbuff));
+  
   // Get local time
   ltime = time(NULL);
   sprintf(time_buffer, "%s\r\n", asctime(localtime(&ltime)));
@@ -847,10 +821,14 @@ void ReadVersion(struct lg_master *pLgMaster)
   uname(&utsbuff);
   klen = sprintf(kernel_buffer, "kernel version %s %s\r\n",
 		 utsbuff.release, utsbuff.version);
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"kernel release %s", utsbuff.release);
+  syslog(LOG_DEBUG,"kernel version %s", utsbuff.version);
+#endif
   strncat(pLgMaster->vers_data.pVersions, kernel_buffer, klen);
   // Get hobbs count
   hlen = sprintf(hobb_buffer, "Hobbs %-10ld \r\nQuickCheck V2.0\r\n",
-		 pLgMaster->hobbs.hobbs_counter);
+		 pLgMaster->hobbs.hobbs_time);
   strncat(pLgMaster->vers_data.pVersions, hobb_buffer, hlen);
   pLgMaster->vers_data.version_size = strlen(pLgMaster->vers_data.pVersions);
   pLgMaster->vers_data.isVersInit = 1;
@@ -890,11 +868,6 @@ static int WriteBufferToFS ( char * name, int32_t Size )
   }
   size = i;
   if( size > BIG_SIZE) {size = BIG_SIZE;}
-
-#ifdef SDEBUG
-fprintf( stderr, "%s", BIG_Buffer );
-fprintf( stderr, "size %d\n", size );
-#endif
 
   strcat( delete, name );
   err = system( delete );
@@ -1028,10 +1001,12 @@ int InitCheckVersion(struct lg_master *pLgMaster)
       this_line = NULL;
       this_line = strtok(NULL, "\r\n"); 
     }
+#if 0
   if (version1 < 4)
     {
-      fprintf(stderr,"\nVersion %d.%d.%d, expected 4.1.7",version1, version2, version3);
+      syslog(LOG_ERR,"\nVersion %d.%d.%d, expected 4.1.7",version1, version2, version3);
       return(-1);
     }
+  #endif
   return(0);
 }

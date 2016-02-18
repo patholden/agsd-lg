@@ -13,6 +13,7 @@ static char rcsid[] = "$Id: LaserFlex.c,v 1.18 2003/04/25 10:40:04 ags-sw Exp ag
 #include <arpa/inet.h>
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
+#include <syslog.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -60,7 +61,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
   int      i,index;
   int      numberOfTargets;
   double   *tmpDoubleArr;
-  unsigned char *tmpPtr;
+  char     *tmpPtr;
   uint32_t *p_anglepairs;
   uint32_t *p_transform;
   int      checkQC=0;
@@ -108,7 +109,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       initQCcounter(pLgMaster);
     }
 
-  if ( gPlysReceived++ )
+  if (gPlysReceived)
     {
       error = 0;
       tmpDoubleArr = (double *)&parameters->inp_transform[0];
@@ -136,7 +137,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
   else
     {
       dispData.numberOfSensorSets = gPlysToDisplay;
-      dispData.sensorAngles = (uint32_t *)&pLgMaster->gSensorBuffer[0];
+      dispData.sensorAngles = (int32_t *)&pLgMaster->gSensorBuffer[0];
       error = 0;
       tmpDoubleArr = (double *)&parameters->inp_transform[0];
       for( i=0; i<12; i++ ) {
@@ -161,6 +162,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       SetUpLaserPattern(pLgMaster, tmpDoubleArr);
     }
   
+  gPlysReceived++;
   return_code = ProcessPatternData(pLgMaster, pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
   if (return_code)
     {
@@ -219,6 +221,9 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	    PostCmdDispNoResp(pLgMaster, (struct displayData *)&dispData, respondToWhom);
 	    ResetFlexPlyCounter();
 	  } else {
+#ifdef PATDEBUG
+	    syslog(LOG_DEBUG,"PostCmdDisp from DoFlexDisplayChunks");
+#endif
 	    PostCmdDisplay(pLgMaster,(struct displayData *)&dispData, respondToWhom);
 	    ResetFlexPlyCounter();
 	  }
@@ -226,15 +231,16 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
     }
 }
 
+//FIXME---PAH---look into anglepair input
 void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
-		    struct parse_flexdisp_parms *parameters, unsigned char *patternData)
+		    struct parse_flexdisp_parms *parameters, char *patternData)
 {
   struct displayData dispData;
   struct lg_xydata   xydata;
   double             tmpDoubleArr[12];
-  uint32_t           anglePairs[2 * kNumberOfFlexPoints];
+  int32_t           anglePairs[2 * kNumberOfFlexPoints];
   double *currentTransform;
-  uint32_t *currentData;
+  int32_t *currentData;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   int zeroTarget=1;
   int return_code;
@@ -247,7 +253,7 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
   gAbortDisplay = false;
 
-  currentData = (uint32_t*)&parameters->inp_anglepairs[0];
+  currentData = (int32_t*)&parameters->inp_anglepairs[0];
   currentTransform = (double *)&parameters->inp_transform[0];
   numberOfTargets = parameters->inp_numTargets;
   gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
@@ -268,8 +274,8 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 					     &anglePairs[i+1]);
       if ((fabs(x) > 0.0001) || (fabs(y) > 0.0001))
 	zeroTarget = 0;
-      xydata.xdata = anglePairs[i] & kMaxUnsigned;
-      xydata.ydata = anglePairs[i+1] & kMaxUnsigned;
+      xydata.xdata = anglePairs[i] & kMaxSigned;
+      xydata.ydata = anglePairs[i+1] & kMaxSigned;
       SetHighBeam ((struct lg_xydata *)&xydata);
       if (return_code)
 	{
@@ -294,14 +300,12 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
   if (!gPlysReceived)
     {
       dispData.numberOfSensorSets = gPlysToDisplay;
-      dispData.sensorAngles = (uint32_t *)&pLgMaster->gSensorBuffer[0];
+      dispData.sensorAngles = (int32_t *)&pLgMaster->gSensorBuffer[0];
       for (i=0; i<MAX_NEW_TRANSFORM_ITEMS; i++)
 	tmpDoubleArr[i] = currentTransform[i];
       SetUpLaserPattern(pLgMaster, tmpDoubleArr);
     }
-  else
-    gPlysReceived++;      
-  
+  gPlysReceived++;      
   pResp->hdr.errtype = ProcessPatternData(pLgMaster, patternData, dataLength );
   if (pResp->hdr.errtype)
     {
@@ -351,6 +355,9 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 	    }
 	  else
 	    {
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"PostCmdDisp from DoFlexDisplay");
+#endif
 	      PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, 0);
 	      ResetFlexPlyCounter();
 	    }
@@ -367,19 +374,6 @@ void DoFlexQuickCheck ( struct lg_master *pLgMaster, struct parse_flexquickcheck
         uint32_t nTargets;
 
         nTargets = data->inp_numTargets;
-#ifdef ZDEBUG
-        fprintf( stderr, "\nDoQuickCheck\n" );
-        for ( i=0; i<2*nTargets; i+=2 ) {
-            fprintf( stderr, "DQC " );
-            fprintf( stderr, " %8x", ((int *)(data))[1+i] );
-            fprintf( stderr, " %8x", ((int *)(data))[1+i+1] );
-            fprintf( stderr, "\n" );
-        }
-        fprintf( stderr, "\n" );
-#endif
-#ifdef ZDEBUG
-        fprintf(stderr, "DFQC647 index %d data %x ptr %x\n", index,data,ptr );
-#endif
         PerformAndSendQuickCheck ( pLgMaster, (char *)data->inp_anglepairs, nTargets );
 }
 
@@ -396,21 +390,8 @@ void DoThresholdQuickCheck (struct lg_master *pLgMaster, char * data, uint32_t r
         nThresh  = *((uint32_t *)&(data[index]));
         index    = sizeof(uint32_t);
         nTargets = *((uint32_t *)&(data[index]));
-#ifdef ZDEBUG
-        fprintf( stderr, "\nDoThresholdQuickCheck\n" );
-        for ( i=0; i<2*nTargets; i+=2 ) {
-            fprintf( stderr, "DQC " );
-            fprintf( stderr, " %8x", ((int *)(data))[2+i] );
-            fprintf( stderr, " %8x", ((int *)(data))[2+i+1] );
-            fprintf( stderr, "\n" );
-        }
-        fprintf( stderr, "\n" );
-#endif
         index = 2 * sizeof(uint32_t);
         ptr = (char *)(&(data[index]));
-#ifdef ZDEBUG
-        fprintf(stderr, "DFQC647 index %d data %x ptr %x\n", index,data,ptr );
-#endif
         PerformThresholdQuickCheck ( pLgMaster, ptr, nTargets, nThresh );
 }
 

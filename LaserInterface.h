@@ -13,11 +13,6 @@
 /******************************
  Defines
 ******************************/
-#define gBlankBit    0x00000000U
-#define gBrightBitMask   0x04000000U
-#define gSearchBitMask  0x04000000U
-#define gSampleOffBit  0x0
-#define gMaxUnsigned   0x0FFFF
 #define gNumberOfDummyBits 14
 
 enum
@@ -44,9 +39,6 @@ extern uint32_t           gCoarseBabies;
 extern uint32_t           gFineBabies;
 extern uint32_t           gSuperFineBabies;
 
-extern	uint32_t	gMinNeg;
-extern	uint32_t	gMaxPos;
-
 extern	double	gBeamLinearRangeX;	
 extern  double	gBeamLinearRangeY;	
 
@@ -55,7 +47,7 @@ extern  int gMaxPiledPts;
 // Function Prototypes
 short PilePoints(unsigned char fChangeBeam, unsigned char fSlowDown,
 		 double cosInOut );
-void ConvertToNumber(uint32_t *x, uint32_t *y);
+void ConvertToNumber(int32_t *x, int32_t *y);
 uint32_t CenterBetweenLines(double angleX1, double angleY1,
 			    double transformArray1[12],
 			    double angleX2, double angleY2,
@@ -64,22 +56,22 @@ uint32_t CenterBetweenLines(double angleX1, double angleY1,
 			    double *distance );
 uint32_t ConvertGeometricAnglesToBinary(struct lg_master *pLgMaster,
 					double xIn,double yIn,
-					uint32_t *xOut,	uint32_t *yOut );
+					int32_t *xOut,	int32_t *yOut );
 uint32_t ConvertMirrorAnglesToBinary( double xIn, double yIn,
-				uint32_t *xOut, uint32_t *yOut );
+				int32_t *xOut, int32_t *yOut );
 void ConvertMirrorToGeometricAngles(double *x, double *y);
-void ConvertBinaryToMirrorAngles(uint32_t xIn, uint32_t yIn,
+void ConvertBinaryToMirrorAngles(int32_t xIn, int32_t yIn,
 				 double *xOut, double *yOut );
 void XYFromGeometricAnglesAndZ(double xa, double ya, double z,
 			       double *x, double *y);
 uint32_t ConvertExternalAnglesToBinary(struct lg_master *pLgMaster,
 				       double xIn, double yIn,
-				       uint32_t *xOut, uint32_t *yOut);
+				       int32_t *xOut, int32_t *yOut);
 void ConvertBinaryToGeometricAngles(struct lg_master *pLgMaster,
-				    uint32_t xIn, uint32_t yIn,
+				    int32_t xIn, int32_t yIn,
 				    double *xOut, double *yOut );
 void ConvertBinaryToExternalAngles(struct lg_master *pLgMaster,
-				   uint32_t xIn, uint32_t yIn,
+				   int32_t xIn, int32_t yIn,
 				   double *xOut, double *yOut);
 uint32_t ZeroOnLine(double angleX, double angleY, double transformArray[12],
 		    double *x, double *y );

@@ -19,7 +19,8 @@ int TransformtoRPY (transform *m, double *roll, double *pitch,
         /*      phi     pitch  */
         /*      kappa   yaw    */
 	
-	if (m == NULL) return (0);
+	if (!m)
+	  return (0);
 	OK = 1;
         /* note possibility of numerical difficulties
          * if divisors below are small
@@ -75,9 +76,9 @@ int TransformfromRPY (double roll, double pitch, double yaw,
         /*      phi     pitch  */
         /*      kappa   yaw    */
 
-	if (tr == NULL) return(0);
+	if (!tr)
+	  return(0);
 	
-
         sinph = sin(pitch);
         cosph = cos(pitch);
         sinka = sin(yaw);

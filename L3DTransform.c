@@ -1874,6 +1874,7 @@ void ArrayIntoTransform(double *theArray, struct transform *theTransform )
  	theTransform->transVector[0] = theArray[9];
  	theTransform->transVector[1] = theArray[10];
  	theTransform->transVector[2] = theArray[11];
+	return;
 }
 		
 static	void		IdentityArray ( long double theArray[12] );

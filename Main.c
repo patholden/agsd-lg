@@ -1,9 +1,11 @@
 #include <stdint.h>
 //static char rcsid[] = "$Id: Main.c,v 1.29 2001/01/03 18:02:20 ags-sw Exp ags-sw $";
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
@@ -38,6 +40,9 @@
 #include "APTParser.h"
 #include "DoAutoFocusCmd.h"
 
+//Statics for this file
+struct ags_bkgd_thread_struct thread_data[MAX_NUM_THREADS];
+pthread_mutex_t          lock;
 const char *ags_banner =
     "AGS LaserGuide";
 
@@ -58,10 +63,9 @@ unsigned char                   gHeaderSpecialByte = 0;
 struct lg_master *pConfigMaster=0;
 
 int  gSearchCurrentSensor;
-uint32_t gCoarseSearchStep  = 0x00080000U;
-int           gCoarseFactor      = 8;
-uint32_t gCoarse2SearchStep = 0x00080000U;
-int           gCoarse2Factor     = 8;
+uint32_t gCoarseSearchStep  = 0x8;
+int           gCoarseFactor = 8;
+int           gCoarse2Factor= 8;
 int gNumberOfSpirals = 128;
 int gSpiralFactor   = 512;
 int gHatchFactor    = 100;
@@ -120,18 +124,43 @@ static void ags_cleanup(struct lg_master *pLgMaster)
   free(pLgMaster);
   return;
 }
+
+void *ags_bkgd_proc(void *p_threadarg)
+{
+  struct ags_bkgd_thread_struct *p_my_data;
+  struct lg_master *pHobbsMaster;
+
+  while(1)
+    {
+      p_my_data = (struct ags_bkgd_thread_struct *) p_threadarg;
+      if (!p_my_data->pLgMaster)
+	{
+	  syslog(LOG_ERR,"\ninvalid-input");
+	  return(NULL);
+	}
+      pHobbsMaster = p_my_data->pLgMaster;
+      if (p_my_data->time_to_update)
+	{
+	  WriteHobbs(pHobbsMaster);
+	  p_my_data->time_to_update = 0;   // Reset flag
+	}
+      sleep(600);  // Check every 10 minutes
+    }
+  // Should never get here
+  return(NULL);
+}
 int main ( int argc, char **argv )
 {
+  pthread_t     thread[MAX_NUM_THREADS];
   int32_t i = 0;
   int     error=0;
-  
-  fprintf( stderr, "%s", ags_banner );
+
+  openlog("agsd", 0, LOG_USER);
+  syslog(LOG_NOTICE, "%s", ags_banner);
 
   /* defaults */
   gBeamLinearRangeX = GBEAMLNRNG_DEF;	
   gBeamLinearRangeY = GBEAMLNRNG_DEF;	
-
-
   gSlowExponent = 8;
   gFastExponent = 11;
   gSlowBabies = 1U << gSlowExponent;
@@ -151,90 +180,102 @@ int main ( int argc, char **argv )
   pConfigMaster = malloc(sizeof(struct lg_master));
   if (!pConfigMaster)
     {
-      fprintf(stderr,"LG_MASTER_MALLOC Failed\n");
+      syslog(LOG_ERR, "LG_MASTER_MALLOC Failed\n");
+      closelog();
       exit(EXIT_FAILURE);
     }
   error = LGMasterInit(pConfigMaster);
   if (error)
     {
-      fprintf(stderr,"\nMain: Can't initialize master struct, err %d",error);
+      syslog(LOG_ERR,"\nMain: Can't initialize master struct, err %d",error);
       free(pConfigMaster);
+      closelog();
       exit(EXIT_FAILURE);
     }
   error = InitBoard(pConfigMaster );
   if (error)
     {
-      fprintf(stderr,"\nMain: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
+      syslog(LOG_ERR,"\nMain: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
       free(pConfigMaster);
+      closelog();
       exit(EXIT_FAILURE);
     }
-  fprintf(stderr,"\nMAIN: INITBOARD /dev/laser, fd %d",pConfigMaster->fd_laser);
+  syslog(LOG_NOTICE,"\nMAIN: INITBOARD complete for /dev/laser, fd %d",pConfigMaster->fd_laser);
   error = ConfigDataInit(pConfigMaster);
   if (error)
     {
-      fprintf(stderr,"\nConfigDataInit: Can't get config data, err %d", error);
+      syslog(LOG_ERR,"\nConfigDataInit: Can't get config data, err %d", error);
       free(pConfigMaster);
+      closelog();
       exit(EXIT_FAILURE);
     }
 
+  // start background thread for doing updates
+  if ((pthread_mutex_init(&lock, NULL)) != 0)
+    {
+      closelog();
+      exit(EXIT_FAILURE);
+    }
+  // Init thread variables
+  memset((char *)&thread_data[0], 0, sizeof(thread_data));
+  memset((char *)&thread, 0, sizeof(thread));
+  
   error = CommInit(pConfigMaster);
   if (error)
     {
-      perror("\nMain: Can't initialize Ethernet/Serial Interfaces");
-#ifdef PATDEBUG
-      fprintf(stderr,"COMMINIT Failed err %x\n", error);
-#endif
+      syslog(LOG_ERR,"\nMain: Can't initialize Ethernet/Serial Interfaces");
       free(pConfigMaster);
+      closelog();
       exit(EXIT_FAILURE);
     }
 	    
   if (pConfigMaster->gHEX == 0)
-    fprintf(stderr, "old binary serial I/O\n");
+    syslog(LOG_NOTICE, "old binary serial I/O\n");
   else if (pConfigMaster->gHEX == 1)
-    fprintf(stderr, "limited HEX serial I/O in ASCII hex\n");
+    syslog(LOG_NOTICE, "limited HEX serial I/O in ASCII hex\n");
   else if (pConfigMaster->gHEX == 2)
-    fprintf( stderr, "full HEX serial I/O in ASCII hex\n" );
+    syslog(LOG_NOTICE, "full HEX serial I/O in ASCII hex\n" );
 
-  fprintf(stderr, "tol %f", pConfigMaster->gArgTol);
-  fprintf( stderr, " period %d",  pConfigMaster->gPeriod );
-  fprintf( stderr, " QC %d",  pConfigMaster->gQCcount );
-  fprintf( stderr, " X %f",  gBeamLinearRangeX );
-  fprintf( stderr, " Y %f",  gBeamLinearRangeY );
-  fprintf( stderr, " baud %d\n",  GBAUD_DEFAULT);
-  fprintf( stderr, "   gSearchStepPeriod %d", pConfigMaster->gSrchStpPeriod);
-  fprintf( stderr, "   gTargetDrift %d\n",  gTargetDrift );
-  fprintf( stderr, " coarse step 0x%x",   gCoarseSearchStep );
-  fprintf( stderr, " spirals %d",   gNumberOfSpirals );
-  fprintf( stderr, " factor %d",   gCoarseFactor );
-  fprintf( stderr, " attempt %d\n",   gNumberOfSensorSearchAttempts );
-  fprintf( stderr, " triggerlevel %d\n",           gDELLEV );
-  fprintf( stderr, " factor spiral %d",   gSpiralFactor );
-  fprintf( stderr, " hatch %d\n",           gHatchFactor );
-  fprintf( stderr, " SuperFineCount %d",   gSuperFineCount );
-  fprintf( stderr, " SuperFineSkip %d",   gSuperFineSkip );
-  fprintf( stderr, " SuperFineFactor %d\n",   gSuperFineFactor );
-  fprintf( stderr, "fast %x",   gFastBabies );
-  fprintf( stderr, " (expo %d), ",       gFastExponent );
-  fprintf( stderr, "slow %x",   gSlowBabies );
-  fprintf( stderr, " (expo %d) ",       gSlowExponent );
-  fprintf( stderr, "dwell %d ",   gDwell );
-  fprintf( stderr, "gCentroid %d \n",   gCentroid );
-  fprintf( stderr, "MaxPiledPts %d ",   gMaxPiledPts );
-  fprintf( stderr, "MaxCos %f ",   gMaxCos );
-  fprintf( stderr, "LongToShort %f \n",   gLongToShort );
-  fprintf( stderr, "CurveInterpolation %f ",   gCurveMin );
-  fprintf( stderr, "QuickCheck %d ",   gQuickCheck );
-  fprintf( stderr, "MaxQuickSearches %d \n", gMaxQuickSearches);
-  fprintf( stderr, "MaxDiffMag %f ",   gMaxDiffMag );
-  fprintf( stderr, "MultipleSweeps %d ",   gMultipleSweeps );
-  fprintf( stderr, "webhostIP %s \n", pConfigMaster->webhost );
+  syslog(LOG_NOTICE, "tol %f", pConfigMaster->gArgTol);
+  syslog(LOG_NOTICE, " period %d",  pConfigMaster->gPeriod );
+  syslog(LOG_NOTICE, " QC %d",  pConfigMaster->gQCcount );
+  syslog(LOG_NOTICE, " X %f",  gBeamLinearRangeX );
+  syslog(LOG_NOTICE, " Y %f",  gBeamLinearRangeY );
+  syslog(LOG_NOTICE, " baud %d\n",  GBAUD_DEFAULT);
+  syslog(LOG_NOTICE, "   gSearchStepPeriod %d", pConfigMaster->gSrchStpPeriod);
+  syslog(LOG_NOTICE, "   gTargetDrift %d\n",  gTargetDrift );
+  syslog(LOG_NOTICE, " coarse step 0x%x",   gCoarseSearchStep );
+  syslog(LOG_NOTICE, " spirals %d",   gNumberOfSpirals );
+  syslog(LOG_NOTICE, " factor %d",   gCoarseFactor );
+  syslog(LOG_NOTICE, " attempt %d\n",   gNumberOfSensorSearchAttempts );
+  syslog(LOG_NOTICE, " triggerlevel %d\n",           gDELLEV );
+  syslog(LOG_NOTICE, " factor spiral %d",   gSpiralFactor );
+  syslog(LOG_NOTICE, " hatch %d\n",           gHatchFactor );
+  syslog(LOG_NOTICE, " SuperFineCount %d",   gSuperFineCount );
+  syslog(LOG_NOTICE, " SuperFineSkip %d",   gSuperFineSkip );
+  syslog(LOG_NOTICE, " SuperFineFactor %d\n",   gSuperFineFactor );
+  syslog(LOG_NOTICE, "fast %x",   gFastBabies );
+  syslog(LOG_NOTICE, " (expo %d), ",       gFastExponent );
+  syslog(LOG_NOTICE, "slow %x",   gSlowBabies );
+  syslog(LOG_NOTICE, " (expo %d) ",       gSlowExponent );
+  syslog(LOG_NOTICE, "dwell %d ",   gDwell );
+  syslog(LOG_NOTICE, "gCentroid %d \n",   gCentroid );
+  syslog(LOG_NOTICE, "MaxPiledPts %d ",   gMaxPiledPts );
+  syslog(LOG_NOTICE, "MaxCos %f ",   gMaxCos );
+  syslog(LOG_NOTICE, "LongToShort %f \n",   gLongToShort );
+  syslog(LOG_NOTICE, "CurveInterpolation %f ",   gCurveMin );
+  syslog(LOG_NOTICE, "QuickCheck %d ",   gQuickCheck );
+  syslog(LOG_NOTICE, "MaxQuickSearches %d \n", gMaxQuickSearches);
+  syslog(LOG_NOTICE, "MaxDiffMag %f ",   gMaxDiffMag );
+  syslog(LOG_NOTICE, "MultipleSweeps %d ",   gMultipleSweeps );
 
   doClearLinkLED(pConfigMaster);
   StopPulse(pConfigMaster); 
   if ((InitUserStuff (pConfigMaster)) < 0)
     {
-      perror("\nINIT: Malloc failure");
+      syslog(LOG_ERR,"\nINIT: Malloc failure");
       ags_cleanup(pConfigMaster);
+      closelog();
       exit(EXIT_FAILURE);
     }
   SlowDownAndStop (pConfigMaster);
@@ -244,12 +285,24 @@ int main ( int argc, char **argv )
   // Set up program to capter user-entered signals
   if ((main_capture_signals()) < 0)
     {
-      perror("\nSIGACT failure");
+      syslog(LOG_ERR,"\nSIGACT failure");
       ags_cleanup(pConfigMaster);
+      closelog();
       exit(EXIT_FAILURE);
     }
   // The main loop should never really exit.
-  fprintf(stderr, "\nWaiting to Accept packets from %s", pConfigMaster->webhost);
+  syslog(stderr, "\nWaiting to Accept packets");
+  // Before jumping into main loop, start background thread
+  // will is only used for updating hobbs counters once every 2 hours
+  thread_data[0].pLgMaster = pConfigMaster;
+  if (pthread_create(&thread[0], NULL, ags_bkgd_proc, (void *) &thread_data[0]))
+    {
+      syslog(stdout, "Error creating thread\n");
+      ags_cleanup(pConfigMaster);
+      closelog();
+      exit(EXIT_FAILURE);
+    }
+
   while (SystemGoAhead() && UserGoAhead())
     {
       if (pConfigMaster->serial_ether_flag == 2)
@@ -261,18 +314,21 @@ int main ( int argc, char **argv )
 	    {
 	      if (pConfigMaster->enet_retry_count != COMM_MAX_ENET_RETRIES)
 		{
-		  fprintf(stderr, "\nCOMMLOOP: Read data failure, err = %x, try to re-open", error);
+		  syslog(LOG_ERR, "\nCOMMLOOP: Read data failure, err = %x, try to re-open", error);
 		  // Try to open Comms interface to PC host
 		  if ((CommConfigSockfd(pConfigMaster)) < 0)
 		    {
-		      fprintf( stderr, "\nCOMMLOOP: Unable to restart Comms, shutting down\n");
-		      return(error);
+		      syslog(LOG_ERR, "\nCOMMLOOP: Unable to restart Comms, shutting down\n");
+		      ags_cleanup(pConfigMaster);
+		      closelog();
+		      exit(EXIT_FAILURE);
 		    }
 		}
 	      else
 		{
-		  fprintf( stderr, "\nCOMMLOOP: Exceeded Comm restart retry count, shutting down\n");
+		  syslog(LOG_ERR, "\nCOMMLOOP: Exceeded Comm restart retry count, shutting down\n");
 		  ags_cleanup(pConfigMaster);
+		  closelog();
 		  exit(EXIT_FAILURE);
 		}
 	    }
@@ -281,8 +337,9 @@ int main ( int argc, char **argv )
 
   FlashLed(pConfigMaster, 7);
   // Clean up AGS specific stuff before exiting
-  fprintf( stderr, "\nShutting down do to System or User interrupt\n");
+  syslog(LOG_NOTICE, "\nShutting down do to System or User interrupt\n");
   ags_cleanup(pConfigMaster);
+  closelog();
   exit(EXIT_SUCCESS);
 }
 

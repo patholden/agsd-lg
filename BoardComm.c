@@ -5,6 +5,7 @@ static char rcsid[] = "$Id: BoardComm.c,v 1.36 2007/03/30 20:13:58 pickle Exp pi
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <stddef.h>
 #include <errno.h>
@@ -41,8 +42,8 @@ static char rcsid[] = "$Id: BoardComm.c,v 1.36 2007/03/30 20:13:58 pickle Exp pi
 
 static time_t start_QC_timer;
 static time_t end_QC_timer;
-static char   *tmp_pattern=0;
-static char   *out_pattern=0;
+static struct lg_xydata *tmp_pattern=0;
+static struct lg_xydata *out_pattern=0;
 
 uint32_t  gRespondToWhom = kDoNotRespond;
 
@@ -85,152 +86,165 @@ static void SaveBeamPosition(struct lg_master *pLgMaster, char *data);
 void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, uint32_t respondToWhom)
 {
   struct k_header pRespHdr;
-  struct lg_xydata xydata;
-  double         n, dx, dy, dsqr, dlen;
-  char           *wr_ptr;
-  uint32_t       *out32;
-  uint32_t       *tmp32;
+  struct lg_xydata first_xypos;
+  struct lg_xydata cur_xypos;
+  struct lg_xydata last_xypos;
+  struct lg_xydata *pXYout;
+  struct lg_xydata *pXYtmp;
   struct cmd_rw  *cmd_buff;
-  int32_t        Npoints;
-  uint32_t       xout;
-  uint32_t       yout;
+  double         n,dx,dy,dsqr,dlen;
+  uint32_t       i,j,k,count;
+  uint32_t       Npoints;
   uint32_t       ptn_len;
-  int            last_xpos;
-  int            last_ypos;
-  int            cur_xpos;
-  int            cur_ypos;
-  int            xstep, ystep;
-  int            i, j, k, count;
-  int            first_xpos;
-  int            first_ypos;
+  int32_t        xout;
+  int32_t        yout;
+  int32_t        xstep, ystep;
+  uint8_t        cur_flags;
 
+  // Prepare for response back to PC host
   memset((char *)pLgMaster->theResponseBuffer, 0, sizeof(struct parse_basic_resp));
+  // Check input data
   if (!p_dispdata)
     return;
 
-  wr_ptr = (char *)p_dispdata->sensorAngles;
-  ptn_len = pLgMaster->patternLength;
-  if (!wr_ptr || !ptn_len || (ptn_len > MAX_DATA))
+  ptn_len = pLgMaster->gBuiltPattern;
+  if (!p_dispdata->pattern || !ptn_len || (ptn_len > MAX_LG_BUFFER))
     {
       ROIoff(pLgMaster);
       initQCcounter(pLgMaster);
-      if (!wr_ptr || !ptn_len)
+      if (!p_dispdata->pattern || !ptn_len)
 	{
 	  pRespHdr.status = RESPGOOD;
 	  DoRespond (pLgMaster, (struct k_header *)&pRespHdr);
 	}
       else
 	{
+	  // Only fail if trying to display more than driver can handle.
+	  // Can get here to display nothing too for some reason
 	  pRespHdr.status = RESPFAIL;
 	  DoRespond (pLgMaster, (struct k_header *)&pRespHdr);
 	}
       return;
     }
-  out32 = (uint32_t *)out_pattern;
-  tmp32 = (uint32_t *)tmp_pattern;
-  if (!out32 || !tmp32)
-    return;
 
-  memset(tmp_pattern, 0, MAX_LG_BUFFER);
-  memset(out_pattern, 0, MAX_LG_BUFFER);
-  memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+  // Set up buffer for laser-dev data  
   cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
   if (!cmd_buff)
     return;
 
+  // Initialize all buffers to be used
   memset((char *)cmd_buff, 0, sizeof(struct cmd_rw));
+  memset(tmp_pattern, 0, MAX_LG_BUFFER);
+  memset(out_pattern, 0, MAX_LG_BUFFER);
+
+  // Send initial commands to laser-dev
   ROIoff(pLgMaster);
   setROIlength(pLgMaster, 0);
   if ( gVideoCheck == 0 )
     initQCcounter(pLgMaster);
 
-  memcpy (tmp_pattern, wr_ptr, ptn_len);
+  // Get pattern data
+  memcpy (tmp_pattern, (char *)p_dispdata->pattern, ptn_len);
 
   // Send delta for first xy val
-  xydata.xdata = (uint16_t)(tmp32[0] & kMaxUnsigned);
-  xydata.ydata = (uint16_t)(tmp32[1] & kMaxUnsigned);
-  move_dark(pLgMaster, (struct lg_xydata *)&xydata);
-  last_xpos = tmp32[0];
-  last_ypos = tmp32[1];
-  first_xpos = tmp32[0];
-  first_ypos = tmp32[1];
+  pXYtmp = (struct lg_xydata *)tmp_pattern;
+  move_dark(pLgMaster, pXYtmp);
+
+  // Start with first & last pointing to initial XY points
+  first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
+  first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
   j = 0;
   count = 0;
-  Npoints = ptn_len / 8;
-  for (i=0; i < Npoints; i++)
+  Npoints = ptn_len / sizeof(struct lg_xydata);
+  for (i=1; i < Npoints; i++)
     {
-      cur_xpos = tmp32[2*i+0];
-      cur_ypos = tmp32[2*i+1];
-      out32[2*j+0] = last_xpos;
-      out32[2*j+1] = last_ypos;
+      pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
+      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+      cur_xypos.xdata = pXYtmp->xdata;
+      cur_xypos.ydata = pXYtmp->ydata;
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"PostCmdDisplay: current x=%d, y=%d",cur_xypos.xdata,cur_xypos.ydata);
+#endif
+      cur_flags = pXYtmp->ctrl_flags;
+      pXYout->xdata = last_xypos.xdata;
+      pXYout->ydata = last_xypos.ydata;
+      pXYout->ctrl_flags = pXYtmp->ctrl_flags;
       j++;
       count++;
-      dx = (double)(cur_xpos - last_xpos);
-      dy = (double)(cur_ypos - last_ypos);
+      dx = (double)(cur_xypos.xdata - last_xypos.xdata);
+      dy = (double)(cur_xypos.ydata - last_xypos.ydata);
       dsqr = dx*dx + dy*dy;
-      dlen = sqrt( dsqr );
+      dlen = sqrt(dsqr);
+      cur_flags = pXYtmp->ctrl_flags;
       if (dlen > pLgMaster->dmax)
 	{
 	  n = ((dlen / pLgMaster->dmax) + 0.001);
 	  n += 2.0;
-	  xstep =  (int)(dx / n) & kMaxUnsigned;
-	  ystep =  (int)(dy / n) & kMaxUnsigned;
-	  for (k = 0; k < n ; k++)
+	  xstep =  (int32_t)(dx / n);
+	  ystep =  (int32_t)(dy / n);
+	  for (k = 0; k < n; k++)
 	    {
-	      xout = last_xpos + k * (int)xstep;
-	      yout = last_ypos + k * (int)ystep;
-	      out32[2*j+0] = xout;
-	      out32[2*j+1] = yout;
+	      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+	      xout = last_xypos.xdata + (k * xstep);
+	      yout = last_xypos.ydata + (k * ystep);
+	      pXYout->xdata = (int16_t)(xout & kMaxSigned);
+	      pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	      pXYout->ctrl_flags = cur_flags;
 	      j++;
 	      count++;
 	    }
 	}
-      last_xpos = cur_xpos;
-      last_ypos = cur_ypos;
+      last_xypos.xdata = cur_xypos.xdata;
+      last_xypos.ydata = cur_xypos.ydata;
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"PostCmdDisplay: first xy=%d,%dlast x=%d, y=%d",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
+#endif
     }
-  out32[2*j+0] = last_xpos;
-  out32[2*j+1] = last_ypos;
+  pXYout->xdata = last_xypos.xdata;
+  pXYout->ydata = last_xypos.ydata;
+  pXYout->ctrl_flags = cur_flags;
   j++;
   count++;
-  dx = first_xpos - last_xpos;
-  dy = first_ypos - last_ypos;
+  dx = first_xypos.xdata - last_xypos.xdata;
+  dy = first_xypos.ydata - last_xypos.ydata;
   dsqr = dx*dx + dy*dy;
-  if ( dsqr > (pLgMaster->dmax * pLgMaster->dmax))
+  if (dsqr > (pLgMaster->dmax * pLgMaster->dmax))
     {
-      n = (int) (sqrt((double)(dsqr / pLgMaster->dmax)));
-    n++; n++;
-    xstep =  (int)(dx / n) & kMaxUnsigned;
-    ystep =  (int)(dy / n) & kMaxUnsigned;
-    for ( k = 0; k < n ; k++ ) {
-      xout = last_xpos + k * xstep;
-      yout = last_ypos + k * ystep;
-      out32[2*j+0] = xout;
-      out32[2*j+1] = yout;
-      j++;
-      count++;
+      n = (sqrt((double)(dsqr / pLgMaster->dmax)));
+      n+= 2.0;
+      xstep =  (int32_t)(dx / n);
+      ystep =  (int32_t)(dy / n);
+      for (k = 0; k < n ; k++)
+	{
+	  xout = last_xypos.xdata + (k * xstep);
+	  yout = last_xypos.ydata + (k * ystep);
+	  pXYout->xdata = (int16_t)(xout & kMaxSigned);
+	  pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	  pXYout->ctrl_flags = cur_flags;
+	  j++;
+	  count++;
+	}
     }
-  }
   Npoints  = count;
-  ptn_len = 8 * Npoints;
-
-  memcpy(wr_ptr, out_pattern, ptn_len);  // Update sensor buffer
-  SaveBeamPosition(pLgMaster, wr_ptr);
-  memcpy(cmd_buff, out_pattern, ptn_len);
+  ptn_len = Npoints * sizeof(struct lg_xydata);
+  
+  SaveBeamPosition(pLgMaster, (char *)out_pattern);
+  memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, ptn_len);
   cmd_buff->base.cmd = CMDW_BUFFER;
   cmd_buff->base.length = ptn_len;
-  write( pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
+  write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
 #ifdef PATDEBUG
-  fprintf(stderr,"\nPostCmdDisp: writing to device, len %d",ptn_len);
+  syslog(LOG_DEBUG,"\nPostCmdDisplay: wrote to device, len %d, Npoints %d",ptn_len,Npoints);
+  syslog(LOG_DEBUG,"\nPostCmdDisplay: first xy=%d,%d last xy=%d,%d",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
 #endif
-  doLoadWriteNum(pLgMaster, Npoints);
+  free(cmd_buff);
+  doLoadWriteNum(pLgMaster, ptn_len);
   if ( gVideoCheck == 0 )
     SaveAnglesForQuickCheck(p_dispdata, kRespondExtern );
   doSetClock(pLgMaster, pLgMaster->gPeriod);
   StartHobbs(pLgMaster);
   pLgMaster->gDisplayFlag = 1;
   doDevDisplay(pLgMaster);
-  // reset display period to the default value (75 usec)
-  pLgMaster->gPeriod = KETIMER_75U;
 
   pRespHdr.status = RESPGOOD;
   if (pLgMaster->gOutOfRange.errtype1 || pLgMaster->gOutOfRange.errtype2)
@@ -246,38 +260,31 @@ void PostCmdDispNoResp(struct lg_master *pLgMaster, struct displayData *p_dispda
 {
   struct k_header pRespHdr;
   struct lg_xydata xydata;
-  double          n, dx, dy, dsqr, dlen;
-  char            *wr_ptr;
-  uint32_t        *out32;
-  uint32_t        *tmp32;
-  struct cmd_rw   *cmd_buff;
-  int32_t         Npoints;
-  uint32_t        xout;
-  uint32_t        yout;
-  uint32_t        ptn_len;
-  int             xstep, ystep;
-  int             last_xpos;
-  int             last_ypos;
-  int             cur_xpos;
-  int             cur_ypos;
-  int             i, j, k, count;
-  int             first_xpos;
-  int             first_ypos;
+  struct lg_xydata first_xypos;
+  struct lg_xydata cur_xypos;
+  struct lg_xydata last_xypos;
+  double           n,dx,dy,dsqr,dlen;
+  struct cmd_rw    *cmd_buff;
+  struct lg_xydata *pXYtmp;
+  struct lg_xydata *pXYout;
+  uint32_t         Npoints;
+  uint32_t         ptn_len;
+  uint32_t         i,j,k,count;
+  int32_t          xout;
+  int32_t          yout;
+  int32_t          xstep, ystep;
+  uint8_t          cur_flags;
 
   if (!p_dispdata || !pLgMaster)
     return;
 
   memset((char *)pLgMaster->theResponseBuffer, 0, sizeof(struct parse_basic_resp));
-  wr_ptr = (char *)p_dispdata->sensorAngles;
-  ptn_len = pLgMaster->patternLength;
-  if (!wr_ptr || !ptn_len || (ptn_len > MAX_DATA))
+  ptn_len = pLgMaster->gBuiltPattern;
+  if (!p_dispdata->pattern || !ptn_len || (ptn_len > MAX_LG_BUFFER))
     {
-#ifdef PATDEBUG
-      fprintf(stderr,"\nPOSTCMD:  NORESP, Turn off ROI, InitQC");
-#endif
       ROIoff(pLgMaster);
       initQCcounter(pLgMaster);
-      if (!wr_ptr || !ptn_len)
+      if (!p_dispdata->pattern || !ptn_len)
 	{
 	  pRespHdr.status = RESPGOOD;
 	  DoRespond (pLgMaster, (struct k_header *)&pRespHdr);
@@ -285,19 +292,12 @@ void PostCmdDispNoResp(struct lg_master *pLgMaster, struct displayData *p_dispda
       else
 	{
 	  pRespHdr.status = RESPFAIL;
-	  fprintf(stderr,"\nKDISP-WRSP:  BAD LENGTH %d", ptn_len);
+	  syslog(LOG_ERR,"\nKDISP-WRSP:  BAD LENGTH %d", ptn_len);
 	  DoRespond (pLgMaster, (struct k_header *)&pRespHdr);
 	}
       return;
     }
-  out32 = (uint32_t *)out_pattern;
-  tmp32 = (uint32_t *)tmp_pattern;
-  if (!out32 || !tmp32)
-    return;
 
-#ifdef PATDEBUG
-  fprintf(stderr,"\nGOT INTO POSTCMDDISPNORESP");
-#endif
   cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
   if (!cmd_buff)
     return;
@@ -312,99 +312,107 @@ void PostCmdDispNoResp(struct lg_master *pLgMaster, struct displayData *p_dispda
   if (gVideoCheck == 0)
     initQCcounter(pLgMaster);
 
-  memcpy ((char *)&tmp32[0], wr_ptr, ptn_len);
+  memcpy ((char *)tmp_pattern, (char *)p_dispdata->pattern, ptn_len);
 
   // Send delta for first xy val
-  xydata.xdata = (uint16_t)(tmp32[0] & kMaxUnsigned);
-  xydata.ydata = (uint16_t)(tmp32[1] & kMaxUnsigned);
+  pXYtmp = (struct lg_xydata *)tmp_pattern;
+  pXYout = (struct lg_xydata *)out_pattern;
+  cur_flags = pXYtmp->ctrl_flags;
+  xydata.xdata = pXYtmp->xdata;
+  xydata.ydata = pXYtmp->ydata;
   move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 
-  last_xpos = tmp32[0];
-  last_ypos = tmp32[1];
-  first_xpos = tmp32[0];
-  first_ypos = tmp32[1];
+  // Set first/last positions
+  first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
+  first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
   j = 0;
   count = 0;
-  Npoints = ptn_len / 8;
-  for (i=0; i < Npoints; i++)
+  Npoints = ptn_len / sizeof(struct lg_xydata);
+  for (i=1; i < Npoints; i++)
     {
-      cur_xpos = tmp32[2*i+0];
-      cur_ypos = tmp32[2*i+1];
-      out32[2*j+0] = last_xpos;
-      out32[2*j+1] = last_ypos;
+      pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
+      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * i));
+      cur_xypos.ydata = pXYtmp->xdata;
+      cur_xypos.ydata = pXYtmp->ydata;
+      cur_flags = pXYtmp->ctrl_flags;
+      pXYout->xdata = last_xypos.xdata;
+      pXYout->ydata = last_xypos.ydata;
       j++;
       count++;
-      dx = (double)(cur_xpos - last_xpos);
-      dy = (double)(cur_ypos - last_ypos);
+      dx = (double)(cur_xypos.xdata - last_xypos.xdata);
+      dy = (double)(cur_xypos.xdata - last_xypos.ydata);
       dsqr = dx*dx + dy*dy;
-      dlen = sqrt( dsqr );
+      dlen = sqrt(dsqr);
       if (dlen > pLgMaster->dmax)
 	{
 	  n = dlen / pLgMaster->dmax;
 	  n += 2.0;
-	  xstep =  (int)(dx / n) & kMaxUnsigned;
-	  ystep =  (int)(dy / n) & kMaxUnsigned;
+	  xstep =  (int32_t)(dx / n);
+	  ystep =  (int32_t)(dy / n);
 	  for (k = 0; k < n ; k++)
 	    {
-	      xout = last_xpos + k * (int)xstep;
-	      yout = last_ypos + k * (int)ystep;
-	      out32[2*j+0] = xout;
-	      out32[2*j+1] = yout;
+	      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+	      xout = (int32_t)(last_xypos.xdata + (k * xstep));
+	      yout = (int32_t)(last_xypos.ydata + (k * ystep));
+	      pXYout->xdata = (int16_t)(xout & kMaxSigned);
+	      pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	      pXYout->ctrl_flags = cur_flags;
 	      j++;
 	      count++;
 	    }
 	}
-      last_xpos = cur_xpos;
-      last_ypos = cur_ypos;
+      last_xypos.xdata = cur_xypos.xdata;
+      last_xypos.ydata = cur_xypos.ydata;
     }
-  out32[2*j+0] = last_xpos;
-  out32[2*j+1] = last_ypos;
+  // Set last position
+  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+  pXYout->xdata = last_xypos.xdata;
+  pXYout->ydata = last_xypos.ydata;
+  pXYout->ctrl_flags = cur_flags;
   j++;
   count++;
-  dx = first_xpos - last_xpos;
-  dy = first_ypos - last_ypos;
+  dx = (double)(first_xypos.xdata - last_xypos.xdata);
+  dy = (double)(first_xypos.ydata - last_xypos.ydata);
   dsqr = dx*dx + dy*dy;
   if (dsqr > (pLgMaster->dmax * pLgMaster->dmax))
     {
       n = sqrt(dsqr / pLgMaster->dmax);
       n++; n++;
-      xstep =  (int)(dx / n) & kMaxUnsigned;
-      ystep =  (int)(dy / n) & kMaxUnsigned;
+      xstep =  (int32_t)(dx / n);
+      ystep =  (int32_t)(dy / n);
       for (k = 0; k < n; k++)
 	{
-	  xout = last_xpos + k * xstep;
-	  yout = last_ypos + k * ystep;
-	  out32[2*j+0] = xout;
-	  out32[2*j+1] = yout;
+	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+	  xout = last_xypos.xdata + (k * xstep);
+	  yout = last_xypos.ydata + (k * ystep);
+	  pXYout->xdata = (int16_t)(xout & kMaxSigned);
+	  pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	  pXYout->ctrl_flags = cur_flags;
 	  j++;
 	  count++;
 	}
     }
   Npoints  = count;
-  ptn_len = 8 * Npoints;
-  
-  memcpy (wr_ptr, (char *)&out32[0], ptn_len);
-  SaveBeamPosition(pLgMaster, wr_ptr);
-#ifdef PATDEBUG
-  fprintf(stderr,"\nPOSTCMDDISPNORESP: GOT PAST MEMCPY INTO WR_PTR, len %d",ptn_len);
-#endif
+  ptn_len = Npoints * sizeof(struct lg_xydata);
+  SaveBeamPosition(pLgMaster, (char *)out_pattern);
 
   // Don't send if too much data for laser-dev to handle
-  if (ptn_len > MAX_LGDEV_BUFF)
+  if (ptn_len > MAX_LG_BUFFER)
     {
       pRespHdr.status = RESPFAIL;
       DoRespond(pLgMaster, (struct k_header *)&pRespHdr);
       return;
     }
-  memcpy(cmd_buff, (char *)&out32[0], ptn_len);
+  memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, ptn_len);
   cmd_buff->base.cmd = CMDW_BUFFER;
   cmd_buff->base.length = ptn_len;
-  write( pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
+  write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
+  free(cmd_buff);
 #ifdef PATDEBUG
-  fprintf(stderr,"\nPOSTCMDDISPNORESP: GOT PAST WRITE TO LASERDEV, len %d",ptn_len);
+  syslog(LOG_DEBUG,"\nPostCmdDispNoRsp: wrote to device, len %d",ptn_len);
+  syslog(LOG_DEBUG,"\nPostCmdDispNoRsp: first xy=%d,%d last xy=%d,%d",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
 #endif
-  fprintf(stderr,"\nPostCmdDispNoRsp: writing to device, len %d",ptn_len);
-  doLoadWriteNum(pLgMaster, Npoints);
+  doLoadWriteNum(pLgMaster, ptn_len);
   if ( gVideoCheck == 0 ) {
     SaveAnglesForQuickCheck(p_dispdata, kRespondExtern );
   }
@@ -434,7 +442,7 @@ void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData
   move_lite(pLgMaster, pAngleData);
   SetHighBeam(pAngleData);
 #ifdef PATDEBUG
-  fprintf(stderr,"\nxPOSTETHER: TODEV xdata %d, ydata %d, flags %x", pAngleData->xdata, pAngleData->ydata, pAngleData->ctrl_flags);
+  syslog(LOG_DEBUG,"\nxPOSTETHER: TODEV xdata %d, ydata %d, flags %x", pAngleData->xdata, pAngleData->ydata, pAngleData->ctrl_flags);
 #endif
   doWriteDevPoints(pLgMaster, pAngleData);
   DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
@@ -450,7 +458,7 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
   move_lite(pLgMaster, pAngleData);
   SetHighBeam(pAngleData);
 #ifdef PATDEBUG
-  fprintf(stderr,"\nxdata %d,ydata %d, ctrlflg %d",pAngleData->xdata,pAngleData->ydata, pAngleData->ctrl_flags);
+  syslog(LOG_DEBUG,"\nGOANGLE: xdata %d,ydata %d, ctrlflg %d",pAngleData->xdata,pAngleData->ydata, pAngleData->ctrl_flags);
 #endif
   doWriteDevPoints(pLgMaster, pAngleData);
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
@@ -462,11 +470,8 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
   struct lg_xydata   xydata;
   struct k_header    gResponseBuffer;
   struct displayData *dispData;
-  char               *wr_ptr;
-  uint32_t           *data32;
-  uint32_t           *out32;
-  uint32_t           *tmp32;
   struct cmd_rw      *cmd_buff;
+  struct lg_xydata   *pXYData;
   int32_t            Npoints;
   uint32_t           ptn_len;
   
@@ -476,12 +481,9 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
   pLgMaster->gDisplayFlag = 0;
   gRespondToWhom = respondToWhom;
   
-  out32 = (uint32_t *)out_pattern;
-  tmp32 = (uint32_t *)tmp_pattern;
-
-  if (!pLgMaster || !out32 || !tmp32)
+  if (!pLgMaster)
     {
-      fprintf(stderr,"POSTCMD:  BAD POINTER %d",theCommand);
+      syslog(LOG_ERR,"POSTCMD:  BAD POINTER %d",theCommand);
       return;
     }
   switch ( theCommand )
@@ -509,13 +511,12 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
         break;
     case kDisplayVideoCheck:
 	dispData = (struct displayData *)data;
-	wr_ptr = (char *)dispData->sensorAngles;
-	if (!wr_ptr)
+	if (!dispData->pattern)
 	  return;
-      ptn_len = pLgMaster->patternLength;
-      if (ptn_len > MAX_DATA)
+      ptn_len = pLgMaster->gBuiltPattern;
+      if (ptn_len > MAX_LG_BUFFER)
 	{
-	  fprintf(stderr,"\nKDISP-VCHK:  BAD LENGTH %d", ptn_len);
+	  syslog(LOG_ERR,"\nKDISP-VCHK:  BAD LENGTH %d", ptn_len);
 	  return;
 	  }
       cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
@@ -527,14 +528,17 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       setROIlength(pLgMaster, 0);
       gQuickCheckCounterStart = -1;
       initQCcounter(pLgMaster);   /* never quick check */
-      Npoints = ptn_len / 8;
+      Npoints = ptn_len / sizeof(struct lg_xydata);
           
-      SaveBeamPosition(pLgMaster, wr_ptr);
-      memcpy(cmd_buff, wr_ptr, ptn_len);
+      SaveBeamPosition(pLgMaster, (char *)dispData->pattern);
+      memcpy((char *)&cmd_buff->xydata[0], (char *)dispData->pattern, ptn_len);
       cmd_buff->base.cmd = CMDW_BUFFER;
       cmd_buff->base.length = ptn_len;
       write( pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
-      fprintf(stderr,"\nPostCmdVideo: writing to device, len %d",ptn_len);
+      free(cmd_buff);
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"\nPostCmdVideo: writing to device, len %d",ptn_len);
+#endif
       doLoadWriteNum(pLgMaster, Npoints);
       
       doSetClock(pLgMaster, pLgMaster->gPeriod);
@@ -553,17 +557,16 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       } 
       DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
       break;
-      case kGoAngle:
-        break;
     case kDarkAngle:
-      data32 = (uint32_t *)&data[0];
-      if (!data32)
-	return;
       doSetClock(pLgMaster, KETIMER_10M);
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
-      xydata.xdata = (data32[0] & kMaxUnsigned);
-      xydata.ydata = (data32[1] & kMaxUnsigned);
+      pXYData = (struct lg_xydata *)data;
+      xydata.xdata = pXYData->xdata & kMaxSigned;
+      xydata.ydata = pXYData->ydata & kMaxSigned;
       move_dark(pLgMaster, (struct lg_xydata *)&xydata);
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"\nDARKANGLE: x=%d,y=%d",pXYData->xdata, pXYData->ydata);
+#endif
       doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
       gResponseBuffer.status = RESPGOOD;
       DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
@@ -577,13 +580,12 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       if (!data)
 	return;
       dispData = (struct displayData *)data;
-      wr_ptr = (char *)dispData->sensorAngles;
-      if (!wr_ptr)
+      if (!dispData->pattern)
 	return;
-      ptn_len = pLgMaster->patternLength;
-      if (ptn_len > MAX_DATA)
+      ptn_len = pLgMaster->gBuiltPattern;
+      if (ptn_len > MAX_LG_BUFFER)
 	{
-	  fprintf(stderr,"\nKDISP-NOQCHK:  BAD LENGTH %d", ptn_len);
+	  syslog(LOG_ERR,"\nKDISP-NOQCHK:  BAD LENGTH %d", ptn_len);
 	  return;
 	}
       cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
@@ -595,14 +597,17 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       setROIlength(pLgMaster, 0);
       gQuickCheckCounterStart = -1;
       initQCcounter(pLgMaster);   /* never quick check */
-      Npoints = ptn_len / 8;
+      Npoints = ptn_len / sizeof(struct lg_xydata);
           
-      SaveBeamPosition(pLgMaster, wr_ptr);
-      memcpy(cmd_buff, wr_ptr, ptn_len);
+      SaveBeamPosition(pLgMaster, (char *)dispData->pattern);
+      memcpy((char *)&cmd_buff->xydata[0], (char *)dispData->pattern, ptn_len);
       cmd_buff->base.cmd = CMDW_BUFFER;
       cmd_buff->base.length = ptn_len;
-      write( pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
-      fprintf(stderr,"\nPostCmdQChk: writing to device, len %d",ptn_len);
+      write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
+      free(cmd_buff);
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"\nPostCmdQChk: wrote to device, len %d",ptn_len);
+#endif
       doLoadWriteNum(pLgMaster, Npoints);
       doSetClock(pLgMaster, pLgMaster->gPeriod);
       StartHobbs(pLgMaster);
@@ -661,8 +666,7 @@ int InitBoard (struct lg_master *pLgMaster)
   pLgMaster->fd_laser = open("/dev/laser", O_RDWR);
   if (pLgMaster->fd_laser < 0)
     {
-      fprintf(stderr,"\nlaser device %d not opened,errno %d", pLgMaster->fd_laser, errno);
-      perror( "/dev/laser" );
+      syslog(LOG_ERR,"\nlaser device %d not opened,errno %d", pLgMaster->fd_laser, errno);
       return(-1);
     }
   doLGSTOP(pLgMaster);
@@ -671,10 +675,10 @@ int InitBoard (struct lg_master *pLgMaster)
 
   // initialize buffers
 
-  tmp_pattern = malloc(MAX_LG_BUFFER);
+  tmp_pattern = (struct lg_xydata *)malloc(MAX_LG_BUFFER);
   if (!tmp_pattern)
     return(-2);
-  out_pattern = malloc(MAX_LG_BUFFER);
+  out_pattern = (struct lg_xydata *)malloc(MAX_LG_BUFFER);
   if (!out_pattern)
     return(-3);
   return(0);
@@ -687,6 +691,9 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     int        count, blank;
     int        optic_status=0;
 
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"\nLINESEARCH: Writing x %d, y %d", pSrchData->xdata,pSrchData->ydata);
+#endif
     itest = doWriteDevPoints(pLgMaster, pSrchData);
     if (itest)
       return(itest);
@@ -743,12 +750,14 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
 
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydata *pDeltaData, uint32_t n, uint32_t *c_out)
+		  struct lg_xydata *pDeltaData, uint32_t n, int32_t *c_out)
 {
   int itest, num;
   uint32_t index;
-  unsigned short searchbuff[65536];
+  unsigned short searchbuff[MAX_DIODE_BUFFER];
 
+  memset((char *)&searchbuff[0], 0, sizeof(searchbuff));
+  
   itest = doWriteDevPoints(pLgMaster, pSrchData);
   if (itest && (errno != ENOTTY))
     return itest;
@@ -768,10 +777,6 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
   itest = EAGAIN;
   num = 0;
 
-  for ( index=0; index < n ; index++ ) {
-    searchbuff[index] = 0;
-  }
-
   while (itest == EAGAIN)
     {
       num = read( pLgMaster->fd_laser, (void *)searchbuff, 2*n);
@@ -781,7 +786,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 	itest = num;
     }
   for (index=0; index < n ; index++)
-    c_out[index] = (uint32_t)searchbuff[index];
+    c_out[index] = (int32_t)searchbuff[index];
   if ((searchbuff[0] == 0xA5) && (searchbuff[1] == 0x5A)
       && (searchbuff[2] == 0xA5) && (searchbuff[3] == 0x5A))
     {
@@ -798,7 +803,6 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 int SearchBeamOn(struct lg_master *pLgMaster)
 {
   doSetSearchBeam(pLgMaster);
-  usleep( 10000 );  /* pause a bit after turning on beam */
   return 0;
 }
 
@@ -818,7 +822,7 @@ int doWriteDevCmdNoData(struct lg_master *pLgMaster, uint32_t command)
 
   rc = write(pLgMaster->fd_laser, (char *)&command, sizeof(uint32_t));
   if (rc < 0)
-    fprintf(stderr,"\nCMDW-NODATA: cmd %d, ERROR rc%d, errno %d\n", command, rc, errno);
+    syslog(LOG_ERR,"\nCMDW-NODATA: cmd %d, ERROR rc%d, errno %d\n", command, rc, errno);
   return(rc);
 }
 int doLGSTOP(struct lg_master *pLgMaster)
@@ -871,7 +875,6 @@ int doClearReadyLED(struct lg_master *pLgMaster)
 }
 void doClearLinkLED(struct lg_master *pLgMaster)
 {
-  fprintf( stderr, " about to Clear Link LED\n" );
   doWriteDevCmdNoData(pLgMaster, CMDW_LINKLEDOFF);
   return;
 }
@@ -897,7 +900,7 @@ int doWriteDevCmd32(struct lg_master *pLgMaster, uint32_t command, uint32_t writ
   p_cmd_data->length = sizeof(uint32_t);
   rc = write(pLgMaster->fd_laser, (char *)p_cmd_data, sizeof(struct cmd_rw_base));
   if (rc < 0)
-    fprintf(stderr,"\nCMDW-VAL32: ERROR cmd %d, val %d, rc %d, errno %d\n", command, write_val, rc, errno);
+    syslog(LOG_ERR,"\nCMDW-VAL32: ERROR cmd %d, val %d, rc %d, errno %d\n", command, write_val, rc, errno);
   free(p_cmd_data);
   return(rc);
 }
@@ -916,7 +919,7 @@ int doWriteDevDelta(struct lg_master *pLgMaster, struct lg_xydata *pDelta)
   p_cmd_data->length = sizeof(struct lg_xydata);
   rc = write(pLgMaster->fd_laser, (char *)p_cmd_data, sizeof(struct cmd_rw_base));
   if (rc < 0)
-    fprintf(stderr,"\nCMDW-SETDELTA: ERROR xval %d, yval %d, rc %d, errno %d\n", pDelta->xdata, pDelta->ydata, rc, errno);
+    syslog(LOG_ERR,"\nCMDW-SETDELTA: ERROR xval %d, yval %d, rc %d, errno %d\n", pDelta->xdata, pDelta->ydata, rc, errno);
   free(p_cmd_data);
   return(rc);
 }
@@ -936,10 +939,7 @@ int doWriteDevPoints(struct lg_master *pLgMaster, struct lg_xydata *pPoints)
   p_cmd_data->length = sizeof(struct lg_xydata);
   rc = write(pLgMaster->fd_laser, (char *)p_cmd_data, sizeof(struct cmd_rw_base));
   if (rc < 0)
-    fprintf(stderr,"\nCMDW-GOANGLE: ERROR xval %d, yval %d, rc %d, errno %d\n", pPoints->xdata, pPoints->ydata, rc, errno);
-#ifdef PATDEBUG
-  fprintf(stderr,"\nCMDW-GOANGLE: cnt %d, xval %x, yval %x, flags %x\n", rc, pPoints->xdata, pPoints->ydata,pPoints->ctrl_flags);
-#endif
+    syslog(LOG_ERR,"\nCMDW-GOANGLE: ERROR xval %d, yval %d, rc %d, errno %d\n", pPoints->xdata, pPoints->ydata, rc, errno);
   free(p_cmd_data);
   return(rc);
 }
@@ -947,13 +947,13 @@ int doWriteDevPoints(struct lg_master *pLgMaster, struct lg_xydata *pPoints)
 void SetHighBeam(struct lg_xydata *pDevXYData)
 {
   // Set beam HIGH, set laser ENABLED
-  pDevXYData->ctrl_flags = BRIGHTISSET | UNBLANKISSET;
+  pDevXYData->ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
   return;
 }
 void SetLowBeam(struct lg_xydata *pDevXYData)
 {
   // Set beam LOW, keep laser enabled
-  pDevXYData->ctrl_flags = UNBLANKISSET;
+  pDevXYData->ctrl_flags = BEAMONISSET | LASERENBISSET;
 }
 int doLoadWriteNum(struct lg_master *pLgMaster, uint32_t write_count)
 {
@@ -998,7 +998,7 @@ int SetQCcounter(struct lg_master *pLgMaster, int count)
   
   itest = ApplyQCCounter(pLgMaster, count);
 #if defined(KITDEBUG)
-  fprintf( stderr, "SetCQ qcCounter %d\n", count);
+  syslog(LOG_NOTICE, "SetCQ qcCounter %d\n", count);
 #endif
   if (itest)
     return(itest);
@@ -1033,8 +1033,8 @@ int32_t GetQCflag(struct lg_master *pLgMaster)
 
 int32_t InitQCtimer(void)
 {
-  start_QC_timer = time((time_t *)NULL );
-  end_QC_timer = time((time_t *)NULL );
+  start_QC_timer = time(NULL);
+  end_QC_timer = time(NULL);
 
   return( 0 );
 }
@@ -1043,17 +1043,9 @@ int32_t GetQCtimer( void )
 {
             int32_t diff;
 
-            end_QC_timer = time((time_t *)NULL );
+            end_QC_timer = time(NULL);
 
             diff = (int32_t)(end_QC_timer - start_QC_timer);
-#ifdef ZDEBUG
-fprintf( stderr
-       , "BC1525 QCtime %d %d diff %d\n"
-       , end_QC_timer 
-       ,  start_QC_timer
-       , diff
-       );
-#endif
             return( diff );
 }
 
@@ -1090,8 +1082,6 @@ void RestoreBeamPosition(struct lg_master *pLgMaster)
 {
   move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
   doWriteDevPoints(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
-  // FIXME---PAT---Is this sleep necessary?
-  usleep( 10000 );
   return;
 }
 
@@ -1126,7 +1116,6 @@ int ROIoff (struct lg_master *pLgMaster)
   
   SearchBeamOff(pLgMaster);
   rc = doROIOff(pLgMaster);
-  usleep( 250000L );
   return(rc);
 }
 int setROIlength(struct lg_master *pLgMaster, int32_t half_pattern )
@@ -1139,9 +1128,9 @@ void FlashLed(struct lg_master *pLgMaster, int numFlash )
 
   for (i = 0; i < numFlash; i++)
     {
-      usleep( 250000U );
+      usleep(250000);
       doClearReadyLED(pLgMaster);
-      usleep( 250000U );
+      usleep(250000);
       doSetReadyLED(pLgMaster);
     }
   return;
@@ -1156,114 +1145,135 @@ void SlowDownAndStop(struct lg_master *pLgMaster)
   return;
 }
 
-void JustDoDisplay(struct lg_master *pLgMaster, char * wr_ptr, int pattern_len)
+void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 {
   struct  lg_xydata xydata;
-  int Npoints;
-  double n, dx, dy, dsqr, dlen;
-  int i,j,k;
-  int32_t last_xpos;
-  int32_t last_ypos;
-  int32_t cur_xpos;
-  int32_t cur_ypos;
-  int32_t first_xpos;
-  int32_t first_ypos;
-  int     count;
-  int     xstep, ystep;
-  uint32_t xout;
-  uint32_t yout;
+  struct  lg_xydata first_xypos;
+  struct  lg_xydata cur_xypos;
+  struct  lg_xydata last_xypos;
+  double   n, dx, dy, dsqr, dlen;
   uint32_t ptn_len;
-  uint32_t     *tmp32;
-  uint32_t     *out32;
+  uint32_t Npoints;
+  uint32_t i,j,k,count;
+  int32_t  xstep, ystep;
+  int32_t  xout;
+  int32_t  yout;
+  struct cmd_rw    *cmd_buff;
+  struct lg_xydata *pXYtmp;
+  struct lg_xydata *pXYout;
 
-  tmp32 = (uint32_t *)tmp_pattern;
-  out32 = (uint32_t *)out_pattern;
-  if (!tmp32 || !out32 || !wr_ptr)
+  if (!wr_ptr)
     return;
 
+  // Get a buffer to store laser-dev data
+  cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
+  if (!cmd_buff)
+    return;
+
+  // Initialize all buffers about to be used
+  memset((char *)cmd_buff, 0, sizeof(struct cmd_rw));
+  memset(tmp_pattern, 0, MAX_LG_BUFFER);
+  memset(out_pattern, 0, MAX_LG_BUFFER);
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+
+  // Set pattern length established in command arguments
   ptn_len = pattern_len;
 
   // Send new settings to laser-dev
   doLGSTOP(pLgMaster);
   doSetClock(pLgMaster, KETIMER_10M);
   doStopPulse(pLgMaster);
-  usleep( 10000 );
   ROIoff(pLgMaster);
   setROIlength(pLgMaster, 0);
   stopQCcounter(pLgMaster);   /* never quick check */
 
   // fault avoidance
-  Npoints = ptn_len / 8;
-  memcpy ((char *)tmp_pattern, wr_ptr, ptn_len);
-  xydata.xdata = tmp32[0] & kMaxUnsigned;
-  xydata.ydata = tmp32[1] & kMaxUnsigned;
+  Npoints = ptn_len / sizeof(struct lg_xydata);
+  memcpy((char *)tmp_pattern, wr_ptr, ptn_len);
+  pXYtmp = (struct lg_xydata *)tmp_pattern;
+  xydata.xdata = pXYtmp->xdata & kMaxSigned;
+  xydata.ydata = pXYtmp->ydata & kMaxSigned;
   move_dark(pLgMaster, (struct lg_xydata *)&xydata);
-  last_xpos = tmp32[0];
-  last_ypos = tmp32[1];
-  first_xpos = tmp32[0];
-  first_ypos = tmp32[1];
+
+  // Set first & last positions to initial pattern
+  first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
+  first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
   j = 0;
   count = 0;
   for (i=0; i < Npoints; i++)
     {
-      cur_xpos = tmp32[2*i+0];
-      cur_ypos = tmp32[2*i+1];
-      out32[2*j+0] = last_xpos;
-      out32[2*j+1] = last_ypos;
+      pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * j));
+      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+      cur_xypos.xdata = pXYtmp->xdata;
+      cur_xypos.ydata = pXYtmp->ydata;
+      pXYout->xdata = last_xypos.xdata;
+      pXYout->ydata = last_xypos.ydata;
       j++;
       count++;
-      dx = (double)cur_xpos - (double)last_xpos;
-      dy = (double)cur_ypos - (double)last_ypos;
+      dx = (double)(cur_xypos.xdata - last_xypos.xdata);
+      dy = (double)(cur_xypos.ydata - last_xypos.ydata);
       dsqr = dx*dx + dy*dy;
       dlen = sqrt( dsqr );
       if (dlen > pLgMaster->dmax)
 	{
-	  n = (int)(dlen / pLgMaster->dmax );
+	  n = dlen / pLgMaster->dmax;
 	  n += 2.0;
-	  xstep =  (int)(dx / n) & kMaxUnsigned;
-	  ystep =  (int)(dy / n) & kMaxUnsigned;
+	  xstep =  (int32_t)(dx / n);
+	  ystep =  (int32_t)(dy / n);
 	  for ( k = 0; k < n ; k++ ) {
-	    xout = last_xpos + k * (int)xstep;
-	    yout = last_ypos + k * (int)ystep;
-	    out32[2*j+0] = xout;
-	    out32[2*j+1] = yout;
+	    pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * j));
+	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) *j));
+	    xout = last_xypos.xdata + (k * xstep);
+	    yout = last_xypos.ydata + (k * ystep);
+	    pXYout->xdata = (int16_t)(xout & kMaxSigned);
+	    pXYout->ydata = (int16_t)(yout & kMaxSigned);
 	    j++;
 	    count++;
 	  }
 	}
-      last_xpos = cur_xpos;
-      last_ypos = cur_ypos;
+      last_xypos.xdata = cur_xypos.xdata;
+      last_xypos.ydata = cur_xypos.ydata;
     }
-  out32[2*j+0] = last_xpos;
-  out32[2*j+1] = last_ypos;
+  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+  pXYout->xdata = last_xypos.xdata;
+  pXYout->ydata = last_xypos.ydata;
   j++;
   count++;
   //  take care of jump between last and first points
-  dx = (double)(first_xpos - last_xpos);
-  dy = (double)(first_ypos - last_ypos);
+  dx = (double)(first_xypos.xdata - last_xypos.xdata);
+  dy = (double)(first_xypos.xdata - last_xypos.ydata);
   dsqr = dx*dx + dy*dy;
   if (dsqr > (pLgMaster->dmax * pLgMaster->dmax))
     {
-      n = (int) (sqrt((double)(dsqr / pLgMaster->dmax)));
-    n++; n++;
-    xstep =  (int)(dx / n) & kMaxUnsigned;
-    ystep =  (int)(dy / n) & kMaxUnsigned;
-    for ( k = 0; k < n ; k++ ) {
-      xout = last_xpos + k * xstep;
-      yout = last_ypos + k * ystep;
-      out32[2*j+0] = xout;
-      out32[2*j+1] = yout;
-      j++;
-      count++;
+      n = sqrt(dsqr / pLgMaster->dmax);
+      n+= 2.0;
+      xstep =  (int32_t)(dx / n);
+      ystep =  (int32_t)(dy / n);
+      for (k = 0; k < n ; k++)
+	{
+	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+	  xout = last_xypos.xdata + (k * xstep);
+	  yout = last_xypos.ydata + (k * ystep);
+	  pXYout->xdata = (int16_t)(xout & kMaxSigned);
+	  pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	  j++;
+	  count++;
+	}
     }
-  }
   Npoints  = count;
-  ptn_len = 8 * Npoints;
+  ptn_len = Npoints * sizeof(struct lg_xydata);
 
-//   fault avoidance
-  SaveBeamPosition(pLgMaster, out_pattern);
-  write( pLgMaster->fd_laser, out_pattern, ptn_len);
+  //   fault avoidance
+  SaveBeamPosition(pLgMaster, (char *)out_pattern);
+  memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, ptn_len);
+  cmd_buff->base.cmd = CMDW_BUFFER;
+  cmd_buff->base.length = ptn_len;
+  write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"JustDoDisplay:wrote to laser device len %d,points %d", ptn_len, Npoints); 
+  syslog(LOG_DEBUG,"JustDoDisplay: first xy=%x,%x last xy=%x,%x",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
+#endif
+  free(cmd_buff);
   doLoadWriteNum(pLgMaster, Npoints);
 
   doSetClock(pLgMaster, pLgMaster->gPeriod);
@@ -1285,7 +1295,6 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   // Can 4 writes to device be replaced with 1 single command?
   doLGSTOP(pLgMaster);
   doStopPulse(pLgMaster);
-  usleep( 2000 );
   ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
   dx = (double)(pNewData->xdata - xydata.xdata);
   dy = (double)(pNewData->ydata - xydata.ydata);
@@ -1297,8 +1306,8 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       n = dlen / pLgMaster->dmax;
       n += 60;
-      xydata.xdata =  (uint16_t)(dx / n) & kMaxUnsigned;
-      xydata.ydata =  (uint16_t)(dy / n) & kMaxUnsigned;
+      xydata.xdata =  (int16_t)(dx / n) & kMaxSigned;
+      xydata.ydata =  (int16_t)(dy / n) & kMaxSigned;
 
       rc = doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);
       if (rc)
@@ -1309,6 +1318,7 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
       rc = doSensor(pLgMaster);
       if (rc)
 	return(rc);
+      // FIXME---PAH---why is this sleep here?
       usleep( 2 * (int)n * 150  + 2000 );
     }
 
@@ -1327,8 +1337,6 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   /* move slowly from current position to start of pattern */
   doLGSTOP(pLgMaster);
   doStopPulse(pLgMaster);
-  // FIXME---PAH--Do we really need this sleep() call?
-  usleep( 20000 );
   doSetClock(pLgMaster, pLgMaster->gPeriod);
   ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
   dx = (double)(pNewData->xdata - xydata.xdata);
@@ -1339,8 +1347,8 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   n += 20;
   // Just re-use the struct, delta doesn't care about ctrl-flags
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
-  xydata.xdata =  (uint16_t)(dx / n) & kMaxUnsigned;
-  xydata.ydata =  (uint16_t)(dy / n) & kMaxUnsigned;
+  xydata.xdata =  (int16_t)(dx / n) & kMaxSigned;
+  xydata.ydata =  (int16_t)(dy / n) & kMaxSigned;
   rc = doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);
   if (rc)
     return(rc);
@@ -1354,9 +1362,12 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   if (rc)
     return(rc);
 
+#if 0
   // FIXME---PAH---why is this sleep here?
-  usleep( 2 * (int)n * 150  + 2000 );
+  // And why is clock changed mid operation?
+  usleep((2 * (int)n * 150) + 2000);
   doSetClock(pLgMaster, KETIMER_10M);
+#endif
   /* end of dark move */
   return(0);
 }
@@ -1365,21 +1376,14 @@ int CDRHflag(struct lg_master *pLgMaster)
 {
   int  optic_status=0;
 
-
-  // FIXME---PAH---NEED TO FIND OUT WHY STATUS IS NOT RETURNED
-  ioctl(pLgMaster->fd_laser, LGGETCTL2STAT &optic_status);
+  ioctl(pLgMaster->fd_laser, LGGETCTL2STAT, &optic_status);
   if (optic_status & CDRHBITMASK)
     { 
-      // shutter should be open
-      fprintf(stderr, "\nCDRHFlag:  optics %x, shutter OPEN\n", optic_status);
       doSetShutterENB(pLgMaster);
       return(0);
     }
 
-  // shutter is closed, not good!
-  fprintf(stderr, "\nCDRHFlag:  optics %x, shutter CLOSED\n", optic_status);
+  syslog(LOG_NOTICE, "\nCDRHFlag clear, try to CLOSE shutter\n");
   doClearShutterENB(pLgMaster);
-  
-  // return(1); 
-  return(0); 
+  return(1); 
 }

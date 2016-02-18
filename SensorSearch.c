@@ -24,6 +24,7 @@ static char rcsid[] = "$Id$";
 #include "comm_loop.h"
 #include "DoCoarseScan.h"
 #include "DoCoarseScan2.h"
+#include "LaserInterface.h"
 
 #define NZERO 5
 
@@ -72,199 +73,123 @@ int32_tsort( const void *elem1, const void *elem2 );
 
 static int
 findFirstLast(struct lg_master *pLgMaster,
-	      uint32_t *firstX,
-	      uint32_t *lastX,
-	      uint32_t *firstY,
-	      uint32_t *lastY,
+	      int32_t *firstX,
+	      int32_t *lastX,
+	      int32_t *firstY,
+	      int32_t *lastY,
 	      int32_t *medianX,
 	      int32_t *medianY,
-	      uint32_t currentX,
-	      uint32_t currentY,
+	      int32_t currentX,
+	      int32_t currentY,
 	      uint32_t xStep,
 	      uint32_t yStep,
 	      uint32_t nSteps);
 
-static int DoFineLevel ( struct lg_master *pLgMaster,
-			 uint32_t *foundX
-			 , uint32_t *foundY
-			 , double * outMinX
-			 , double * outMinY
-			 , double * outMaxX
-			 , double * outMaxY
-			 )
+static int DoFineLevel(struct lg_master *pLgMaster, int32_t *foundX,
+		       int32_t *foundY, double *outMinX, double *outMinY,
+		       double *outMaxX, double *outMaxY)
 ;
 
 static int
-DoSuperLevelSearch ( struct lg_master *pLgMaster,
-		     uint32_t *foundX,
-		     uint32_t *foundY,
-		     double * dXmin,
-		     double * dYmin,
-		     double * dXmax,
-		     double * dYmax);
+DoSuperLevelSearch(struct lg_master *pLgMaster, int32_t *foundX, int32_t *foundY,
+		     double * dXmin, double * dYmin, double * dXmax, double * dYmax);
 
 static int        
-DoRedundantSuperFineSearch (struct lg_master *pLgMaster,
-			    uint32_t *foundX,
-			    uint32_t *foundY,
-			    double * dMinX,
-			    double * dMinY,
-			    double * dMaxX,
-			    double * dMaxY);
+DoRedundantSuperFineSearch(struct lg_master *pLgMaster, int32_t *foundX, int32_t *foundY,
+			    double * dMinX, double * dMinY,
+			    double * dMaxX, double * dMaxY);
 
-static int SuperSearch (struct lg_master *pLgMaster,
-			uint32_t *foundX
-			, uint32_t *foundY
-			, double * dMinX
-			, double * dMinY
-			, double * dMaxX
-			, double * dMaxY
-			);
+static int SuperSearch(struct lg_master *pLgMaster, int32_t *foundX, int32_t *foundY,
+			double *dMinX, double *dMinY, double *dMaxX, double * dMaxY);
 
-void
-limitCalc( uint32_t centerX
-         , uint32_t centerY
-         , uint32_t *eolXNeg
-         , uint32_t *eolXPos
-         , uint32_t *eolYNeg
-         , uint32_t *eolYPos
-         );
+void limitCalc(int32_t centerX, int32_t centerY, int32_t *eolXNeg,
+	       int32_t *eolXPos, int32_t *eolYNeg, int32_t *eolYPos);
 
 static int  CoarseLeg(struct lg_master *pLgMaster,
-		      uint32_t X,    uint32_t Y,
-		      uint32_t delX, uint32_t delY,
+		      int32_t X,    int32_t Y,
+		      int32_t delX, int32_t delY,
 		      uint32_t nSteps,
-		      uint32_t * foundX, uint32_t * foundY );
-static int  FakeLeg( struct lg_master *pLgMaster, uint32_t X,    uint32_t Y,
-                    uint32_t delX, uint32_t delY,
+		      int32_t * foundX, int32_t * foundY );
+static int  FakeLeg( struct lg_master *pLgMaster, int32_t X,    int32_t Y,
+                    int32_t delX, int32_t delY,
                     uint32_t nSteps,
-                    uint32_t * foundX, uint32_t * foundY );
+                    int32_t * foundX, int32_t * foundY );
 
-static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint32_t *foundY );
+static int DoQuickFineSearch(struct lg_master *pLgMaster, int32_t *foundX, int32_t *foundY );
+int compare ( const void * a, const void * b );
 
 int32_t gQCerrors[6] = {0,0,0,0,0,0};
-
-#define kMaxOutLength   0x80000
-
-int32_t gDELLEV =  60;
-
-unsigned char * gOut;
-uint32_t * gLout;
-uint32_t * gLout1;
-uint32_t * gLout2;
-uint32_t * gLsort;
-
-int gTargetDrift = 0;
-double g_aX = 0.0;
-double g_bX = 1.0;
-double g_aY = 0.0;
-double g_bY = 1.0;
-
 double gFixX[ kNumberDrift ];
 double gFixY[ kNumberDrift ];
 double gDriftX[ kNumberDrift ];
 double gDriftY[ kNumberDrift ];
 
-uint32_t * xPosSave;
-uint32_t * xNegSave;
-uint32_t * yPosSave;
-uint32_t * yNegSave;
+#define kMaxOutLength                       0x80000
+#define kMask                               0xFFFF
+#define kMaxNumberX                         0x7FFF
+#define kMinNumberX                         0x8000
+#define kMaxNumberY                         0x7FFF
+#define kMinNumberY                         0x8000
+#define kFineSearchStep                     0x0002
+#define kFineSearchSpanSteps                70
+#define kSuperFineSearchStep                0x8000
+#define kSuperFineSearchSpanSteps           256
+#define kNumberOfCrossesToAverage           7
+#define kNumberOfCrosses                    7
+#define kNumberOfSuperCrossesToAverage      2
 
-uint32_t * xPosEdge;
-uint32_t * xNegEdge;
-uint32_t * yPosEdge;
-uint32_t * yNegEdge;
-
-
-uint32_t * xPosSuper;
-uint32_t * xNegSuper;
-uint32_t * yPosSuper;
-uint32_t * yNegSuper;
-
-uint32_t * xPosESuper;
-uint32_t * xNegESuper;
-uint32_t * yPosESuper;
-uint32_t * yNegESuper;
-
-uint32_t * xPosPosition;
-uint32_t * yPosPosition;
-uint32_t * xNegPosition;
-uint32_t * yNegPosition;
-
+int32_t gDELLEV =  60;
+unsigned char * gOut;
+int32_t * gLout;
+int32_t * gLout1;
+int32_t * gLout2;
+int32_t * gLsort;
+int32_t * xPosSave;
+int32_t * xNegSave;
+int32_t * yPosSave;
+int32_t * yNegSave;
+int32_t * xPosEdge;
+int32_t * xNegEdge;
+int32_t * yPosEdge;
+int32_t * yNegEdge;
+int32_t * xPosSuper;
+int32_t * xNegSuper;
+int32_t * yPosSuper;
+int32_t * yNegSuper;
+int32_t * xPosESuper;
+int32_t * xNegESuper;
+int32_t * yPosESuper;
+int32_t * yNegESuper;
+int32_t * xPosPosition;
+int32_t * yPosPosition;
+int32_t * xNegPosition;
+int32_t * yNegPosition;
 double * xpResArr;
 double * xnResArr;
 double * ypResArr;
 double * ynResArr;
-
-uint32_t  xPosESum;
-uint32_t  xNegESum;
-uint32_t  yPosESum;
-uint32_t  yNegESum;
-
-uint32_t  XpEdge;
-uint32_t  XnEdge;
-uint32_t  YpEdge;
-uint32_t  YnEdge;
-
-int compare ( const void * a, const void * b );
-
+double g_aX = 0.0;
+double g_bX = 1.0;
+double g_aY = 0.0;
+double g_bY = 1.0;
 double xPosAvg;
 double xNegAvg;
 double yPosAvg;
 double yNegAvg;
-
+int32_t  xPosESum;
+int32_t  xNegESum;
+int32_t  yPosESum;
+int32_t  yNegESum;
+int32_t  XpEdge;
+int32_t  XnEdge;
+int32_t  YpEdge;
+int32_t  YnEdge;
+int gTargetDrift = 0;
 int gCentroid;
-
-#define kMask                                              0xFFFFC000U
-
-#define kMaxNumberX                                        0x7FFFC000U
-#define kMinNumberX                                        0x80000000U
-#define kMaxNumberY                                        0x7FFFC000U
-#define kMinNumberY                                        0x80000000U
-
-#define kBlankBit                                        0x00000040U
-
-#define        kLevelBit                        0x20  /*  level trigger */
-
-
-/*
- * #define kNumberOfSpirals                              512 
- * #define kCoarseSearchStep                                0x00020000U
- */
-
-
-// #define kFineSearchStep                                  0x00010000U
-// #define kFineSearchSpanSteps                              150
-// #define kSuperFineSearchStep                             0x00010000U
-// #define kSuperFineSearchSpanSteps                         256
-
-#define kFineSearchStep                                  0x00020000U
-#define kFineSearchSpanSteps                                70
-// #define kSuperFineSearchStep                             0x00010000U
-#define kSuperFineSearchStep                             0x00008000U
-uint32_t gSuperFineSearchStep = 0x00008000U;
+uint32_t gSuperFineSearchStep = 0x8000;
 uint32_t gSuperFineFactor = 1;
-#define kSuperFineSearchSpanSteps                         256
 
-
-/*
- * #define kSuperFineSearchSpanSteps                         150
- * #define kFineSearchSpanSteps                              150
- */
-
-/* #define kSuperFineSearchSpanSteps        512 */
-/* #define kFineSearchSpanSteps             256 */
-
-
-#define kNumberOfCrossesToAverage                        7
-
-/* #define kNumberOfCrosses                                30 */
-#define kNumberOfCrosses                                7
-
-/* #define kNumberOfSuperCrossesToAverage        65 */
-#define kNumberOfSuperCrossesToAverage        2
-
-int QuickCheckASensor(struct lg_master *pLgMaster, uint32_t centerX, uint32_t centerY)
+int QuickCheckASensor(struct lg_master *pLgMaster, int32_t centerX, int32_t centerY)
 {
 	struct lg_xydata  xydata;
         int theResult;
@@ -272,7 +197,7 @@ int QuickCheckASensor(struct lg_master *pLgMaster, uint32_t centerX, uint32_t ce
 	int nTries;
         int nSuccess;
         int nSteps;
-        uint32_t tempX, tempY;
+        int32_t tempX, tempY;
 	
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	
@@ -291,8 +216,8 @@ int QuickCheckASensor(struct lg_master *pLgMaster, uint32_t centerX, uint32_t ce
         }
 
         SearchBeamOff (pLgMaster);
-	xydata.xdata = (centerX & kMaxUnsigned);
-	xydata.ydata = (centerY & kMaxUnsigned);
+	xydata.xdata = (centerX & kMaxSigned);
+	xydata.ydata = (centerY & kMaxSigned);
         move_dark(pLgMaster, (struct lg_xydata *)&xydata);
         SearchBeamOn(pLgMaster);
 #ifdef DEBUG
@@ -348,12 +273,8 @@ int QuickCheckASensor(struct lg_master *pLgMaster, uint32_t centerX, uint32_t ce
         return theResult;
 }
 
-int QuickCheckOne(struct lg_master *pLgMaster,
-		  uint32_t centerX,
-		  uint32_t centerY,
-		  uint32_t * foundX,
-		  uint32_t * foundY
-                  )
+int QuickCheckOne(struct lg_master *pLgMaster, int32_t centerX, int32_t centerY,
+		  int32_t *foundX, int32_t *foundY)
 {
 	struct lg_xydata  xydata;
         int theResult;
@@ -361,7 +282,7 @@ int QuickCheckOne(struct lg_master *pLgMaster,
 	int nTries;
         int nSuccess;
         int nSteps;
-        uint32_t tempX, tempY;
+        int32_t tempX, tempY;
 
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	
@@ -380,8 +301,8 @@ int QuickCheckOne(struct lg_master *pLgMaster,
         }
 
         SearchBeamOff (pLgMaster);
-	xydata.xdata = (centerX & kMaxUnsigned);
-	xydata.ydata = (centerY & kMaxUnsigned);
+	xydata.xdata = (centerX & kMaxSigned);
+	xydata.ydata = (centerY & kMaxSigned);
         move_dark(pLgMaster, (struct lg_xydata *)&xydata);
         SearchBeamOn  (pLgMaster);
 #ifdef DEBUG
@@ -429,21 +350,21 @@ int QuickCheckOne(struct lg_master *pLgMaster,
 
 
 int SearchForASensor (struct lg_master *pLgMaster,
-        uint32_t startX, uint32_t startY,
-        uint32_t *foundX, uint32_t *foundY )
+        int32_t startX, int32_t startY,
+        int32_t *foundX, int32_t *foundY )
 {
 	struct lg_xydata   xydata;
 	struct lg_xydata   xydelta;
-        uint32_t f1x, f1y, f2x, f2y;
-        uint32_t tempX, tempY;
-        uint32_t currentX, currentY;
-        uint32_t eolXPos, eolYPos;
-        uint32_t eolXNeg, eolYNeg;
-        uint32_t posStepSize, negStepSize;
+        int32_t f1x, f1y, f2x, f2y;
+        int32_t tempX, tempY;
+        int32_t currentX, currentY;
+        int32_t eolXPos, eolYPos;
+        int32_t eolXNeg, eolYNeg;
+        int32_t posStepSize, negStepSize;
         uint32_t xSteps, ySteps;
-        uint32_t delX, delY, centX, centY;
+        int32_t delX, delY, centX, centY;
         uint32_t nSteps;
-        uint32_t avgX, avgY;
+        int32_t avgX, avgY;
 
 	int32_t HatchCount;
 
@@ -464,11 +385,11 @@ int SearchForASensor (struct lg_master *pLgMaster,
         currentX = startX & kMask;
         currentY = startY & kMask;
 
-	xydata.xdata = (currentX & kMaxUnsigned);
-	xydata.ydata = (currentY & kMaxUnsigned);
+	xydata.xdata = (currentX & kMaxSigned);
+	xydata.ydata = (currentY & kMaxSigned);
         move_dark(pLgMaster, (struct lg_xydata *)&xydata);
-        *foundX = 0x00000000U;
-        *foundY = 0x00000000U;
+        *foundX = 0x0;
+        *foundY = 0x0;
         
         eolXPos = currentX;
         eolYPos = currentY;
@@ -517,13 +438,7 @@ int SearchForASensor (struct lg_master *pLgMaster,
 	if(theResult == kFineNotFound) {
 	  continue;
 	}
-	theResult = DoRedundantSuperFineSearch ( pLgMaster, &avgX
-						 , &avgY
-						 , &dMinX
-						 , &dMinY
-						 , &dMaxX
-						 , &dMaxY
-						 );
+	theResult = DoRedundantSuperFineSearch(pLgMaster, &avgX, &avgY, &dMinX, &dMinY, &dMaxX, &dMaxY);
 	if(theResult == kStopWasDone) {
 	  SearchBeamOff(pLgMaster);
 	  return theResult;
@@ -547,41 +462,38 @@ int SearchForASensor (struct lg_master *pLgMaster,
 
         theResult = kCoarseNotFound;
         if ( gCentroid == 1 ) {
-          if ( (int32_t)currentX >=
-		  (int32_t)(kMaxNumberX - HatchCount*gCoarse2SearchStep) ) {
-             eolXPos   = kMaxNumberX;
-          } else {  eolXPos =  currentX + HatchCount*gCoarse2SearchStep; }
-          if ( (int32_t)currentX <=
-		  (int32_t)(kMinNumberX + HatchCount*gCoarse2SearchStep) ) {
-             eolXNeg   = kMinNumberX;
-          } else {  eolXNeg =  currentX - HatchCount*gCoarse2SearchStep; }
-          if ( (int32_t)currentY >=
-		  (int32_t)(kMaxNumberY - HatchCount*gCoarse2SearchStep) ) {
-             eolYPos   =  kMaxNumberY;
-          } else {  eolYPos =  currentY + HatchCount*gCoarse2SearchStep; }
-          if ( (int32_t)currentY <= 
-		  (int32_t)(kMinNumberY + HatchCount*gCoarse2SearchStep) ) {
-             eolYNeg   =  kMinNumberY;
-          } else {  eolYNeg =  currentY - HatchCount*gCoarse2SearchStep; }
+          if (currentX >= (int32_t)(kMaxNumberX - (HatchCount * pLgMaster->gCoarse2SearchStep)))
+	    eolXPos = kMaxNumberX;
+          else
+	    eolXPos =  currentX + (HatchCount * pLgMaster->gCoarse2SearchStep);
+          if (currentX <= (int32_t)(kMinNumberX + (HatchCount * pLgMaster->gCoarse2SearchStep)))
+	    eolXNeg   = kMinNumberX;
+          else
+	    eolXNeg =  currentX - (HatchCount * pLgMaster->gCoarse2SearchStep);
+	  if (currentY >= (int32_t)(kMaxNumberY - (HatchCount * pLgMaster->gCoarse2SearchStep)))
+	    eolYPos   =  kMaxNumberY;
+          else
+	    eolYPos =  currentY + (HatchCount * pLgMaster->gCoarse2SearchStep);
+          if (currentY <= (int32_t)(kMinNumberY + (HatchCount * pLgMaster->gCoarse2SearchStep)))
+	    eolYNeg   =  kMinNumberY;
+	  else
+	    eolYNeg =  currentY - (HatchCount * pLgMaster->gCoarse2SearchStep);
 
           i = 0;
           // do a fake search to see if there is a false trigger problem 
-                tempX = currentX + (((i&1)<<1)-1)*(i>>1)*gCoarse2SearchStep;
-                tempY = currentY + (((i&1)<<1)-1)*(i>>1)*gCoarse2SearchStep;
+	  tempX = currentX + ((((i&1)<<1)-1)*(i>>1)*pLgMaster->gCoarse2SearchStep);
+	  tempY = currentY + ((((i&1)<<1)-1)*(i>>1)*pLgMaster->gCoarse2SearchStep);
 
-                posStepSize = (uint32_t)( (int32_t)gCoarse2SearchStep );
-                negStepSize = (uint32_t)(-(int32_t)gCoarse2SearchStep );
-                xSteps = (eolXPos - eolXNeg) / posStepSize;
-                ySteps = (eolYPos - eolYNeg) / posStepSize;
+	  posStepSize = pLgMaster->gCoarse2SearchStep;
+	  negStepSize = -pLgMaster->gCoarse2SearchStep;
+	  xSteps = (eolXPos - eolXNeg) / posStepSize;
+	  ySteps = (eolYPos - eolYNeg) / posStepSize;
 #ifdef ZPAUSE
 if ( iflag == 0 ) {
 printf( "Search 563 FakeLeg Pause: " );
 itemp=getchar();
 if ( itemp == 'q' || itemp == 'Q' ) { iflag = 1; }
 }
-#endif
-#ifdef SZDEBUG
-printf( "Search 573 FakeLeg\n" );
 #endif
 
  theResult = FakeLeg(pLgMaster, eolXNeg, tempY, posStepSize, 0, xSteps,
@@ -597,9 +509,6 @@ itemp=getchar();
 if ( itemp == 'q' || itemp == 'Q' ) { iflag = 1; }
 }
 #endif
-#ifdef SZDEBUG
-printf( "Search 586 FakeLeg\n" );
-#endif
  theResult = FakeLeg(pLgMaster, tempX, eolYNeg, 0, posStepSize, ySteps,
 		     foundX, foundY );
  if(theResult == kStopWasDone) {
@@ -609,10 +518,10 @@ printf( "Search 586 FakeLeg\n" );
  // end of fake search
  while ( (++i < (2*(HatchCount-2)))  &&  theResult )
    {
-     tempX = currentX + (((i&1)<<1)-1)*(i>>1)*gCoarse2SearchStep;
-     tempY = currentY + (((i&1)<<1)-1)*(i>>1)*gCoarse2SearchStep;
-     posStepSize = (uint32_t)( (int32_t)gCoarse2SearchStep );
-     negStepSize = (uint32_t)(-(int32_t)gCoarse2SearchStep );
+     tempX = currentX + ((((i&1)<<1)-1)*(i>>1)*pLgMaster->gCoarse2SearchStep);
+     tempY = currentY + ((((i&1)<<1)-1)*(i>>1)*pLgMaster->gCoarse2SearchStep);
+     posStepSize = pLgMaster->gCoarse2SearchStep;
+     negStepSize = -pLgMaster->gCoarse2SearchStep;
      xSteps = (eolXPos - eolXNeg) / posStepSize;
      ySteps = (eolYPos - eolYNeg) / posStepSize;
 
@@ -660,22 +569,26 @@ printf( "Search 586 FakeLeg\n" );
                      return kStopWasDone;
                 }
 
-                if( (int32_t)eolXPos >= (int32_t)(kMaxNumberX - gCoarse2SearchStep) ) {
+                if (eolXPos >= (int32_t)(kMaxNumberX - pLgMaster->gCoarse2SearchStep))
                      eolXPos  = kMaxNumberX;
-                } else { eolXPos += gCoarse2SearchStep; }
-                if( (int32_t)eolXNeg <= (int32_t)(kMinNumberX + gCoarse2SearchStep) ) {
-                     eolXNeg  = kMinNumberX;
-                } else { eolXNeg -= gCoarse2SearchStep; }
+                else
+		  eolXPos += pLgMaster->gCoarse2SearchStep;
+                if (eolXNeg <= (int32_t)(kMinNumberX + pLgMaster->gCoarse2SearchStep))
+		  eolXNeg  = kMinNumberX;
+                else
+		  eolXNeg -= pLgMaster->gCoarse2SearchStep;
 
-                if( (int32_t)eolYPos >= (int32_t)(kMaxNumberY - gCoarse2SearchStep) ) {
-                     eolYPos  = kMaxNumberY;
-                } else { eolYPos += gCoarse2SearchStep; }
-                if( (int32_t)eolYNeg <= (int32_t)(kMinNumberY + gCoarse2SearchStep) ) {
-                     eolYNeg  = kMinNumberY;
-                } else { eolYNeg -= gCoarse2SearchStep; }
+                if (eolYPos >= (int32_t)(kMaxNumberY - pLgMaster->gCoarse2SearchStep))
+		  eolYPos  = kMaxNumberY;
+                else
+		  eolYPos += pLgMaster->gCoarse2SearchStep;
+                if (eolYNeg <= (int32_t)(kMinNumberY + pLgMaster->gCoarse2SearchStep))
+		  eolYNeg  = kMinNumberY;
+                else
+		  eolYNeg -= pLgMaster->gCoarse2SearchStep;
 
-                posStepSize = (uint32_t)( (int32_t)gCoarse2SearchStep );
-                negStepSize = (uint32_t)(-(int32_t)gCoarse2SearchStep );
+                posStepSize = pLgMaster->gCoarse2SearchStep;
+                negStepSize = -pLgMaster->gCoarse2SearchStep;
                 xSteps = (eolXPos - eolXNeg) / posStepSize;
                 ySteps = (eolYPos - eolYNeg) / posStepSize;
 
@@ -718,10 +631,10 @@ printf( "Search 586 FakeLeg\n" );
               nSteps =  32; 
               centX = *foundX;
               centY = *foundY - 64*delY;
-	      xydata.xdata = (centX & kMaxUnsigned);
-	      xydata.ydata = (centY & kMaxUnsigned);
+	      xydata.xdata = (centX & kMaxSigned);
+	      xydata.ydata = (centY & kMaxSigned);
 	      xydelta.xdata = 0;
-	      xydelta.ydata = (delY & kMaxUnsigned);
+	      xydelta.ydata = (delY & kMaxSigned);
 	      if (DoLineSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nSteps, gOut))
 		{
@@ -730,9 +643,9 @@ printf( "Search 586 FakeLeg\n" );
 		}
               centX = *foundX - 64*delX;
               centY = *foundY;
-	      xydata.xdata = (centX & kMaxUnsigned);
-	      xydata.ydata = (centY & kMaxUnsigned);
-	      xydelta.xdata = (delX & kMaxUnsigned);
+	      xydata.xdata = (centX & kMaxSigned);
+	      xydata.ydata = (centY & kMaxSigned);
+	      xydelta.xdata = (delX & kMaxSigned);
 	      xydelta.ydata = 0;
               if (DoLineSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nSteps, gOut))
@@ -745,49 +658,49 @@ printf( "Search 586 FakeLeg\n" );
         SearchBeamOff(pLgMaster);
         centX = *foundX & 0x00;
         centY = *foundY;
-	xydata.xdata = (centX & kMaxUnsigned);
-	xydata.ydata = (centY & kMaxUnsigned);
+	xydata.xdata = (centX & kMaxSigned);
+	xydata.ydata = (centY & kMaxSigned);
         move_dark(pLgMaster, (struct lg_xydata *)&xydata);
         gSearchFlag = 0;
         return theResult;
 }
 
-static int CoarseLeg(struct lg_master *pLgMaster, uint32_t Xin, uint32_t Yin,
-	       uint32_t delX, uint32_t delY, uint32_t nStepsIn,
-	       uint32_t * foundX, uint32_t * foundY )
+static int CoarseLeg(struct lg_master *pLgMaster, int32_t Xin, int32_t Yin,
+		     int32_t delX, int32_t delY, uint32_t nStepsIn,
+		     int32_t *foundX, int32_t *foundY)
 {
 	struct lg_xydata xydata;
 	struct lg_xydata xydelta;
-        uint32_t tmpX, tmpY;
-        uint32_t eolX, eolY;
-        uint32_t negX, negY;
-        uint32_t avgX, avgY;
-        uint32_t *ptr;
+        int32_t tmpX, tmpY;
+        int32_t eolX, eolY;
+        int32_t negX, negY;
+        int32_t avgX, avgY;
+        int32_t *ptr;
         double dMinX;
         double dMinY;
         double dMaxX;
         double dMaxY;
         double sumX, sumY, count;
-        int32_t i;
+        uint32_t i;
         int theResult;
 
         theResult = kCoarseNotFound;
         ptr = gLout;
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
-        memset((char *)&gLout[0], 0, (nStepsIn * sizeof(uint32_t)));
+        memset((char *)&gLout[0], 0, (nStepsIn * sizeof(int32_t)));
 
-	xydata.xdata = Xin & kMaxUnsigned;
-	xydata.ydata = Yin & kMaxUnsigned;
-	xydelta.xdata = delX & kMaxUnsigned;
-	xydelta.ydata = delY & kMaxUnsigned;
+	xydata.xdata = Xin & kMaxSigned;
+	xydata.ydata = Yin & kMaxSigned;
+	xydelta.xdata = delX & kMaxSigned;
+	xydelta.ydata = delY & kMaxSigned;
         if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			  (struct lg_xydata*)&xydelta, nStepsIn, gLout))
 	  return kStopWasDone;
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	  return kStopWasDone;
         ptr  = &(gLout[0]);
-        memset((char *)&gLsort[0],   0, nStepsIn*sizeof(uint32_t) );
+        memset((char *)&gLsort[0],   0, nStepsIn*sizeof(int32_t) );
         for (i = 0; i < nStepsIn; i++)
 	  gLsort[i] = gLout[i];
         qsort( gLsort, nStepsIn, sizeof(uint32_t), int32_tsort );
@@ -805,21 +718,21 @@ static int CoarseLeg(struct lg_master *pLgMaster, uint32_t Xin, uint32_t Yin,
             }
         }
         if ( count >= 1.0 ) {
-            avgX = (uint32_t)((int32_t)(sumX/count));
-            avgY = (uint32_t)((int32_t)(sumY/count));
-            tmpX = avgX & 0xFFFFFF00;
-            tmpY = avgY & 0xFFFFFF00;
-                   //
-                   // center back-search on found point
-                   //
+            avgX = (int32_t)(sumX/count);
+            avgY = (int32_t)(sumY/count);
+            tmpX = avgX & kMaxSigned;
+            tmpY = avgY & kMaxSigned;
+	    //
+	    // center back-search on found point
+	    //
             eolX = tmpX + (nStepsIn / 2) * delX;
             eolY = tmpY + (nStepsIn / 2) * delY;
-            negX = (uint32_t)(-(int32_t)delX);
-            negY = (uint32_t)(-(int32_t)delY);
-	    xydata.xdata = eolX & kMaxUnsigned;
-	    xydata.ydata = eolY & kMaxUnsigned;
-	    xydelta.xdata = negX & kMaxUnsigned;
-	    xydelta.ydata = negY & kMaxUnsigned;
+            negX = -delX;
+            negY = -delY;
+	    xydata.xdata = eolX & kMaxSigned;
+	    xydata.ydata = eolY & kMaxSigned;
+	    xydelta.xdata = negX & kMaxSigned;
+	    xydelta.ydata = negY & kMaxSigned;
 	    if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			      (struct lg_xydata*)&xydelta, nStepsIn, gLout))
 	      return kStopWasDone;
@@ -827,17 +740,7 @@ static int CoarseLeg(struct lg_master *pLgMaster, uint32_t Xin, uint32_t Yin,
 	      return kStopWasDone;
                  
 	    // zero out first ten points
-            gLout[0] = 0;
-            gLout[1] = 0;
-            gLout[2] = 0;
-            gLout[3] = 0;
-            gLout[4] = 0;
-            gLout[5] = 0;
-            gLout[6] = 0;
-            gLout[7] = 0;
-            gLout[8] = 0;
-            gLout[9] = 0;
-
+	    memset((char *)&gLout[0], 0, (sizeof(int32_t) * 10)); 
             ptr  = &(gLout[0]);
             tmpX = eolX;
             tmpY = eolY;
@@ -857,16 +760,11 @@ static int CoarseLeg(struct lg_master *pLgMaster, uint32_t Xin, uint32_t Yin,
                     i++;
             }
             if( count >= 1 ) {
-	      avgX = (uint32_t)((int32_t)(sumX/count));
-	      avgY = (uint32_t)((int32_t)(sumY/count));
+	      avgX = (int32_t)(sumX/count);
+	      avgY = (int32_t)(sumY/count);
 
-	      theResult = DoFineLevel( pLgMaster, &avgX
-				       , &avgY
-				       , &dMinX
-				       , &dMinY
-				       , &dMaxX
-				       , &dMaxY
-				       );
+	      theResult = DoFineLevel(pLgMaster, &avgX, &avgY, &dMinX, &dMinY,
+				      &dMaxX, &dMaxY);
 	      if ( theResult ) { return theResult; }
 
 	      theResult = DoRedundantSuperFineSearch ( pLgMaster,
@@ -897,30 +795,20 @@ static int CoarseLeg(struct lg_master *pLgMaster, uint32_t Xin, uint32_t Yin,
                    //
 		eolX = tmpX + (nStepsIn / 2) * delX;
                 eolY = tmpY + (nStepsIn / 2) * delY;
-                negX = (uint32_t)(-(int32_t)delX);
-                negY = (uint32_t)(-(int32_t)delY);
-		xydata.xdata = eolX & kMaxUnsigned;
-		xydata.ydata = eolY & kMaxUnsigned;
-		xydelta.xdata = negX & kMaxUnsigned;
-		xydelta.ydata = negY & kMaxUnsigned;
+                negX = -delX;
+                negY = -delY;
+		xydata.xdata = eolX & kMaxSigned;
+		xydata.ydata = eolY & kMaxSigned;
+		xydelta.xdata = negX & kMaxSigned;
+		xydelta.ydata = negY & kMaxSigned;
 		if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 				  (struct lg_xydata*)&xydelta, nStepsIn, gLout))
 		  return kStopWasDone;
                 if (IfStopThenStopAndNeg1Else0(pLgMaster))
 		  return kStopWasDone;
                  
-                      // zero out first ten points
-                gLout[0] = 0;
-                gLout[1] = 0;
-                gLout[2] = 0;
-                gLout[3] = 0;
-                gLout[4] = 0;
-                gLout[5] = 0;
-                gLout[6] = 0;
-                gLout[7] = 0;
-                gLout[8] = 0;
-                gLout[9] = 0;
-
+		// zero out first ten points
+		memset((char *)&gLout[0], 0, (sizeof(int32_t) * 10)); 
                 ptr  = &(gLout[0]);
                 tmpX = eolX;
                 tmpY = eolY;
@@ -940,8 +828,8 @@ static int CoarseLeg(struct lg_master *pLgMaster, uint32_t Xin, uint32_t Yin,
                     i++;
                 }
                 if( count >= 1 ) {
-                    avgX = (uint32_t)((int32_t)(sumX/count));
-                    avgY = (uint32_t)((int32_t)(sumY/count));
+                    avgX = sumX/count;
+                    avgY = sumY/count;
 
 		    theResult = DoFineLevel(pLgMaster, &avgX, &avgY, &dMinX, &dMinY, &dMaxX, &dMaxY);
                     if ( theResult ) { return theResult; }
@@ -974,22 +862,22 @@ int compare ( const void * a, const void * b )
 
 
 
-static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint32_t *foundY)
+static int DoQuickFineSearch(struct lg_master *pLgMaster, int32_t *foundX, int32_t *foundY)
 {
 	struct lg_xydata xydata;
 	struct lg_xydata xydelta;
-        uint32_t currentX, currentY;
-        uint32_t centerX, centerY, theSpan;
-        uint32_t delX;
-        uint32_t tmpX;
-        uint32_t delY;
-        uint32_t tmpY;
+        int32_t currentX, currentY;
+        int32_t centerX, centerY, theSpan;
+        int32_t delX;
+        int32_t tmpX;
+        int32_t delY;
+        int32_t tmpY;
         uint32_t nSteps;
         uint32_t finetest;
         short numberOfXScansToAverage;
         short numberOfYScansToAverage;
-        int32_t i, j, index;
-        uint32_t *ptr;
+        uint32_t i, j, index;
+        int32_t *ptr;
         
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
@@ -998,8 +886,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
         centerX = *foundX;
         centerY = *foundY;
         
-        *foundX = 0x00000000U;
-        *foundY = 0x00000000U;
+        *foundX = 0x0;
+        *foundY = 0x0;
 
         j = 1;
         numberOfXScansToAverage = 0;
@@ -1016,9 +904,9 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
 	    currentY = centerY;
 	    delX = 2*gSuperFineSearchStep;
 	    nSteps = theSpan / gSuperFineSearchStep;
-	    xydata.xdata = currentX & kMaxUnsigned;
-	    xydata.ydata = currentY & kMaxUnsigned;
-	    xydelta.xdata = delX & kMaxUnsigned;
+	    xydata.xdata = currentX & kMaxSigned;
+	    xydata.ydata = currentY & kMaxSigned;
+	    xydelta.xdata = delX & kMaxSigned;
 	    xydelta.ydata = 0;
 	    DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			  (struct lg_xydata*)&xydelta, nSteps, gLout);
@@ -1028,12 +916,12 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
 	    if (j == 1)
 	      {
 		ptr  = &(gLout[0]);
-		memset( gLsort,   0, nSteps*sizeof(uint32_t) );
+		memset( gLsort,   0, nSteps*sizeof(int32_t) );
 		for ( i = 0 ; i < nSteps ; i++ )
 		  {
 		    gLsort[i] = gLout[i] ;
 		  }
-		qsort( gLsort, nSteps, sizeof(uint32_t), int32_tsort );
+		qsort( gLsort, nSteps, sizeof(int32_t), int32_tsort );
 		minlevel  = gDELLEV;
 	      }
 
@@ -1064,11 +952,11 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
 
 	    currentX = centerX + theSpan;
 	    currentY = centerY;
-	    delX = (uint32_t)(-2*(int32_t)gSuperFineSearchStep);
+	    delX = -2 * gSuperFineSearchStep;
 	    nSteps = theSpan / gSuperFineSearchStep;
-	    xydata.xdata = currentX & kMaxUnsigned;
-	    xydata.ydata = currentY & kMaxUnsigned;
-	    xydelta.xdata = delX & kMaxUnsigned;
+	    xydata.xdata = currentX & kMaxSigned;
+	    xydata.ydata = currentY & kMaxSigned;
+	    xydelta.xdata = delX & kMaxSigned;
 	    xydelta.ydata = 0;
 	    DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			  (struct lg_xydata*)&xydelta, nSteps, gLout);
@@ -1104,9 +992,9 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
 	    currentY = centerY - theSpan;
 	    delY = 2*gSuperFineSearchStep;
 	    nSteps = theSpan / gSuperFineSearchStep;
-	    xydata.xdata = currentX & kMaxUnsigned;
-	    xydata.ydata = currentY & kMaxUnsigned;
-	    xydelta.ydata = delY & kMaxUnsigned;
+	    xydata.xdata = currentX & kMaxSigned;
+	    xydata.ydata = currentY & kMaxSigned;
+	    xydelta.ydata = delY & kMaxSigned;
 	    xydelta.xdata = 0;
 	    DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			  (struct lg_xydata*)&xydelta, nSteps, gLout);
@@ -1115,11 +1003,11 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
 
 	    if ( j == 1 ) {
 	      ptr  = &(gLout[0]);
-	      memset( gLsort,   0, nSteps*sizeof(uint32_t) );
+	      memset( gLsort,   0, nSteps*sizeof(int32_t) );
 	      for ( i = 0 ; i < nSteps ; i++ ) {
 		gLsort[i] = gLout[i] ;
 	      }
-	      qsort( gLsort, nSteps, sizeof(uint32_t), int32_tsort );
+	      qsort( gLsort, nSteps, sizeof(int32_t), int32_tsort );
 	      minlevel  = gDELLEV;
 	    }
 
@@ -1152,11 +1040,11 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, uint32_t *foundX, uint
                 /* Go down */
                 currentX = centerX;
                 currentY = centerY + theSpan;
-                delY = (uint32_t)(-2*(int32_t)gSuperFineSearchStep);
+                delY = -2 * gSuperFineSearchStep;
                 nSteps = theSpan / gSuperFineSearchStep;
-		xydata.xdata = currentX & kMaxUnsigned;
-		xydata.ydata = currentY & kMaxUnsigned;
-		xydelta.ydata = delY & kMaxUnsigned;
+		xydata.xdata = currentX & kMaxSigned;
+		xydata.ydata = currentY & kMaxSigned;
+		xydelta.ydata = delY & kMaxSigned;
 		xydelta.xdata = 0;
 		DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			      (struct lg_xydata*)&xydelta, nSteps, gLout);
@@ -1209,36 +1097,36 @@ void InitSensorSearch ( void )
   int i;
 
   gOut = (unsigned char *)calloc((size_t)kMaxOutLength,(size_t)1);
-  gLout = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(uint32_t));
-  gLout1 = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(uint32_t));
-  gLout2 = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(uint32_t));
-  gLsort = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(uint32_t));
+  gLout = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  gLout1 = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  gLout2 = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  gLsort = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
-  xPosSave = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  xNegSave = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yPosSave = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yNegSave = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xPosSave = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xNegSave = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yPosSave = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yNegSave = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
-  xPosEdge = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  xNegEdge = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yPosEdge = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yNegEdge = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xPosEdge = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xNegEdge = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yPosEdge = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yNegEdge = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
-  xPosSuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  xNegSuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yPosSuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yNegSuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xPosSuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xNegSuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yPosSuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yNegSuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
-  xPosESuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  xNegESuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yPosESuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yNegESuper = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xPosESuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xNegESuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yPosESuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yNegESuper = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
-  xPosPosition = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yPosPosition = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xPosPosition = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yPosPosition = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
-  xNegPosition = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
-  yNegPosition = (uint32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  xNegPosition = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
+  yNegPosition = (int32_t *)calloc((size_t)kMaxOutLength,sizeof(int32_t));
 
   xpResArr = (double *)calloc((size_t)kNumberOfSuperCrossesToAverage,
           sizeof(double));
@@ -1309,10 +1197,7 @@ void CloseSensorSearch ( void )
 
 }
 
-void CorrectDrift( uint32_t cX,
-                   uint32_t cY,
-                   uint32_t *fX,
-                   uint32_t *fY )
+void CorrectDrift(int32_t cX, int32_t cY, int32_t *fX, int32_t *fY)
 {
      int32_t tmpX, tmpY;
      double doubleX, doubleY;
@@ -1330,15 +1215,12 @@ void CorrectDrift( uint32_t cX,
      tmpX = (int32_t)correctX;
      tmpY = (int32_t)correctY;
 
-     *fX = ((uint32_t)tmpX) & 0xFFFFF000;
-     *fY = ((uint32_t)tmpY) & 0xFFFFF000;
+     *fX = tmpX & kMaxSigned;
+     *fY = tmpY & kMaxSigned;
 
 }
 
-void FindDrift( uint32_t cX,
-              uint32_t cY,
-              uint32_t fX,
-              uint32_t fY )
+void FindDrift(int32_t cX, int32_t cY, int32_t fX, int32_t fY)
 {
      int32_t tmpX, tmpY;
      double driftX, driftY;
@@ -1413,7 +1295,7 @@ void FindDrift( uint32_t cX,
          aX, g_bX, aY, g_bY);
 }
 
-void InitDrift( uint32_t *Xarr, uint32_t *Yarr)
+void InitDrift(int32_t *Xarr, int32_t *Yarr)
 {
     int i, j;
 
@@ -1427,17 +1309,16 @@ void InitDrift( uint32_t *Xarr, uint32_t *Yarr)
     }
 }
 
-int  FakeLeg( struct lg_master *pLgMaster, uint32_t X,    uint32_t Y,
-	      uint32_t delX, uint32_t delY,
-	      uint32_t nSteps,
-	      uint32_t * foundX, uint32_t * foundY )
+int  FakeLeg(struct lg_master *pLgMaster, int32_t X, int32_t Y,
+	     int32_t delX, int32_t delY, uint32_t nSteps,
+	     int32_t *foundX, int32_t *foundY)
 {
 	struct lg_xydata xydata;
 	struct lg_xydata xydelta;
-        uint32_t tmpX, tmpY;
-        uint32_t eolX, eolY;
-        uint32_t negX, negY;
-        uint32_t *ptr;
+        int32_t tmpX, tmpY;
+        int32_t eolX, eolY;
+        int32_t negX, negY;
+        int32_t *ptr;
         int32_t i;
         int theResult;
 	
@@ -1445,12 +1326,12 @@ int  FakeLeg( struct lg_master *pLgMaster, uint32_t X,    uint32_t Y,
         ptr  = gLout;
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
-	memset((char *)&ptr[0], 0, nSteps * (sizeof(uint32_t)));
-	xydata.xdata = X & kMaxUnsigned;
-	xydata.ydata = Y & kMaxUnsigned;
+	memset((char *)&ptr[0], 0, nSteps * (sizeof(int32_t)));
+	xydata.xdata = X & kMaxSigned;
+	xydata.ydata = Y & kMaxSigned;
 	move_dark(pLgMaster, (struct lg_xydata *)&xydata);
-	xydelta.xdata = delX & kMaxUnsigned;
-	xydelta.ydata = delY & kMaxUnsigned;
+	xydelta.xdata = delX & kMaxSigned;
+	xydelta.ydata = delY & kMaxSigned;
 	if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 			  (struct lg_xydata*)&xydelta, nSteps, gLout))
 	  return kStopWasDone;
@@ -1471,14 +1352,14 @@ int  FakeLeg( struct lg_master *pLgMaster, uint32_t X,    uint32_t Y,
         if( (*ptr >= minlevel) && (i < nSteps) ) {
                 eolX = X + nSteps * delX;
                 eolY = Y + nSteps * delY;
-                negX = (uint32_t)(-(int32_t)delX);
-                negY = (uint32_t)(-(int32_t)delY);
-		xydata.xdata = eolX & kMaxUnsigned;
-		xydata.ydata = eolY & kMaxUnsigned;
+                negX = -delX;
+                negY = -delY;
+		xydata.xdata = eolX & kMaxSigned;
+		xydata.ydata = eolY & kMaxSigned;
 		move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 
-		xydelta.xdata = delX & kMaxUnsigned;
-		xydelta.ydata = delY & kMaxUnsigned;
+		xydelta.xdata = delX & kMaxSigned;
+		xydelta.ydata = delY & kMaxSigned;
 		if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 				  (struct lg_xydata*)&xydelta, nSteps, gLout))
 		  return kStopWasDone;
@@ -1504,23 +1385,18 @@ int  FakeLeg( struct lg_master *pLgMaster, uint32_t X,    uint32_t Y,
 }        
 
 
-static int DoFineLevel (struct lg_master *pLgMaster,
-			uint32_t *foundX
-			, uint32_t *foundY
-			, double * outMinX
-			, double * outMinY
-			, double * outMaxX
-			, double * outMaxY
-			)
+static int DoFineLevel(struct lg_master *pLgMaster, int32_t *foundX,
+		       int32_t *foundY, double *outMinX, double *outMinY,
+		       double *outMaxX, double *outMaxY)
 {
       struct lg_xydata  xydata;
-      uint32_t eolXPos, eolYPos;
-      uint32_t currentX, currentY;
-      uint32_t eolXNeg, eolYNeg;
-      uint32_t centerX, centerY;
-      uint32_t tmpX, tmpY;
-      uint32_t firstX, firstY, lastX, lastY;
-      uint32_t stepSize, negStep;
+      int32_t eolXPos, eolYPos;
+      int32_t currentX, currentY;
+      int32_t eolXNeg, eolYNeg;
+      int32_t centerX, centerY;
+      int32_t tmpX, tmpY;
+      int32_t firstX, firstY, lastX, lastY;
+      int32_t stepSize, negStep;
       uint32_t nSteps;
       int32_t Xm, Ym;
       double dFX;
@@ -1541,12 +1417,12 @@ static int DoFineLevel (struct lg_master *pLgMaster,
       centerX = *foundX;
       centerY = *foundY;
       
-      xydata.xdata = (centerX & kMaxUnsigned);
-      xydata.ydata = (centerY & kMaxUnsigned);
+      xydata.xdata = (centerX & kMaxSigned);
+      xydata.ydata = (centerY & kMaxSigned);
       move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 
       stepSize = kFineSearchStep;
-      negStep  = (uint32_t)(-(int32_t)kFineSearchStep);
+      negStep  = -kFineSearchStep;
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	return kStopWasDone;
 	
@@ -1585,8 +1461,8 @@ static int DoFineLevel (struct lg_master *pLgMaster,
       if ( dLY > dMaxY ) dMaxY = dLY;
       avX = (double)Xm;
       avY = (double)Ym;
-      tmpX = (uint32_t)((int32_t)avX);
-      tmpY = (uint32_t)((int32_t)avY);
+      tmpX = (int32_t)avX;
+      tmpY = (int32_t)avY;
       centerX = tmpX;
       centerY = tmpY;
 	
@@ -1627,8 +1503,8 @@ static int DoFineLevel (struct lg_master *pLgMaster,
       if ( dLY > dMaxY ) dMaxY = dLY;
       avX = Xm;
       avY = Ym;
-      tmpX = (uint32_t)((int32_t)avX);
-      tmpY = (uint32_t)((int32_t)avY);
+      tmpX = (int32_t)avX;
+      tmpY = (int32_t)avY;
       centerX = tmpX;
       centerY = tmpY;
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -1674,8 +1550,8 @@ static int DoFineLevel (struct lg_master *pLgMaster,
       if ( dLY > dMaxY ) dMaxY = dLY;
       avX = Xm;
       avY = Ym;
-      tmpX = (uint32_t)((int32_t)avX);
-      tmpY = (uint32_t)((int32_t)avY);
+      tmpX = (int32_t)avX;
+      tmpY = (int32_t)avY;
       centerX = tmpX;
       centerY = tmpY;
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -1720,8 +1596,8 @@ static int DoFineLevel (struct lg_master *pLgMaster,
       if ( dLY > dMaxY ) dMaxY = dLY;
 	avX = Xm;
 	avY = Ym;
-	tmpX = (uint32_t)((int32_t)avX);
-	tmpY = (uint32_t)((int32_t)avY);
+	tmpX = (int32_t)avX;
+	tmpY = (int32_t)avY;
 	centerX = tmpX;
 	centerY = tmpY;
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -1767,8 +1643,8 @@ static int DoFineLevel (struct lg_master *pLgMaster,
 	if ( dLY > dMaxY ) dMaxY = dLY;
 	avX = Xm;
 	avY = Ym;
-	tmpX = (uint32_t)((int32_t)avX);
-	tmpY = (uint32_t)((int32_t)avY);
+	tmpX = (int32_t)avX;
+	tmpY = (int32_t)avY;
 #ifdef SZDEBUG
 	fprintf(stderr, "MinMax X %.0lf %.0lf Y %.0lf %.0f\n",dMinX,dMaxX,dMinY,dMaxY);
 #endif
@@ -1806,15 +1682,15 @@ static int DoFineLevel (struct lg_master *pLgMaster,
 
 static int        
 DoRedundantSuperFineSearch (struct lg_master *pLgMaster,
-			    uint32_t *foundX,
-			    uint32_t *foundY,
+			    int32_t *foundX,
+			    int32_t *foundY,
 			    double * dMinX,
 			    double * dMinY,
 			    double * dMaxX,
 			    double * dMaxY)
 {
-        uint32_t tempX;
-        uint32_t tempY;
+        int32_t tempX;
+        int32_t tempY;
         int result;
 
         tempX = *foundX;
@@ -1826,15 +1702,15 @@ DoRedundantSuperFineSearch (struct lg_master *pLgMaster,
 	if (result)
 	  return result;
 
-        *foundX = kMask & (uint32_t)((int32_t)tempX);
-        *foundY = kMask & (uint32_t)((int32_t)tempY);
+        *foundX = kMask & tempX;
+        *foundY = kMask & tempY;
         return 0;
 }
 
 static int
 DoSuperLevelSearch ( struct lg_master *pLgMaster,
-		     uint32_t *foundX,
-		     uint32_t *foundY,
+		     int32_t *foundX,
+		     int32_t *foundY,
 		     double * dMinX,
 		     double * dMinY,
 		     double * dMaxX,
@@ -1846,7 +1722,7 @@ DoSuperLevelSearch ( struct lg_master *pLgMaster,
         double sweepAvgX, sweepAvgY;
         double avgX, avgY;
         double Dix, Djy;
-        uint32_t tmpX, tmpY;
+        int32_t tmpX, tmpY;
         int count;
         int localCount;
         int result;
@@ -1855,8 +1731,8 @@ DoSuperLevelSearch ( struct lg_master *pLgMaster,
         int ixsum, jysum, nsum;
         char * ptr;
         
-        *foundX = 0x00000000U;
-        *foundY = 0x00000000U;
+        *foundX = 0x0;
+        *foundY = 0x0;
         count = 0;
         sumX = 0;
         sumY = 0;
@@ -1872,8 +1748,8 @@ DoSuperLevelSearch ( struct lg_master *pLgMaster,
         avgX = sumX / (double)count;
         avgY = sumY / (double)count;
 
-        *foundX = kMask & (uint32_t)((int32_t)avgX);
-        *foundY = kMask & (uint32_t)((int32_t)avgY);
+        *foundX = kMask & (int32_t)avgX;
+        *foundY = kMask & (int32_t)avgY;
         if ( gSearchCurrentSensor == 0 || gLoutPtr == 0 ) {
           gLoutPtr   = gLoutBase + 3*sizeof(int32_t) + 24 * sizeof(int32_t);
           gLoutSize  =             3*sizeof(int32_t) + 24 * sizeof(int32_t);
@@ -1981,8 +1857,8 @@ fprintf( stderr, "error SS2208 xy %d %d\n", ix, jy );
             Djy = (double)jysum / (double)nsum;
             avgX =  Dix * gSuperFineSearchStep + *dMinX;
             avgY =  Djy * gSuperFineSearchStep + *dMinY;
-            *foundX = kMask & (uint32_t)((int32_t)avgX);
-            *foundY = kMask & (uint32_t)((int32_t)avgY);
+            *foundX = kMask & (int32_t)avgX;
+            *foundY = kMask & (int32_t)avgY;
 #ifdef SZDEBUG
 fprintf( stderr, "DoS2281 avg %lf %lf fnd %x %x\n", avgX, avgY,*foundX,*foundY);
 #endif
@@ -1990,8 +1866,8 @@ fprintf( stderr, "DoS2281 avg %lf %lf fnd %x %x\n", avgX, avgY,*foundX,*foundY);
         if ( gMultipleSweeps == 2 && sweepNumX > 1 && sweepNumY > 1 ) {
             sweepAvgX = sweepSumX / sweepNumX;
             sweepAvgY = sweepSumY / sweepNumY;
-            *foundX = kMask & (uint32_t)((int32_t)sweepAvgX);
-            *foundY = kMask & (uint32_t)((int32_t)sweepAvgY);
+            *foundX = kMask & (int32_t)sweepAvgX;
+            *foundY = kMask & (int32_t)sweepAvgY;
 #ifdef SZDEBUG
 fprintf( stderr, "DoS2485 avg %lf %lf fnd %x %x\n", sweepAvgX, sweepAvgY,*foundX,*foundY);
 fprintf( stderr, "DoS2483 sum %lf %lf \n", sweepSumX, sweepSumY );
@@ -2000,13 +1876,13 @@ fprintf( stderr, "DoS2484 num %lf %lf \n", sweepNumX, sweepNumY );
         }
 
         ptr = gLoutBase + 1 * sizeof(int32_t);
-        *((int32_t *)ptr) = gLoutSize;
+        *ptr = gLoutSize;
         ptr = gLoutBase + 2 * sizeof(int32_t);
-        *((int32_t *)ptr) = gLoutCount;
+        *ptr = gLoutCount;
 
-             // zero based current target (sensor)
+	// zero based current target (sensor)
         ptr = gLoutBase + (3+gSearchCurrentSensor) * sizeof(int32_t);
-        *((int32_t *)ptr) = localCount;
+        *ptr = localCount;
 
 #if defined(LOUTDEBUG)
 fprintf( stderr, "Lout3sensor %d %d %d\n", gSearchCurrentSensor, gLoutSize, gLoutCount );
@@ -2026,18 +1902,15 @@ if ( gSearchCurrentSensor == 5 ) {
 }
 
 
-static int
-findFirstLast( struct lg_master *pLgMaster, uint32_t *firstX,
-	       uint32_t *firstY, uint32_t *lastX,
-	       uint32_t *lastY, int32_t *medianX,
-	       int32_t *medianY, uint32_t currentX,
-	       uint32_t currentY, uint32_t xStep,
-	       uint32_t yStep, uint32_t nSteps)
+static int findFirstLast(struct lg_master *pLgMaster, int32_t *firstX, int32_t *firstY,
+			 int32_t *lastX, int32_t *lastY, int32_t *medianX,
+			 int32_t *medianY, int32_t currentX, int32_t currentY,
+			 uint32_t xStep, uint32_t yStep, uint32_t nSteps)
 {
 	struct lg_xydata xydata;
 	struct lg_xydata xydelta;
         int i;
-        uint32_t *ptr;
+        int32_t *ptr;
         int iCountMedian;
         int ihalf;
         double tmpX;
@@ -2055,11 +1928,13 @@ findFirstLast( struct lg_master *pLgMaster, uint32_t *firstX,
         firstFlag = 1;
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
-	
-	xydata.xdata = currentX & kMaxUnsigned;
-	xydata.ydata = currentY & kMaxUnsigned;
-	xydelta.xdata = xStep & kMaxUnsigned;
-	xydelta.ydata = yStep & kMaxUnsigned;
+	memset((char *)&dXMedian, 0, sizeof(dXMedian));
+	memset((char *)&dYMedian, 0, sizeof(dYMedian));
+
+	xydata.xdata = currentX & kMaxSigned;
+	xydata.ydata = currentY & kMaxSigned;
+	xydelta.xdata = xStep & kMaxSigned;
+	xydelta.ydata = yStep & kMaxSigned;
 	if (DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			  (struct lg_xydata *)&xydelta, nSteps, gLout))
 	  return kStopWasDone;
@@ -2067,25 +1942,11 @@ findFirstLast( struct lg_master *pLgMaster, uint32_t *firstX,
 	  return kStopWasDone;
 
 	// zero out the first twelve entries
-        i = 0;
-        gLout[0] = 0;
-        gLout[1] = 0;
-        gLout[2] = 0;
-        gLout[3] = 0;
-        gLout[4] = 0;
-        gLout[5] = 0;
-        gLout[6] = 0;
-        gLout[7] = 0;
-        gLout[8] = 0;
-        gLout[9] = 0;
-        gLout[10] = 0;
-        gLout[11] = 0;
-
-        i = 0;
+	memset((char *)&gLout[0], 0, (12 * sizeof(int32_t)));
         ptr = &(gLout[0]);
         iCountMedian = 0;
-        startX = (double)((int32_t)currentX);
-        startY = (double)((int32_t)currentY);
+        startX = (double)currentX;
+        startY = (double)currentY;
         dX = (double)((int32_t)xStep);
         dY = (double)((int32_t)yStep);
 #ifdef SZDEBUG
@@ -2099,11 +1960,11 @@ fprintf( stderr, "fstart %.0lf %.0lf del %.0lf %.0lf \n", startX, startY,dX,dY )
                if( *ptr >= minlevel && i > NZERO ) {
                   if ( firstFlag == 1 ) {
                      firstFlag = 0;
-                     *firstX = (uint32_t)((int32_t)tmpX);
-                     *firstY = (uint32_t)((int32_t)tmpY);
+                     *firstX = (int32_t)tmpX;
+                     *firstY = (int32_t)tmpY;
                   }
-                  *lastX = (uint32_t)((int32_t)tmpX);
-                  *lastY = (uint32_t)((int32_t)tmpY);
+                  *lastX = (int32_t)tmpX;
+                  *lastY = (int32_t)tmpY;
                   dXMedian[iCountMedian] = (int32_t)tmpX;
                   dYMedian[iCountMedian] = (int32_t)tmpY;
                   iCountMedian++;
@@ -2137,43 +1998,34 @@ fprintf( stderr, "find1stlast 2979  %8x %8x %8x %8x\n", Xm, Ym, *lastX, *lastY )
         return 0;
 }
 
-void
-limitCalc( uint32_t centerX
-         , uint32_t centerY
-         , uint32_t *eolXNeg
-         , uint32_t *eolXPos
-         , uint32_t *eolYNeg
-         , uint32_t *eolYPos
-         )
+void limitCalc(int32_t centerX, int32_t centerY, int32_t *eolXNeg,
+	       int32_t *eolXPos, int32_t *eolYNeg, int32_t *eolYPos)
 {
-      uint32_t theSpan, twiceSpan;
+    int32_t theSpan, twiceSpan;
 
-      theSpan = kFineSearchStep * kFineSearchSpanSteps;
-      twiceSpan = theSpan << 1;
+    theSpan = kFineSearchStep * kFineSearchSpanSteps;
+    twiceSpan = theSpan << 1;
 
-      if ( (int32_t)centerX <= (int32_t)kMinNumberX + (int32_t)theSpan ) {
-             *eolXNeg = kMinNumberX + theSpan;
-      } else {
-             *eolXNeg = centerX - theSpan;
-             if ( (int32_t)*eolXNeg > ( (int32_t)kMaxNumberX - (int32_t)twiceSpan ) )
-                     *eolXNeg = kMaxNumberX - twiceSpan;
+    if (centerX <= (kMinNumberX + theSpan))
+      *eolXNeg = kMinNumberX + theSpan;
+    else
+      {
+	*eolXNeg = centerX - theSpan;
+	if (*eolXNeg > (kMaxNumberX - twiceSpan))
+	  *eolXNeg = kMaxNumberX - twiceSpan;
       }
-      *eolXPos = *eolXNeg + twiceSpan;
+    *eolXPos = *eolXNeg + twiceSpan;
 
-       if ( (int32_t)centerY <= (int32_t)kMinNumberY + (int32_t)theSpan ) {
-             *eolYNeg = kMinNumberY + theSpan;
-       } else {
-             *eolYNeg = centerY - theSpan;
-             if ( (int32_t)*eolYNeg > ( (int32_t)kMaxNumberY - (int32_t)twiceSpan ) )
-                     *eolYNeg = kMaxNumberY - twiceSpan;
-       }
-       *eolYPos = *eolYNeg + twiceSpan;
-
-#ifdef SZDEBUG
-fprintf( stderr, "Zen 65   x %x y %x   %x %x %x %\n",
-     centerX, centerY, *eolXPos, *eolXNeg, *eolYPos, *eolYNeg);
-#endif
-
+    if (centerY <= (kMinNumberY + theSpan))
+      *eolYNeg = kMinNumberY + theSpan;
+    else
+      {
+	*eolYNeg = centerY - theSpan;
+	if (*eolYNeg > (kMaxNumberY - twiceSpan))
+	  *eolYNeg = kMaxNumberY - twiceSpan;
+      }
+    *eolYPos = *eolYNeg + twiceSpan;
+    return;
 }
 
 void
@@ -2189,13 +2041,8 @@ fprintf(stderr, "2267 SFfac %d step %x\n", gSuperFineFactor, gSuperFineSearchSte
 }
 
 int         
-SuperSearch (struct lg_master *pLgMaster,
-	     uint32_t *foundX,
-	     uint32_t *foundY,
-	     double * dMinX,
-	     double * dMinY,
-	     double * dMaxX,
-	     double * dMaxY)
+SuperSearch (struct lg_master *pLgMaster, int32_t *foundX, int32_t *foundY,
+	     double *dMinX, double *dMinY, double *dMaxX, double *dMaxY)
 {
   struct lg_xydata xydata;
   struct lg_xydata xydelta;
@@ -2205,17 +2052,16 @@ SuperSearch (struct lg_master *pLgMaster,
   double sumY;
   double avgX;
   double avgY;
-  uint32_t startX;
-  uint32_t startY;
-  uint32_t endX;
-  uint32_t endY;
-  uint32_t startX1;
-  uint32_t startX2;
-  uint32_t startY1;
-  uint32_t startY2;
-  uint32_t delNeg;
-  uint32_t delPos;
-        
+  int32_t startX;
+  int32_t startY;
+  int32_t endX;
+  int32_t endY;
+  int32_t startX1;
+  int32_t startX2;
+  int32_t startY1;
+  int32_t startY2;
+  int32_t delNeg;
+  int32_t delPos;
   double dblX;
   double dblY;
   double dblX1;
@@ -2257,8 +2103,8 @@ SuperSearch (struct lg_master *pLgMaster,
   Ylow  = *dMinY - (((*dMaxX) - (*dMinX))/2);
   Yhigh = *dMaxY + (((*dMaxX) - (*dMinX))/2);
 
-  delNeg = (uint32_t)(-(int32_t)gSuperFineSearchStep);
-  delPos = (uint32_t)( (int32_t)gSuperFineSearchStep);
+  delNeg = -gSuperFineSearchStep;
+  delPos = gSuperFineSearchStep;
   
   sweep = 1;
   sumX = 0.0;
@@ -2268,9 +2114,9 @@ SuperSearch (struct lg_master *pLgMaster,
   for (dblX = *dMinX; dblX < *dMaxX; dblX +=  Dstep ) {
     if (IfStopThenStopAndNeg1Else0(pLgMaster))
       return kStopWasDone;
-    startX  = kMask & ((uint32_t)((int32_t)dblX ));
-    startY1 = kMask & ((uint32_t)((int32_t)(*dMinY)));
-    startY2 = kMask & ((uint32_t)((int32_t)(*dMaxY)));
+    startX  = kMask & (int32_t)dblX;
+    startY1 = kMask & (int32_t)*dMinY;
+    startY2 = kMask & (int32_t)*dMaxY;
     for ( i=1; i<nYsteps; i++ )
       {
 	gLout1[i] = 0;
@@ -2280,10 +2126,10 @@ SuperSearch (struct lg_master *pLgMaster,
     if (firstSuper == 1)
       {
 	firstSuper = 0;
-	xydata.xdata = startX & kMaxUnsigned;
-	xydata.ydata = startY2 & kMaxUnsigned;
+	xydata.xdata = startX & kMaxSigned;
+	xydata.ydata = startY2 & kMaxSigned;
 	xydelta.xdata = 0;
-	xydelta.ydata = delNeg & kMaxUnsigned;
+	xydelta.ydata = delNeg & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout2);
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2291,12 +2137,12 @@ SuperSearch (struct lg_master *pLgMaster,
 
 	if ( result == kStopWasDone ) return result;
 
-	startX  = kMask & ((uint32_t)((int32_t)dblX ));
-	startY1 = kMask & ((uint32_t)((int32_t)(*dMinY)));
-	xydata.xdata = startX & kMaxUnsigned;
-	xydata.ydata = startY1 & kMaxUnsigned;
+	startX  = kMask & (int32_t)dblX;
+	startY1 = kMask & (int32_t)*dMinY;
+	xydata.xdata = startX & kMaxSigned;
+	xydata.ydata = startY1 & kMaxSigned;
 	xydelta.xdata = 0;
-	xydelta.ydata = delPos & kMaxUnsigned;
+	xydelta.ydata = delPos & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2304,12 +2150,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	if ( result == kStopWasDone ) return result;
       }
 
-    startX  = kMask & ((uint32_t)((int32_t)dblX ));
+    startX  = kMask & (int32_t)dblX;
     startY2 = kMask & ((uint32_t)((int32_t)(*dMaxY)));
-    xydata.xdata = startX & kMaxUnsigned;
-    xydata.ydata = startY2 & kMaxUnsigned;
+    xydata.xdata = startX & kMaxSigned;
+    xydata.ydata = startY2 & kMaxSigned;
     xydelta.xdata = 0;
-    xydelta.ydata = delNeg & kMaxUnsigned;
+    xydelta.ydata = delNeg & kMaxSigned;
     result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout2);
     if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2321,12 +2167,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	  gLout2[i] = 0;
       }
              
-    startX  = kMask & ((uint32_t)((int32_t)dblX ));
-    startY1 = kMask & ((uint32_t)((int32_t)(*dMinY)));
-    xydata.xdata = startX & kMaxUnsigned;
-    xydata.ydata = startY1 & kMaxUnsigned;
+    startX  = kMask & (int32_t)dblX;
+    startY1 = kMask & (int32_t)*dMinY;
+    xydata.xdata = startX & kMaxSigned;
+    xydata.ydata = startY1 & kMaxSigned;
     xydelta.xdata = 0;
-    xydelta.ydata = delPos & kMaxUnsigned;
+    xydelta.ydata = delPos & kMaxSigned;
     result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			   (struct lg_xydata *)&xydelta, nYsteps, gLout1);
     if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2396,16 +2242,16 @@ SuperSearch (struct lg_master *pLgMaster,
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	return kStopWasDone;
 
-      startX2  = kMask & ((uint32_t)((int32_t)(*dMaxX)));
-      startY   = kMask & ((uint32_t)((int32_t)   dblY ));
+      startX2  = kMask & (int32_t)*dMaxX;
+      startY   = kMask & (int32_t)dblY;
       for ( i=1; i<nXsteps; i++ ) {
 	gLout1[i] = 0;
 	gLout2[i] = 0;
       }
-      xydata.xdata = startX2 & kMaxUnsigned;
-      xydata.ydata = startY & kMaxUnsigned;
+      xydata.xdata = startX2 & kMaxSigned;
+      xydata.ydata = startY & kMaxSigned;
       xydelta.ydata = 0;
-      xydelta.xdata = delNeg & kMaxUnsigned;
+      xydelta.xdata = delNeg & kMaxSigned;
       result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydata *)&xydelta, nXsteps, gLout2);
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2417,12 +2263,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	}
       }
 
-      startX1  = kMask & ((uint32_t)((int32_t)(*dMinX)));
-      startY   = kMask & ((uint32_t)((int32_t)   dblY ));
-      xydata.xdata = startX1 & kMaxUnsigned;
-      xydata.ydata = startY & kMaxUnsigned;
+      startX1  = kMask & (int32_t)*dMinX;
+      startY   = kMask & (int32_t)dblY;
+      xydata.xdata = startX1 & kMaxSigned;
+      xydata.ydata = startY & kMaxSigned;
       xydelta.ydata = 0;
-      xydelta.xdata = delPos & kMaxUnsigned;
+      xydelta.xdata = delPos & kMaxSigned;
       result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydata *)&xydelta, nXsteps, gLout1);
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2518,17 +2364,17 @@ SuperSearch (struct lg_master *pLgMaster,
 #endif
 	  return kStopWasDone;
 	}
-      startX  = kMask & ((uint32_t)((int32_t)dblX ));
-      startY1 = kMask & ((uint32_t)((int32_t)(*dMinY)));
-      startY2 = kMask & ((uint32_t)((int32_t)(*dMaxY)));
+      startX  = kMask & (int32_t)dblX;
+      startY1 = kMask & (int32_t)*dMinY;
+      startY2 = kMask & (int32_t)*dMaxY;
       for ( i=1; i<nYsteps; i++ ) {
 	gLout1[i] = 0;
 	gLout2[i] = 0;
       }
-      xydata.xdata = startX & kMaxUnsigned;
-      xydata.ydata = startY2 & kMaxUnsigned;
+      xydata.xdata = startX & kMaxSigned;
+      xydata.ydata = startY2 & kMaxSigned;
       xydelta.xdata = 0;
-      xydelta.ydata = delNeg & kMaxUnsigned;
+      xydelta.ydata = delNeg & kMaxSigned;
       result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydata *)&xydelta, nYsteps, gLout2);
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2539,12 +2385,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	  gLout2[i] = 0;
 	}
       }
-      startX  = kMask & ((uint32_t)((int32_t)dblX ));
-      startY1 = kMask & ((uint32_t)((int32_t)(*dMinY)));
-      xydata.xdata = startX & kMaxUnsigned;
-      xydata.ydata = startY1 & kMaxUnsigned;
+      startX  = kMask & (int32_t)dblX;
+      startY1 = kMask & (int32_t)*dMinY;
+      xydata.xdata = startX & kMaxSigned;
+      xydata.ydata = startY1 & kMaxSigned;
       xydelta.xdata = 0;
-      xydelta.ydata = delPos & kMaxUnsigned;
+      xydelta.ydata = delPos & kMaxSigned;
       result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2632,16 +2478,16 @@ SuperSearch (struct lg_master *pLgMaster,
 	  return kStopWasDone;
 	}
 
-      startX2  = kMask & ((uint32_t)((int32_t)(*dMaxX)));
-      startY   = kMask & ((uint32_t)((int32_t)   dblY ));
+      startX2  = kMask & (int32_t)*dMaxX;
+      startY   = kMask & (int32_t)dblY;
       for ( i=1; i<nYsteps; i++ ) {
 	gLout1[i] = 0;
 	gLout2[i] = 0;
       }
-      xydata.xdata = startX2 & kMaxUnsigned;
-      xydata.ydata = startY & kMaxUnsigned;
+      xydata.xdata = startX2 & kMaxSigned;
+      xydata.ydata = startY & kMaxSigned;
       xydelta.ydata = 0;
-      xydelta.xdata = delNeg & kMaxUnsigned;
+      xydelta.xdata = delNeg & kMaxSigned;
       result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydata *)&xydelta, nXsteps, gLout2);
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2653,12 +2499,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	}
       }
 
-      startX1  = kMask & ((uint32_t)((int32_t)(*dMinX)));
-      startY   = kMask & ((uint32_t)((int32_t)   dblY ));
-      xydata.xdata = startX1 & kMaxUnsigned;
-      xydata.ydata = startY & kMaxUnsigned;
+      startX1  = kMask & (int32_t)*dMinX;
+      startY   = kMask & (int32_t)dblY;
+      xydata.xdata = startX1 & kMaxSigned;
+      xydata.ydata = startY & kMaxSigned;
       xydelta.ydata = 0;
-      xydelta.xdata = delPos & kMaxUnsigned;
+      xydelta.xdata = delPos & kMaxSigned;
       result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydata *)&xydelta, nXsteps, gLout1);
       if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2750,17 +2596,17 @@ SuperSearch (struct lg_master *pLgMaster,
 	  if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	    return kStopWasDone;
 
-	  startX = kMask & ((uint32_t)((int32_t)dblX));
-	  startY = kMask & ((uint32_t)((int32_t)dblY));
+	  startX = kMask & (int32_t)dblX;
+	  startY = kMask & (int32_t)dblY;
 	for ( i=1; i<nYsteps; i++ )
 	  {
 	    gLout1[i] = 0;
 	    gLout2[i] = 0;
 	  }
-	xydata.xdata = startX & kMaxUnsigned;
-	xydata.ydata = startY & kMaxUnsigned;
-	xydelta.xdata = delPos & kMaxUnsigned;
-	xydelta.ydata = delNeg & kMaxUnsigned;
+	xydata.xdata = startX & kMaxSigned;
+	xydata.ydata = startY & kMaxSigned;
+	xydelta.xdata = delPos & kMaxSigned;
+	xydelta.ydata = delNeg & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2800,12 +2646,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	    gLoutIndex++;
 	  }
 
-	endX = kMask & ((uint32_t)((int32_t)(dblX+Dstep*nYsteps)));
-	endY = kMask & ((uint32_t)((int32_t)(dblY-Dstep*nYsteps)));
-	xydata.xdata = endX & kMaxUnsigned;
-	xydata.ydata = endY & kMaxUnsigned;
-	xydelta.xdata = delNeg & kMaxUnsigned;
-	xydelta.ydata = delPos & kMaxUnsigned;
+	endX = kMask & (int32_t)(dblX + (Dstep * nYsteps));
+	endY = kMask & (int32_t)(dblY - (Dstep * nYsteps));
+	xydata.xdata = endX & kMaxSigned;
+	xydata.ydata = endY & kMaxSigned;
+	xydelta.xdata = delNeg & kMaxSigned;
+	xydelta.ydata = delPos & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2865,17 +2711,17 @@ SuperSearch (struct lg_master *pLgMaster,
 	    return kStopWasDone;
 	  }
 
-	startX = kMask & ((uint32_t)((int32_t)dblX));
-	startY = kMask & ((uint32_t)((int32_t)dblY));
+	startX = kMask & (int32_t)dblX;
+	startY = kMask & (int32_t)dblY;
 	for ( i=1; i<nYsteps; i++ )
 	  {
 	    gLout1[i] = 0;
 	    gLout2[i] = 0;
 	  }
-	xydata.xdata = startX & kMaxUnsigned;
-	xydata.ydata = startY & kMaxUnsigned;
-	xydelta.xdata = delNeg & kMaxUnsigned;
-	xydelta.ydata = delPos & kMaxUnsigned;
+	xydata.xdata = startX & kMaxSigned;
+	xydata.ydata = startY & kMaxSigned;
+	xydelta.xdata = delNeg & kMaxSigned;
+	xydelta.ydata = delPos & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2914,12 +2760,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	    gLoutIndex++;
 	  }
 
-	endX = kMask & ((uint32_t)((int32_t)(dblX-Dstep*nYsteps)));
-	endY = kMask & ((uint32_t)((int32_t)(dblY+Dstep*nYsteps)));
-	xydata.xdata = endX & kMaxUnsigned;
-	xydata.ydata = endY & kMaxUnsigned;
-	xydelta.xdata = delPos & kMaxUnsigned;
-	xydelta.ydata = delNeg & kMaxUnsigned;
+	endX = kMask & (int32_t)(dblX - (Dstep * nYsteps));
+	endY = kMask & (int32_t)(dblY + (Dstep * nYsteps));
+	xydata.xdata = endX & kMaxSigned;
+	xydata.ydata = endY & kMaxSigned;
+	xydelta.xdata = delPos & kMaxSigned;
+	xydelta.ydata = delNeg & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -2976,8 +2822,8 @@ SuperSearch (struct lg_master *pLgMaster,
 	    return kStopWasDone;
 	  }
 
-	startX = kMask & ((uint32_t)((int32_t)dblX));
-	startY = kMask & ((uint32_t)((int32_t)dblY));
+	startX = kMask & (int32_t)dblX;
+	startY = kMask & (int32_t)dblY;
 #ifdef SZDEBUG
 	fprintf( stderr, "3089 xy %x %x\n", startX, startY );
 #endif
@@ -2986,10 +2832,10 @@ SuperSearch (struct lg_master *pLgMaster,
 	    gLout1[i] = 0;
 	    gLout2[i] = 0;
 	  }
-	xydata.xdata = startX & kMaxUnsigned;
-	xydata.ydata = startY & kMaxUnsigned;
-	xydelta.xdata = delNeg & kMaxUnsigned;
-	xydelta.ydata = delNeg & kMaxUnsigned;
+	xydata.xdata = startX & kMaxSigned;
+	xydata.ydata = startY & kMaxSigned;
+	xydelta.xdata = delNeg & kMaxSigned;
+	xydelta.ydata = delNeg & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -3028,12 +2874,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	    gLoutIndex++;
 	  }
 
-	endX = kMask & ((uint32_t)((int32_t)(dblX-Dstep*nYsteps)));
-	endY = kMask & ((uint32_t)((int32_t)(dblY-Dstep*nYsteps)));
-	xydata.xdata = endX & kMaxUnsigned;
-	xydata.ydata = endY & kMaxUnsigned;
-	xydelta.xdata = delPos & kMaxUnsigned;
-	xydelta.ydata = delPos & kMaxUnsigned;
+	endX = kMask & (int32_t)(dblX - (Dstep * nYsteps));
+	endY = kMask & (int32_t)(dblY - (Dstep * nYsteps));
+	xydata.xdata = endX & kMaxSigned;
+	xydata.ydata = endY & kMaxSigned;
+	xydelta.xdata = delPos & kMaxSigned;
+	xydelta.ydata = delPos & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -3083,17 +2929,17 @@ SuperSearch (struct lg_master *pLgMaster,
 	  if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	    return kStopWasDone;
 
-	  startX = kMask & ((uint32_t)((int32_t)dblX));
-	  startY = kMask & ((uint32_t)((int32_t)dblY));
+	  startX = kMask & (int32_t)dblX;
+	  startY = kMask & (int32_t)dblY;
 	  for ( i=1; i<nYsteps; i++ )
 	    {
 	      gLout1[i] = 0;
 	      gLout2[i] = 0;
 	    }
-	xydata.xdata = startX & kMaxUnsigned;
-	xydata.ydata = startY & kMaxUnsigned;
-	xydelta.xdata = delPos & kMaxUnsigned;
-	xydelta.ydata = delPos & kMaxUnsigned;
+	xydata.xdata = startX & kMaxSigned;
+	xydata.ydata = startY & kMaxSigned;
+	xydelta.xdata = delPos & kMaxSigned;
+	xydelta.ydata = delPos & kMaxSigned;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -3133,12 +2979,12 @@ SuperSearch (struct lg_master *pLgMaster,
 	      gLoutIndex++;
 	    }
 
-	  endX = kMask & ((uint32_t)((int32_t)(dblX+Dstep*nYsteps)));
-	  endY = kMask & ((uint32_t)((int32_t)(dblY+Dstep*nYsteps)));
-	  xydata.xdata = endX & kMaxUnsigned;
-	  xydata.ydata = endY & kMaxUnsigned;
-	  xydelta.xdata = delNeg & kMaxUnsigned;
-	  xydelta.ydata = delNeg & kMaxUnsigned;
+	  endX = kMask & (int32_t)(dblX + (Dstep * nYsteps));
+	  endY = kMask & (int32_t)(dblY + (Dstep * nYsteps));
+	  xydata.xdata = endX & kMaxSigned;
+	  xydata.ydata = endY & kMaxSigned;
+	  xydelta.xdata = delNeg & kMaxSigned;
+	  xydelta.ydata = delNeg & kMaxSigned;
 	  result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 				 (struct lg_xydata *)&xydelta, nYsteps, gLout1);
 	  if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -3183,8 +3029,8 @@ SuperSearch (struct lg_master *pLgMaster,
   avgX = sumX / dCount;
   avgY = sumY / dCount;
 
-  *foundX = (uint32_t)((int32_t)avgX);
-  *foundY = (uint32_t)((int32_t)avgY);
+  *foundX = (int32_t)avgX;
+  *foundY = (int32_t)avgY;
 
   if ( gSuperIndex > 3 )
     {
@@ -3196,20 +3042,19 @@ SuperSearch (struct lg_master *pLgMaster,
 #if defined(LOUTDEBUG) || defined(SZDEBUG)
       fprintf( stderr, "super2655 %d %lf %lf\n", gSearchCurrentSensor, avgX, avgY );
 #endif
-      *foundX = (uint32_t)((int32_t)avgX);
-      *foundY = (uint32_t)((int32_t)avgY);
+      *foundX = (int32_t)avgX;
+      *foundY = (int32_t)avgY;
     }
-        
   return 0;
 }
 
 int
 int32_tsort( const void *elem1, const void *elem2 )
 {
-    uint32_t numone, numtwo;
+    int32_t numone, numtwo;
 
-    numone = *(const uint32_t *)elem1;
-    numtwo = *(const uint32_t *)elem2;
+    numone = *(const int32_t *)elem1;
+    numtwo = *(const int32_t *)elem2;
 
     if ( numone < numtwo ) return -1;
     if ( numone > numtwo ) return  1;

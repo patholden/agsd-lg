@@ -19,18 +19,14 @@ extern	uint32_t	PutGoTo3D (struct lg_master *pLgMaster, double x, double y, doub
 					
 extern	uint32_t	FinishPattern (struct lg_master *pLgMaster);
 
-extern	uint32_t	SetPenDown ( void );
-
-extern	uint32_t	SetPenUp ( void );
-
-extern	uint32_t	SetDefaultZ ( double z );
-
-void SetUpLaserPattern(struct lg_master *pLgMaster, double *transform);
+uint32_t SetPenDown ( void );
+uint32_t SetPenUp ( void );
+uint32_t SetDefaultZ ( double z );
+struct lg_xydata *SetUpLaserPattern(struct lg_master *pLgMaster, double *transform);
 void ChangeTransform(double *transform);
-
 uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double y, double z,
-				  uint32_t *xAngle, uint32_t *yAngle);
-uint32_t PointToBinary(struct lg_master *pLgMaster, double *point, uint32_t *xAngle,	uint32_t *yAngle);
+				  int32_t *xAngle, int32_t *yAngle);
+uint32_t PointToBinary(struct lg_master *pLgMaster, double *point, int32_t *xAngle, int32_t *yAngle);
 extern double gMaxCos;
 
 extern  double gCurveMin;

@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <syslog.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
@@ -61,22 +62,21 @@ enum
 	kBar
 };
 
-static	uint32_t 	GetNextElement (unsigned char *theData, short dataLength, 
-							elementRecord *theElement,
-							short *theResult );
-static	int32_t			GetNextRecord (unsigned char *theData, int32_t dataLength );
-static	uint32_t	ProcessStatement (struct lg_master *pLgMaster, short numberOfElements );
+static uint32_t	GetNextElement(char *theData, short dataLength, 
+			       elementRecord *theElement, short *theResult );
+static	int32_t	GetNextRecord(char *theData, int32_t dataLength);
+static	uint32_t ProcessStatement(struct lg_master *pLgMaster, short numberOfElements);
 static	uint32_t	FirstFourLetters ( elementRecord *theElement );
 static	unsigned short	LastTwoLetters ( elementRecord *theElement );
 					
-static	elementRecord	*gElements = (elementRecord *)NULL;
+static	elementRecord	*gElements = 0;
 
-uint32_t ProcessPatternData (struct lg_master *pLgMaster, unsigned char *theData, uint32_t lengthOfData )
+uint32_t ProcessPatternData (struct lg_master *pLgMaster, char *theData, uint32_t lengthOfData )
 {
-  int32_t		lengthOfRecord, remainingInput;
-  short			processedLength, numberOfElements;
-  unsigned char         *currentStartOfRecord;
-  unsigned char         *currentStartOfData;
+  int32_t	lengthOfRecord, remainingInput;
+  short		processedLength, numberOfElements;
+  char          *currentStartOfRecord;
+  char          *currentStartOfData;
   uint32_t	theError;
   short			elementLength;
 #ifndef __unix__
@@ -116,7 +116,7 @@ uint32_t ProcessPatternData (struct lg_master *pLgMaster, unsigned char *theData
 				    ((int16_t)lengthOfRecord - processedLength),
 				    &gElements[numberOfElements], &elementLength);
 	  if (theError != 0)
-	    fprintf(stderr,"\nProcessPatternData : GetNextElement() : theError %d\n", theError);
+	    syslog(LOG_ERR,"\nProcessPatternData : GetNextElement() : theError %d\n", theError);
 
 	  if (theError)
 	    return(theError);
@@ -152,7 +152,7 @@ uint32_t ProcessPatternData (struct lg_master *pLgMaster, unsigned char *theData
 	}
       theError = ProcessStatement (pLgMaster, numberOfElements );
       if (theError != 0)
-	fprintf(stderr,
+	syslog(LOG_ERR,
 		"\nProcessPatternData : Call ProcessStatement() theError %d\n",
 		theError);
       if (theError == (kAPTError + 1133))
@@ -165,10 +165,10 @@ uint32_t ProcessPatternData (struct lg_master *pLgMaster, unsigned char *theData
   return(0);
 }
 
-int32_t GetNextRecord (unsigned char *theData, int32_t dataLength )
+static int32_t GetNextRecord (char *theData, int32_t dataLength )
 {
 	register int32_t i;
-	register unsigned char *charIn;
+	register char *charIn;
 	register char theChar;
 
 	charIn = theData;
@@ -186,10 +186,10 @@ int32_t GetNextRecord (unsigned char *theData, int32_t dataLength )
 }
 
 
-uint32_t GetNextElement (unsigned char *theData, short dataLength, 
+uint32_t GetNextElement (char *theData, short dataLength, 
 	elementRecord *theElement, short *theResult )
 {
-	unsigned char *currentChar;
+	char *currentChar;
 	short mantissaPoint, exponentED, exponentSign;
 	short mantissaDigits, exponentDigits;
 	unsigned char wasNonDollarAfterDollar;
@@ -596,7 +596,7 @@ unsigned short LastTwoLetters ( elementRecord *theElement )
 void CloseAPTParser ( void )
 {
 	if ( gElements ) free((void *)gElements );
-	gElements = (elementRecord *)NULL;
+	gElements = 0;
 }
 
 void InitAPTParser ( void )

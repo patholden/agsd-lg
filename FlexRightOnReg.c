@@ -137,7 +137,7 @@ void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
 		   *  allow for a variable speed search, in needed
 		   */
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 #ifdef ZDEBUG
 fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
 #endif
@@ -161,15 +161,15 @@ fprintf( stderr, "finish search for sensor %d\n", i );
                               return;
                         }
 			if ( !searchResult ) break;
-		        gCoarse2SearchStep /= 2;
+		        pLgMaster->gCoarse2SearchStep /= 2;
 		        gCoarse2Factor     /= 2; 
-			if ( gCoarse2SearchStep <= 0x00010000 ) {
-		        	gCoarse2SearchStep = 0x00010000;
+			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
+		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
 		        	gCoarse2Factor     = 1;
 			}
 		}
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 		
 		if ( searchResult ) {
 			lostSensors += 1U << i;

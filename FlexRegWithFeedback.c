@@ -31,16 +31,16 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
 			       char * parameters,
 			       uint32_t respondToWhom )
 {
-	uint32_t ptX, ptY;
-	uint32_t fndX;
-	uint32_t fndY;
+	int32_t ptX, ptY;
+	int32_t fndX;
+	int32_t fndY;
 	double XfoundAngles [ kNumberOfFlexPoints ];
 	double YfoundAngles [ kNumberOfFlexPoints ];
 	double XExternalAngles [ kNumberOfFlexPoints ];
 	double YExternalAngles [ kNumberOfFlexPoints ];
 	double foundAngles [ kNumberOfFlexPoints * 2 ];
-	uint32_t Xarr [ kNumberOfFlexPoints ];
-	uint32_t Yarr [ kNumberOfFlexPoints ];
+	int32_t Xarr [ kNumberOfFlexPoints ];
+	int32_t Yarr [ kNumberOfFlexPoints ];
         int32_t target_status [ kNumberOfFlexPoints ];
         int numberOfFoundTargets;
         int useTarget [ kNumberOfFlexPoints ];
@@ -73,7 +73,7 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
         int32_t numberOfTargets;
         int32_t RawGeomFlag;
         double theCoordinateBuffer[kNumberOfFlexPoints * 3];
-        uint32_t theAngleBuffer[kNumberOfFlexPoints * 2];
+        int32_t theAngleBuffer[kNumberOfFlexPoints * 2];
         double *currentData;
 	int index;
 	double theTransformTolerance;
@@ -105,6 +105,7 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
                gBestTargetArray[i] = 0;
         }
 
+	// Initialize buffers
         for ( i = 0; i < kNumberOfFlexPoints; i++ ) {
                target_status[i] = 0;
                foundTarget[i]  = 0;
@@ -231,7 +232,7 @@ fprintf( stderr
 		   *  allow for a variable speed search, in needed
 		   */
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 #ifdef ZDEBUG
 fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
 #endif
@@ -269,15 +270,15 @@ fprintf( stderr, "kStopWasDone %d %d\n", gSearchFlag, gStopFlag );
                               return;
                         }
 			if ( !searchResult ) break;
-		        gCoarse2SearchStep /= 2;
+		        pLgMaster->gCoarse2SearchStep /= 2;
 		        gCoarse2Factor     /= 2; 
-			if ( gCoarse2SearchStep <= 0x00010000 ) {
-		        	gCoarse2SearchStep = 0x00010000;
+			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
+		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
 		        	gCoarse2Factor     = 1;
 			}
 		}
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 		
 		if ( searchResult ) {
 			lostSensors += 1U << i;

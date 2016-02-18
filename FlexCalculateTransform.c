@@ -22,6 +22,7 @@ static char rcsid[] = "$Id$";
 #include "3DTransform.h"
 #include "Protocol.h"
 
+//FIXME---PAH---NEEDS CMD/RESP STRUCTS
 void FlexCalculateTransform ( struct lg_master *pLgMaster,
 			      char * data,
 			      uint32_t respondToWhom )
@@ -31,8 +32,8 @@ void FlexCalculateTransform ( struct lg_master *pLgMaster,
 	uint32_t Yarr [ kNumberOfFlexPoints ];
 	double Xgeo;
 	double Ygeo;
-        uint32_t Xbin;
-        uint32_t Ybin;
+        int32_t Xbin;
+        int32_t Ybin;
         double theCoordinateBuffer[kNumberOfFlexPoints * 3];
 	uint32_t resp_len=( sizeof ( uint32_t )
 			    + (12 * kSizeOldLongDouble)

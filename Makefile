@@ -14,9 +14,9 @@ AS=$(TOOLDIR)-as
 AR=$(TOOLDIR)/x86_64-buildroot-linux-uclibc-ar
 
 #
-#LDFLAGS = -L=$(LIBDIR) -lc -lm -lncurses --entry main
+#LDFLAGS = -L=$(LIBDIR) -lc -lm -lncurses  --entry main
 #LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--verbose=9 -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm
-LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm
+LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm -lpthread
 #
 ### EXTRA_CFLAGS = -DDEBUG_READ -DDEBUG_WRITE -DDUMMY_TRANS
 ## EXTRA_CFLAGS = -DDEBUG_READ -DDEBUG_WRITE
@@ -119,4 +119,6 @@ clean:
 	rm -f *.o agsd
 install:
 	chmod 755 agsd
-	cp agsd /home/patti/buildroot/board/ags/rootfs_overlay/agsd
+	cp agsd /home/patti/buildroot/board/agslaser/rootfs_overlay
+	cp *.o /home/patti/buildroot/board/agslaser/rootfs_overlay
+	cp /home/patti/.gdbinit /home/patti/buildroot/board/agslaser/rootfs_overlay

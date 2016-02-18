@@ -6,6 +6,6 @@
 #ifndef SHOWTARGETS_H
 #define SHOWTARGETS_H  1
 
-extern void DoShowTargets(struct lg_master *pLgMaster, char * Parameters, uint32_t respondToWhom );
+void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Parameters, uint32_t respondToWhom );
 
 #endif

@@ -3,9 +3,9 @@
 #define DOCOARSESCAN2_H
 
 int DoCoarseScan2(struct lg_master *pLgMaster,
-		  uint32_t dX, uint32_t dY,
+		  int32_t dX, int32_t dY,
 		  uint32_t lsstep, int lscount,
-		  uint32_t *xfound, uint32_t *yfound);
+		  int32_t *xfound, int32_t *yfound);
 
 
 #endif

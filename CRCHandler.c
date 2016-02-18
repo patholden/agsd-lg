@@ -145,15 +145,15 @@ enum
 
 void CloseCRCHandler ( void )
 {
-	if ( g256Lookup16bitWords )
-		free ( (void *)g256Lookup16bitWords );
-	g256Lookup16bitWords = (unsigned short *)NULL;
+    if ( g256Lookup16bitWords )
+      free ( (void *)g256Lookup16bitWords );
+    g256Lookup16bitWords = 0;
 }
 
 void InitCRCHandler ( void )
 {
 	
-        g256Lookup16bitWords = (unsigned short *)calloc( (size_t)256, sizeof ( unsigned short ) );
+    g256Lookup16bitWords = (unsigned short *)calloc( (size_t)256, sizeof ( unsigned short ) );
 	
-	SetupLookupTable (  );
+    SetupLookupTable();
 }

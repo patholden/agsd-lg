@@ -36,10 +36,8 @@ void DoDisplayChunks(struct lg_master *pLgMaster,
 		     struct parse_chunksdo_parms *pInp,
 		     uint32_t respondToWhom );
 
-void DoDisplayKitVideo (struct lg_master *pLgMaster,
-			uint32_t dataLength,
-			unsigned char * otherParameters,
-			unsigned char * patternData,
+void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
+			unsigned char * otherParameters, char * patternData,
 			uint32_t respondToWhom);
 extern	void	AddDisplayChunksData (struct lg_master *pLgMaster,
 				      uint32_t dataLength,

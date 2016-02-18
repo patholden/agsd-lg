@@ -34,16 +34,16 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
 			  char * parameters,
 			  uint32_t respondToWhom )
 {
-	uint32_t ptX, ptY;
-	uint32_t fndX;
-	uint32_t fndY;
+	int32_t ptX, ptY;
+	int32_t fndX;
+	int32_t fndY;
 	double XfoundAngles [ kFeedbackNumber ];
 	double YfoundAngles [ kFeedbackNumber ];
 	double XExternalAngles [ kFeedbackNumber ];
 	double YExternalAngles [ kFeedbackNumber ];
 	double foundAngles [ kFeedbackNumber * 2 ];
-	uint32_t Xarr [ kFeedbackNumber ];
-	uint32_t Yarr [ kFeedbackNumber ];
+	int32_t Xarr[kFeedbackNumber];
+	int32_t Yarr[kFeedbackNumber];
         int32_t target_status [ kFeedbackNumber ];
         int numberOfFoundTargets;
         int useTarget [ kFeedbackNumber ];
@@ -69,7 +69,7 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
         int32_t numberOfTargets;
         int32_t RawGeomFlag;
         double theCoordinateBuffer[kFeedbackNumber * 3];
-        uint32_t theAngleBuffer[kFeedbackNumber * 2];
+        int32_t theAngleBuffer[kFeedbackNumber * 2];
         double *currentData;
 	int index;
 	double theTransformTolerance;
@@ -199,7 +199,7 @@ fprintf( stderr
 		   *  allow for a variable speed search, in needed
 		   */
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 #ifdef ZDEBUG
 fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
 #endif
@@ -241,15 +241,15 @@ fprintf( stderr, "kStopWasDone %d %d\n", gSearchFlag, gStopFlag );
                               return;
                         }
 			if ( !searchResult ) break;
-		        gCoarse2SearchStep /= 2;
+		        pLgMaster->gCoarse2SearchStep /= 2;
 		        gCoarse2Factor     /= 2; 
-			if ( gCoarse2SearchStep <= 0x00010000 ) {
-		        	gCoarse2SearchStep = 0x00010000;
+			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
+		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
 		        	gCoarse2Factor     = 1;
 			}
 		}
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 		
 		if ( searchResult ) {
 			lostSensors += 1U << i;

@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
+#include <syslog.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "AppErrors.h"
@@ -25,52 +26,6 @@
 #include "pnpoly.h"
 #include "tan_init.h"
 
-double	gBeamLinearRangeX = 48.0;
-double	gBeamLinearRangeY = 48.0;
-
-double gMaxCos = 0.998;
-double gLongToShort = 5.0;
-
-double gCurveMax = 2.0;
-double gCurveMin = 0.25;
-double gCurveCos = 0.99996;
-
-
-static	uint32_t		PutPointsEndingAt(struct lg_master *pLgMaster, double *newPoint );
-								
-static	uint32_t		PutSequenceOfPoints(struct lg_master *pLgMaster, double *theEndPoint );
-		
-static	unsigned char		WithinLaserLinearRange ( double *point );
-
-static	unsigned char		WithinLaserAngleRange ( double *point );
-
-static	void			GetLinearBorderPoint (
-						double *pointInside,
-						double *pointOutside,
-						double *borderPoint );
-
-static	unsigned char		AngleBorderPointsBetween (
-						double *startPoint,
-						double *endPoint,
-						double *entrancePoint,
-						double *exitPoint );
-
-
-static	void			GetAngleBorderPoint (
-						double *pointInside,
-						double *pointOutside,
-						double *borderPoint );
-
-static	unsigned char		LinearBorderPointsBetween (
-						double *startPoint,
-						double *endPoint,
-						double *entrancePoint,
-						double *exitPoint );
-
-
-static int findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], double p3[3], double Dinterp );
-static uint32_t PutAPoint(struct lg_master *pLgMaster, uint32_t x, uint32_t y );
-
 #define	kX 0
 #define	kY 1
 #define	kZ 2
@@ -84,38 +39,62 @@ enum
 	kInitializingPatternInterfaceMsg ,
 	kInitVectorBufferErr
 };
-
 #if _NEW_PATH_
 struct APTVector
 {
-	double x, y, z;
-	uint32_t ax, ay;
-	unsigned char on;
+    double        x, y, z;
+    int32_t       ax, ay;
+    unsigned char on;
 };
-static	uint32_t		ProcessStoredPoints (struct lg_master *pLgMaster);
+#endif
+double	gBeamLinearRangeX = 48.0;
+double	gBeamLinearRangeY = 48.0;
+
+double gMaxCos = 0.998;
+double gLongToShort = 5.0;
+
+double gCurveMax = 2.0;
+double gCurveMin = 0.25;
+double gCurveCos = 0.99996;
+static	unsigned char gBeamOn = true;
+static	unsigned char gItIsStart = true;
+static	unsigned char gPenDownPending;
+static	unsigned char gPendPenDown;
+static	double        gDefaultZ = 0.0;
+static struct lg_xydata *pCurXYData=0;
+static struct lg_xydata *pXYPoints=0;
+static	transform     gCurrentTransform;
+static	double	      gStartPoint[3], gOldPoint[3];
+static	double	      gPutPoint[3];
+static  short         gOldFastStepsNumber;
+#ifndef _NEW_PATH_
+static	double	      gOldPutPoint[3];
+static	short	      gOldSlowStepsNumber;
+static	double        gOldPathFractionUnit;
+#endif
+static	double        gOldAcosX, gOldAcosY, gOldAcosZ;
+static	unsigned char gNowInside = true;
+static	unsigned char gOldBeamOn;
+static	unsigned char gRawInput = false;
+
+static uint32_t PutPointsEndingAt(struct lg_master *pLgMaster, double *newPoint);
+static uint32_t PutSequenceOfPoints(struct lg_master *pLgMaster, double *theEndPoint);
+static unsigned char WithinLaserLinearRange(double *point);
+static unsigned char WithinLaserAngleRange(double *point);
+static void GetLinearBorderPoint(double *pointInside, double *pointOutside, double *borderPoint);
+static unsigned char AngleBorderPointsBetween(double *startPoint, double *endPoint,
+					      double *entrancePoint, double *exitPoint);
+static void GetAngleBorderPoint(double *pointInside, double *pointOutside, double *borderPoint);
+static unsigned char LinearBorderPointsBetween(double *startPoint, double *endPoint,
+					       double *entrancePoint, double *exitPoint);
+static int findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], double p3[3], double Dinterp );
+static uint32_t PutAPoint(struct lg_master *pLgMaster, int32_t x, int32_t y );
+#if _NEW_PATH_
+static	uint32_t ProcessStoredPoints (struct lg_master *pLgMaster);
 static	short				gNumberOfStoredPoints = 0;
-static	struct APTVector	*gPointStorage = (struct APTVector *)NULL;
+static	struct APTVector	*gPointStorage = 0;
 #endif
 
-static	unsigned char				gBeamOn = true;
-static	unsigned char				gItIsStart = true;
-static	unsigned char				gPenDownPending;
-static	unsigned char				gPendPenDown;
-static	double			gDefaultZ = 0.0;
-static	uint32_t		*gCurrentPoint=0;
-static	transform		gCurrentTransform;
-static	double			gStartPoint[3], gOldPoint[3];
-static	double			gPutPoint[3];
-static  short                   gOldFastStepsNumber;
-#ifndef _NEW_PATH_
-static	double			gOldPutPoint[3];
-static	short			gOldSlowStepsNumber;
-static	double			gOldPathFractionUnit;
-#endif
-static	double			gOldAcosX, gOldAcosY, gOldAcosZ;
-static	unsigned char				gNowInside = true;
-static	unsigned char				gOldBeamOn;
-static	unsigned char				gRawInput = false;
 
 uint32_t PutGoTo2D (struct lg_master *pLgMaster, double x, double y )
 {
@@ -145,15 +124,8 @@ uint32_t PutGoTo3D (struct lg_master *pLgMaster, double x, double y, double z )
                  */
 		if ( WithinLaserAngleRange ( addedPoint ) )
 		{
-#ifdef ZDEBUG
-printf( "LP140 about to  WithinLaserLinearRange gNowI %x\n", gNowInside );
-printf( "LP141 xyz %lf %lf %lf\n", addedPoint[kX],addedPoint[kY],addedPoint[kZ] );
-#endif
 		    if ( WithinLaserLinearRange ( addedPoint ) )
 		    {
-#ifdef ZDEBUG
-printf( "LP145 xyz %lf %lf %lf\n", addedPoint[kX],addedPoint[kY],addedPoint[kZ] );
-#endif
 			gItIsStart = false;
 			if ( gNowInside )
 			{
@@ -176,10 +148,6 @@ printf( "LP145 xyz %lf %lf %lf\n", addedPoint[kX],addedPoint[kY],addedPoint[kZ] 
                                                     , gOldPoint
                                                     , gStartPoint
                                                      );
-#ifdef ZDEBUG
-printf( "LP170 about to  WithinLaserAngleRange %lf %lf %lf\n",
-gStartPoint[kX],gStartPoint[kY],gStartPoint[kZ] );
-#endif
 		                if (! WithinLaserAngleRange ( gStartPoint ) ) {
 				    GetAngleBorderPoint ( addedPoint
                                                         , gOldPoint
@@ -194,9 +162,6 @@ gStartPoint[kX],gStartPoint[kY],gStartPoint[kZ] );
 				gOldPoint[kZ] = gStartPoint[kZ];
 			}
 		    } else {
-#ifdef ZDEBUG
-printf( "LP188 about to  LinearBorderPointsBetween\n" );
-#endif
 			if ( !gNowInside
                                  &&
                               LinearBorderPointsBetween ( gOldPoint
@@ -207,9 +172,6 @@ printf( "LP188 about to  LinearBorderPointsBetween\n" );
                            )
 			{
 		                if (! WithinLaserAngleRange ( gStartPoint ) ) {
-#ifdef ZDEBUG
-printf( "LP201 about to  AngleBorderPointsBetween\n" );
-#endif
                                     AngleBorderPointsBetween ( gOldPoint
                                                              , addedPoint
                                                              , gStartPoint
@@ -227,9 +189,6 @@ printf( "LP201 about to  AngleBorderPointsBetween\n" );
 			}
 			else
 			{
-#ifdef ZDEBUG
-printf( "LP222 %x\n", gNowInside );
-#endif
 				gNowInside = false;
 				gOldPoint[kX] = addedPoint[kX];
 				gOldPoint[kY] = addedPoint[kY];
@@ -241,9 +200,6 @@ printf( "LP222 %x\n", gNowInside );
 		}
 		else
 		{
-#ifdef ZDEBUG
-printf( "LP235 about to  AngleBorder\n" );
-#endif
 			if ( !gNowInside
                                  &&
                               AngleBorderPointsBetween ( gOldPoint
@@ -254,9 +210,6 @@ printf( "LP235 about to  AngleBorder\n" );
                            )
 			{
 		                if (! WithinLaserLinearRange ( gStartPoint ) ) {
-#ifdef ZDEBUG
-printf( "LP248 about to  LinearBorderPointsBetween\n" );
-#endif
                                     LinearBorderPointsBetween ( gOldPoint
                                                               , addedPoint
                                                               , gStartPoint
@@ -275,9 +228,6 @@ printf( "LP248 about to  LinearBorderPointsBetween\n" );
 			else
 			{
 
-#ifdef ZDEBUG
-printf( "LP269 about to  WithinLaserLinearRange\n" );
-#endif
 				gNowInside = false;
 				gOldPoint[kX] = addedPoint[kX];
 				gOldPoint[kY] = addedPoint[kY];
@@ -287,10 +237,6 @@ printf( "LP269 about to  WithinLaserLinearRange\n" );
 			}
 		}
 	}
-#ifdef ZDEBUG
-	printf( "LP281  addPoint %x %lf %lf %lf\n",addedPoint,
-		addedPoint[kX],addedPoint[kY],addedPoint[kZ]);
-#endif
 	tempLong = PutPointsEndingAt (pLgMaster, addedPoint );
 	
 	gOldPoint[kX] = addedPoint[kX];
@@ -314,14 +260,8 @@ uint32_t FinishPattern (struct lg_master *pLgMaster)
 	UnpendPenDown (  );
 	SetPenUp (  );
 	gNowInside = true;
-#ifdef ZDEBUG
-	printf("FP308  gStartP %x", gStartPoint )q;
-#endif
 #if _NEW_PATH_
 	tempLong = PutPointsEndingAt (pLgMaster, gStartPoint );
-#ifdef PATDEBUG
-	fprintf(stderr,"FINISHPATTERN: tempLong %d",tempLong);
-#endif
 	if ( tempLong ) return tempLong;
 	return ProcessStoredPoints (pLgMaster);
 #else
@@ -329,7 +269,7 @@ uint32_t FinishPattern (struct lg_master *pLgMaster)
 #endif
 }
 
-uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
+static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 {
 	uint32_t tempLong;
 	unsigned char beamWasOn;
@@ -338,21 +278,12 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 	theEndPoint = dummyPoint;
 	if ( gNowInside )
 	{
-#ifdef ZDEBUG
-	  printf( "LP325 about to  WithinLaserAngleRange\n" );
-#endif
 	  if ( ! WithinLaserAngleRange ( newPoint ) )
 	    {
 	      theEndPoint = dummyPoint;
 	      GetAngleBorderPoint ( gOldPoint, newPoint, theEndPoint );
-#ifdef ZDEBUG
-	      printf( "LP332 about to  WithinLaserLinearRange\n" );
-#endif
 	      if ( ! WithinLaserLinearRange( theEndPoint ) ) {
 		theEndPoint = dummyPoint;
-#ifdef ZDEBUG
-		printf( "LP337 about to  GetLinear\n" );
-#endif
 		GetLinearBorderPoint ( gOldPoint
 				       , newPoint
 				       , theEndPoint 
@@ -366,19 +297,11 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 				   , theEndPoint 
 				   );
 	    gNowInside = false;
-	  } else {
-#ifdef ZDEBUG
-	    printf( "LP358  addPoint %x %lf %lf %lf\n",newPoint,
-		    newPoint[kX],newPoint[kY],newPoint[kZ]);
-#endif
+	  } else
 	    theEndPoint = newPoint;
-	  }
 	}
 	else
 	  {
-#ifdef ZDEBUG
-	    printf( "LP364 about to  WithinLaserAngleRange\n" );
-#endif
 	    if ( WithinLaserAngleRange ( newPoint ) )
 	      {
 		if ( WithinLaserLinearRange ( newPoint ) )
@@ -386,9 +309,6 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 		    theEndPoint = newPoint;
 		    GetAngleBorderPoint ( newPoint, gOldPoint, dummyPoint );
 		    
-#ifdef ZDEBUG
-		    printf( "LP372 about to  WithinLaserLinearRange\n" );
-#endif
 		    if ( ! WithinLaserLinearRange( dummyPoint ) ) {
 		      GetLinearBorderPoint ( newPoint
 					     , gOldPoint
@@ -398,9 +318,6 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 		    
 		    beamWasOn = gBeamOn;
 		    SetPenUp (  );
-#ifdef ZDEBUG
-		    printf( "LP384 about to  PutSeq\n" );
-#endif
 		    tempLong = PutSequenceOfPoints (pLgMaster, dummyPoint );
 		    if ( tempLong ) return tempLong;
 		    gBeamOn = beamWasOn;
@@ -419,12 +336,6 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 		    {
 		      beamWasOn = gBeamOn;
 		      SetPenUp (  );
-#ifdef ZDEBUG
-		      printf( "LP409 about to  WithinLaserLinearRange\n" );
-#endif
-#ifdef ZDEBUG
-		      printf( "LP412 about to  PutSeq\n" );
-#endif
 		      tempLong = PutSequenceOfPoints (pLgMaster, sillyPoint );
 		      if ( tempLong ) return tempLong;
 		      gBeamOn = beamWasOn;
@@ -437,9 +348,6 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 		}
 	      } else {
 	      theEndPoint = dummyPoint;
-#ifdef ZDEBUG
-	      printf( "LP399 about to  AngleBo\n" );
-#endif
 	      if ( AngleBorderPointsBetween ( gOldPoint
 					      , newPoint
 					      , sillyPoint
@@ -449,9 +357,6 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 		{
 		  beamWasOn = gBeamOn;
 		  SetPenUp (  );
-#ifdef ZDEBUG
-		  printf( "LP411 about to  WithinLaserLinearRange\n" );
-#endif
 		  if ( ! WithinLaserLinearRange( sillyPoint ) ) {
 		    LinearBorderPointsBetween ( gOldPoint
 						, newPoint
@@ -459,9 +364,6 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 						, theEndPoint
 						);
 		  }
-#ifdef ZDEBUG
-		  printf( "LP421 about to  PutSeq\n" );
-#endif
 		  tempLong = PutSequenceOfPoints (pLgMaster, sillyPoint );
 		  if ( tempLong ) return tempLong;
 		  gBeamOn = beamWasOn;
@@ -473,43 +375,37 @@ uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint )
 	      else return 0U;
 	    }
 	  }
-#ifdef ZDEBUG
-	printf( "LP435 about to  PutSeq\n" );
-#endif
 	return PutSequenceOfPoints (pLgMaster, theEndPoint );
 }
 
 
 #if _NEW_PATH_
-/*
- * #define kMaxCos			0.9980
- * #define kLongToShort	5.0
- */
 uint32_t ProcessStoredPoints(struct lg_master *pLgMaster)
 {
-	short currIndex, prevIndex, nextIndex, pilePoints;
-	short i, numSlowSteps, numFastSteps, fastToSlowRatio;
-	uint32_t tempLong, pathX, pathY, theError;
-	uint32_t dist, maxSlowDownDist, theSlowDownDist;
-	uint32_t distXin, distXout, distYin, distYout;
+        double pt1[3];
+        double pt2[3];
+        double pt3[3];
 	struct APTVector *currPoint, *prevPoint, *nextPoint;
 	double cosXin, cosYin, cosXout, cosYout, cosIn, cosOut;
 	double pathFraction, pathPoint[3], distLD, cosInOut;
 	double shortSegment;
-	unsigned char fChangeBeam, fSlowDown, fMiddlePoints;
-	int32_t distSlow;
-	uint32_t slowDownStep = SlowDownStep (  );
-	uint32_t fastStep = FastStep (  );
-	uint32_t axp, ayp, axc, ayc, axn, ayn;
         double DXcp, DYcp, DZcp, Lcp;
         double DXcn, DYcn, DZcn, Lcn;
         double Ldot;
-        double pt1[3];
-        double pt2[3];
-        double pt3[3];
+	uint32_t tempLong, theError;
+	uint32_t slowDownStep = SlowDownStep (  );
+	uint32_t fastStep = FastStep (  );
+	int32_t dist, maxSlowDownDist, theSlowDownDist;
+	int32_t distXin, distXout, distYin, distYout;
+	int32_t   pathX, pathY;
+	int32_t distSlow;
+	int32_t axp, ayp, axc, ayc, axn, ayn;
+	uint16_t currIndex, prevIndex, nextIndex, pilePoints;
+	uint16_t i, numSlowSteps, numFastSteps, fastToSlowRatio;
+	unsigned char fChangeBeam, fSlowDown, fMiddlePoints;
 
 	
-	if ( gNumberOfStoredPoints == 0 ) return 0U;
+	if ( gNumberOfStoredPoints == 0 ) return 0;
 	
 	fastToSlowRatio = fastStep / slowDownStep;
 	maxSlowDownDist = ( ( fastToSlowRatio * ( fastToSlowRatio + 1 ) )
@@ -531,19 +427,12 @@ uint32_t ProcessStoredPoints(struct lg_master *pLgMaster)
 		prevPoint = &gPointStorage[prevIndex];
 		currPoint = &gPointStorage[currIndex];
 		nextPoint = &gPointStorage[nextIndex];
-
-#ifdef QDEBUG
-fprintf( stderr, "lp521 xyz %lf %lf %lf %d %d\n", prevPoint->x, prevPoint->y, prevPoint->z, prevPoint->ax, prevPoint->ay );
-fprintf( stderr, "lp522 xyz %lf %lf %lf %d %d\n", currPoint->x, currPoint->y, currPoint->z, currPoint->ax, currPoint->ay );
-fprintf( stderr, "lp523 xyz %lf %lf %lf %d %d\n", nextPoint->x, nextPoint->y, nextPoint->z, nextPoint->ax, nextPoint->ay );
-#endif
-
-		axp = prevPoint->ax - gMinNeg;
-		ayp = prevPoint->ay - gMinNeg;
-		axc = currPoint->ax - gMinNeg;
-		ayc = currPoint->ay - gMinNeg;
-		axn = nextPoint->ax - gMinNeg;
-		ayn = nextPoint->ay - gMinNeg;
+		axp = prevPoint->ax - kMinSigned;
+		ayp = prevPoint->ay - kMinSigned;
+		axc = currPoint->ax - kMinSigned;
+		ayc = currPoint->ay - kMinSigned;
+		axn = nextPoint->ax - kMinSigned;
+		ayn = nextPoint->ay - kMinSigned;
 
                 DXcp = currPoint->x - prevPoint->x;
                 DYcp = currPoint->y - prevPoint->y;
@@ -560,10 +449,6 @@ fprintf( stderr, "lp523 xyz %lf %lf %lf %d %d\n", nextPoint->x, nextPoint->y, ne
                 } else {
                      Ldot = 1.0;
                 }
-#ifdef QDEBUG
-fprintf( stderr, "Ldot549 %lf\n", Ldot );
-#endif
-		
 		if ( axc > axp )
 		{
 			distXin = axc - axp;
@@ -655,48 +540,31 @@ fprintf( stderr, "Ldot549 %lf\n", Ldot );
                 //  first check for curve interpolation
                 //     - make sure that the real-space line
                 //       is curved as well (test Ldot)
-                if ( !fSlowDown && !fChangeBeam
-                                &&
-                     (Ldot < gCurveCos)
-                                &&
-                     (Lcp > gCurveMin) && (Lcp < gCurveMax)
-                                &&
-                     (Lcn > gCurveMin) && (Lcn < gCurveMax)
-                                &&
-                     (cosInOut < gCurveCos) && (cosInOut >= gMaxCos)
-                   )
+                if (!fSlowDown && !fChangeBeam && (Ldot < gCurveCos)
+		    && (Lcp > gCurveMin) && (Lcp < gCurveMax)
+		    && (Lcn > gCurveMin) && (Lcn < gCurveMax)
+		    && (cosInOut < gCurveCos) && (cosInOut >= gMaxCos))
                 {
-#ifdef QDEBUG
-fprintf( stderr, "Lcp %lf  Lcn %lf   cosInOut %lf\n", Lcp, Lcn, cosInOut );
-fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
-               , gCurveMin
-               , gCurveMax
-               , gCurveCos
-               , gMaxCos 
-               );
-#endif
-                        pt1[0] = prevPoint->x;
-                        pt1[1] = prevPoint->y;
-                        pt1[2] = prevPoint->z;
-                        pt2[0] = currPoint->x;
-                        pt2[1] = currPoint->y;
-                        pt2[2] = currPoint->z;
-                        pt3[0] = nextPoint->x;
-                        pt3[1] = nextPoint->y;
-                        pt3[2] = nextPoint->z;
-                        gBeamOn = currPoint->on;
-                        theError = findarc(pLgMaster, pt1, pt2, pt3, gCurveMin ); 
-                        if ( theError ) {
-                             return( theError );
-                        }
-                        continue;
+		  pt1[0] = prevPoint->x;
+		  pt1[1] = prevPoint->y;
+		  pt1[2] = prevPoint->z;
+		  pt2[0] = currPoint->x;
+		  pt2[1] = currPoint->y;
+		  pt2[2] = currPoint->z;
+		  pt3[0] = nextPoint->x;
+		  pt3[1] = nextPoint->y;
+		  pt3[2] = nextPoint->z;
+		  gBeamOn = currPoint->on;
+		  theError = findarc(pLgMaster, pt1, pt2, pt3, gCurveMin ); 
+		  if (theError)
+		    return(theError);
+		  continue;
                 }
                 
-			
-		if ( !fSlowDown )
-			fSlowDown = fChangeBeam || ( cosInOut < gMaxCos ) ||
-			( cosIn / cosOut > gLongToShort ) ||
-			( cosOut / cosIn > gLongToShort );
+		if (!fSlowDown)
+		  fSlowDown = fChangeBeam || (cosInOut < gMaxCos)
+		    || ((cosIn / cosOut) > gLongToShort)
+		    || ((cosOut / cosIn) > gLongToShort);
 
 		pilePoints = PilePoints ( fChangeBeam, fSlowDown, cosInOut );
 /* */
@@ -712,19 +580,19 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 		if ( distXin > distYin ) dist = distXin;
 		else dist = distYin;
 		distLD = (double)dist;
-		distSlow = (int32_t)( dist >> 1 );
+		distSlow = dist >> 1;
 				
-		if ( distSlow < (int32_t)theSlowDownDist ) numFastSteps = 0;
-		else numFastSteps = ( distSlow - theSlowDownDist ) / fastStep;
+		if ( distSlow < theSlowDownDist ) numFastSteps = 0;
+		else numFastSteps = (distSlow - theSlowDownDist) / fastStep;
 		
 		fMiddlePoints = false;
 		if ( !fSlowDown ) numSlowSteps = 0;
 		else
 		{
-		  if ( distSlow > (int32_t)theSlowDownDist )
-				numSlowSteps = fastToSlowRatio;
-			else
-			{
+		  if ( distSlow > theSlowDownDist)
+		    numSlowSteps = fastToSlowRatio;
+		  else
+		    {
 				numSlowSteps = 0;
 				while ( distSlow >= 0L ) 
 				{
@@ -755,16 +623,16 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
 				pathFraction * prevPoint->z;
 			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			  tempLong = PutAPoint (pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
+			if (theError)
+			  {
+			    pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+			    pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+			  }
+			else
+			  {
+			    tempLong = PutAPoint (pLgMaster, pathX, pathY );
+			    if (tempLong) return tempLong;
+			  }
 		}
 		
 		i = numFastSteps;
@@ -781,9 +649,6 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 				pathFraction * prevPoint->z;
 			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
 			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
 			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
 			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
                         } else {
@@ -1000,7 +865,8 @@ fprintf( stderr, "curve min/max %lf %lf  cos %lf  max %lf\n"
 uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 {	
 #if _NEW_PATH_
-	uint32_t endPointX, endPointY, theError;
+  int32_t  endPointX, endPointY;
+  uint32_t theError;
 
 	theError = PointToBinary(pLgMaster, theEndPoint, &endPointX, &endPointY );
 	if ( theError ) {
@@ -1025,13 +891,13 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 	
 #else
 
-#define	kFastDistance		0x00000400U
-#define	kSlowDistance		0x00000070U
+#define	kFastDistance		0x400
+#define	kSlowDistance		0x70
 #define	kSlowStepsNumber	8
 #define kPilePoints			6
 #define kCornerAngleRad		0.0050
-	uint32_t endPointX, endPointY, startPointX, startPointY;
-	uint32_t pathX, pathY, tempLong, theError;
+	int32_t endPointX, endPointY, startPointX, startPointY;
+	int32_t pathX, pathY, tempLong, theError;
 	int32_t absDistX, absDistY, theAbsDist;
 	short i;
 	double pathFraction, pathFractionUnit, pathPoint[3];
@@ -1175,34 +1041,37 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 }
 
 
-static uint32_t PutAPoint(struct lg_master *pLgMaster, uint32_t newXBin, uint32_t newYBin )
+static uint32_t PutAPoint(struct lg_master *pLgMaster, int32_t newXBin, int32_t newYBin )
 {
-  struct lg_xydata  *pXYData;
-
-  pLgMaster->patternLength += 2 * sizeof ( uint32_t );
-  if (pLgMaster->patternLength > ( kMaxNumberOfPatternPoints *
-				   2 * sizeof ( uint32_t ) ) )
-    {
+    pLgMaster->gBuiltPattern += sizeof(struct lg_xydata);
+    if (pLgMaster->gBuiltPattern > (kMaxNumberOfPatternPoints *
+				    sizeof(struct lg_xydata)))
       return kTooManyPatternPoints;
-    }
-  gCurrentPoint[kX] = newXBin; 
-  gCurrentPoint[kY] = newYBin;
-  if ( !gRawInput )
-    {
-      pXYData = (struct lg_xydata *)&gCurrentPoint[kX];
-      if ( gBeamOn )
-	SetHighBeam (pXYData);
-      else SetLowBeam (pXYData);
-    }
-  gCurrentPoint += 2;
-  return 0U;
+
+    if ((kX > pLgMaster->gBuiltPattern) || (kY > pLgMaster->gBuiltPattern))
+      return(kTooManyPatternPoints);
+  
+    pCurXYData->xdata = newXBin; 
+    pCurXYData->ydata = newYBin;
+    if (!gRawInput)
+      {
+	if (gBeamOn)
+	  SetHighBeam (pCurXYData);
+	else
+	  SetLowBeam (pCurXYData);
+      }
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"PUTAPOINT: x=%d,y=%d",pCurXYData->xdata,pCurXYData->ydata);
+#endif
+    pCurXYData++;
+  return 0;
 }
 
 uint32_t PendPenDown ( void )
 {
 	gPendPenDown = true;
 	gPenDownPending = false;
-	return 0U;
+	return 0;
 }
 
 uint32_t UnpendPenDown ( void )
@@ -1213,27 +1082,27 @@ uint32_t UnpendPenDown ( void )
 		gPenDownPending = false;
 		return SetPenDown (  );
 	}
-	return 0U;
+	return 0;
 }
 
 uint32_t SetPenDown ( void )
 {
 	if ( gPendPenDown ) gPenDownPending = true;
 	else gBeamOn = true;
-	return 0U;
+	return 0;
 }
 
 
 uint32_t SetPenUp ( void )
 {
 	gBeamOn = false;
-	return 0U;
+	return 0;
 }
 
 uint32_t SetDefaultZ ( double z )
 {
 	gDefaultZ = z;
-	return 0U;
+	return 0;
 }
 
 void ChangeTransform (double *transform)
@@ -1245,14 +1114,15 @@ void ChangeTransform (double *transform)
       gRawInput = false;
       ArrayIntoTransform ( transform, &gCurrentTransform );
     }
+  return;
 }
 
-
-void SetUpLaserPattern(struct lg_master *pLgMaster, double *transform)
+struct lg_xydata *SetUpLaserPattern(struct lg_master *pLgMaster, double *transform)
 {
-	/* EmptyInspectionList (  ); */
 	SetDefaultZ ( 0.0 );
-	pLgMaster->patternLength = 0;
+	pLgMaster->gBuiltPattern = 0;
+	pCurXYData = pXYPoints;  // Set current to start of gXYPoints, it will increment
+	                            // for each XY pair.
 	SetPenUp (  );
 	PendPenDown (  );
 	gOldBeamOn = false;
@@ -1272,15 +1142,14 @@ void SetUpLaserPattern(struct lg_master *pLgMaster, double *transform)
 		gRawInput = false;
 		ArrayIntoTransform ( transform, &gCurrentTransform );
 	}
-	return;
+	return(pXYPoints);
 }
 
 void CloseLaserPattern ( void )
 {
-	if ( gCurrentPoint) free((void *)gCurrentPoint );
+	if (pXYPoints) free((void *)pXYPoints );
 #if _NEW_PATH_
 	if ( gPointStorage ) free((void *)gPointStorage );
-	//	gPointStorage == (struct APTVector *)NULL;
 #endif
 }
 
@@ -1400,14 +1269,6 @@ void GetAngleBorderPoint ( double *pointInside,
         XtanOutside = pointOutside[kX] / pointOutside[kZ];
         YtanOutside = pointOutside[kY] / pointOutside[kZ];
 
-#ifdef ZDEBUG
-	printf( "XY1162tan i %lf %lf o %lf %lf\n"
-		, XtanInside
-		, YtanInside
-		, XtanOutside
-		, YtanOutside
-		);
-#endif
 #if 1
 	segpoly( gNtanpoly
 		 , Xtans
@@ -1421,9 +1282,8 @@ void GetAngleBorderPoint ( double *pointInside,
 		 , &c
 		 );
 #else
-// FIXME---PAH---should return val be evaluated?
         int itest;
-	itest segpoly( gNtanpoly
+	itest = segpoly( gNtanpoly
 		 , Xtans
 		 , Ytans
 		 , XtanInside
@@ -1441,13 +1301,9 @@ void GetAngleBorderPoint ( double *pointInside,
 		pointOutside[kY] * ( 1.0 - c );
 	borderPoint[kZ] = pointInside[kZ] * c +
 		pointOutside[kZ] * ( 1.0 - c );
-#ifdef ZDEBUG
-printf( "1242c %lf borderXYZ  %lf %lf %lf\n"
-      , c
-      , borderPoint[kX]
-      , borderPoint[kY]
-      , borderPoint[kZ]
-      );
+#ifdef PATDEBUG
+	syslog(LOG_DEBUG, "GETANGLBDRPT: %lf borderXYZ  %lf %lf %lf\n", c, borderPoint[kX],
+	       borderPoint[kY],borderPoint[kZ]);
 #endif
 }
 
@@ -1566,14 +1422,6 @@ unsigned char	AngleBorderPointsBetween (
         YtanStart = startPoint[kY] / startPoint[kZ];
         XtanEnd   = endPoint[kX] / endPoint[kZ];
         YtanEnd   = endPoint[kY] / endPoint[kZ];
-#ifdef ZDEBUG
-printf( "ABPB XY1356tan s %lf %lf e %lf %lf\n"
-      , XtanStart
-      , YtanStart
-      , XtanEnd
-      , YtanEnd
-      );
-#endif
 
 	dX = XtanEnd - XtanStart;
 	dY = YtanEnd - YtanStart;
@@ -1650,39 +1498,24 @@ printf( "ABPB XY1356tan s %lf %lf e %lf %lf\n"
 		}
 	}
 
-#ifdef ZDEBUG
-printf( "1448cIn %lf cOut %lf\n"
-      , cIn
-      , cOut
-      );
+#ifdef PATDEBUG
+	syslog(LOG_DEBUG,"ANGLEBDRPTSBTWN: cIn=%f, cOut=%f", cIn, cOut);
 #endif
-
 	entrancePoint[kX] = endPoint[kX] * cIn +
 		startPoint[kX] * ( 1.0 - cIn );
 	entrancePoint[kY] = endPoint[kY] * cIn +
 		startPoint[kY] * ( 1.0 - cIn );
 	entrancePoint[kZ] = endPoint[kZ] * cIn +
 		startPoint[kZ] * ( 1.0 - cIn );
-#ifdef ZDEBUG
-printf( "1461entranceXYZ  %lf %lf %lf\n"
-      , entrancePoint[kX]
-      , entrancePoint[kY]
-      , entrancePoint[kZ]
-      );
-#endif
-
 	exitPoint[kX] = endPoint[kX] * cOut +
 		startPoint[kX] * ( 1.0 - cOut );
 	exitPoint[kY] = endPoint[kY] * cOut +
 		startPoint[kY] * ( 1.0 - cOut );
 	exitPoint[kZ] = endPoint[kZ] * cOut +
 		startPoint[kZ] * ( 1.0 - cOut );
-#ifdef ZDEBUG
-printf( "1475exitXYZ  %lf %lf %lf\n"
-      , exitPoint[kX]
-      , exitPoint[kY]
-      , exitPoint[kZ]
-      );
+#ifdef PATDEBUG
+	syslog(LOG_DEBUG, "ANGLEBDRPTSBTWN: EXITPTS  x=%f,y=%f,z=%f\n",
+	       exitPoint[kX], exitPoint[kY], exitPoint[kZ]);
 #endif
 	
 	return true;
@@ -1692,7 +1525,7 @@ printf( "1475exitXYZ  %lf %lf %lf\n"
 
 
 uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double y,
-	double z, uint32_t *xAngle, uint32_t *yAngle )
+	double z, int32_t *xAngle, int32_t *yAngle )
 {
 	double inputPoint[3], outputPoint[3];
 	inputPoint[kX] = x;
@@ -1702,7 +1535,7 @@ uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double 
 	return PointToBinary(pLgMaster, outputPoint, xAngle, yAngle );
 }
 
-uint32_t PointToBinary(struct lg_master *pLgMaster,  double *point, uint32_t *xAngle, uint32_t *yAngle)
+uint32_t PointToBinary(struct lg_master *pLgMaster,  double *point, int32_t *xAngle, int32_t *yAngle)
 {
   double angleX, angleY;
   GeometricAnglesFrom3D(point[kX], point[kY], point[kZ], &angleX, &angleY );
@@ -1714,9 +1547,9 @@ int InitLaserPattern ( void )
 
         tan_init();
 	
-	gCurrentPoint = (uint32_t *)malloc( (size_t) ( ( kMaxNumberOfPatternPoints + 1 ) *
+	pXYPoints = (struct lg_xydata *)malloc( (size_t) ( ( kMaxNumberOfPatternPoints + 1 ) *
 		2 * sizeof ( unsigned long ) ) );
-	memset(gCurrentPoint, 0, ((kMaxNumberOfPatternPoints + 1) * 2 * sizeof(uint32_t)));
+	memset(pXYPoints, 0, ((kMaxNumberOfPatternPoints + 1) * 2 * sizeof(uint32_t)));
 #if _NEW_PATH_
         gPointStorage = (struct APTVector *)malloc( (size_t)
 		( kMaxNumberOfAPTVectors * sizeof ( struct APTVector ) ) );
@@ -1795,7 +1628,9 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
     double sinA, cosA;
     double Xtmp, Ytmp, Ztmp;
 
-    uint32_t tempLong, pathX, pathY, theError;
+    uint32_t tempLong;
+    int32_t  pathX, pathY;
+    uint32_t theError;
     double pathPoint[3];    
 
     //  find plane of three points
@@ -1923,9 +1758,6 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
     if ( Dnum < 2.0 ) { Dnum = 2.0; }
 
     angstep = angrad / Dnum;
-    
-    //  print out first point
-
     if ( angstep > 0 ) { 
        for ( ang = angstep; ang < (angrad-0.1*angstep); ang += angstep ) {
               sinA = sin(ang);
@@ -1933,14 +1765,6 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
               Xtmp = radius * (cosA * uRX + sinA * vRX) + CX;
               Ytmp = radius * (cosA * uRY + sinA * vRY) + CY;
               Ztmp = radius * (cosA * uRZ + sinA * vRZ) + CZ;
-#ifdef QDEBUG
-              fprintf( stderr
-                     , "GOTO %7.3lf %7.3lf %7.3lf angstep1900\r\n"
-                     , Xtmp
-                     , Ytmp
-                     , Ztmp 
-                     );
-#endif
               pathPoint[kX] = Xtmp;
               pathPoint[kY] = Ytmp;
               pathPoint[kZ] = Ztmp;
@@ -1949,9 +1773,6 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
                        return kPatternAngleOutOfRange;
               } else {
                        tempLong = PutAPoint(pLgMaster, pathX, pathY );
-#ifdef QDEBUG
-              fprintf( stderr, "Put %x %x %x\r\n", pathX, pathY, tempLong );
-#endif
                        if ( tempLong ) return tempLong;
               }
 
@@ -1963,9 +1784,6 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
               Xtmp = radius * (cosA * uRX + sinA * vRX) + CX;
               Ytmp = radius * (cosA * uRY + sinA * vRY) + CY;
               Ztmp = radius * (cosA * uRZ + sinA * vRZ) + CZ;
-#ifdef QDEBUG
-              fprintf( stderr, "GOTO %7.3lf %7.3lf %7.3lf angstep1929\r\n", Xtmp, Ytmp, Ztmp );
-#endif
               pathPoint[kX] = Xtmp;
               pathPoint[kY] = Ytmp;
               pathPoint[kZ] = Ztmp;
@@ -1974,32 +1792,20 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
                        return kPatternAngleOutOfRange;
               } else {
                        tempLong = PutAPoint(pLgMaster, pathX, pathY );
-#ifdef QDEBUG
-              printf( "Put %x %x %x\r\n", pathX, pathY, tempLong );
-#endif
                        if ( tempLong ) return tempLong;
               }
        }
     }
 
     //  print out second point
-#ifdef QDEBUG
-    printf( "GOTO %7.3lf %7.3lf %7.3lf second point\n", p2[0], p2[1], p2[2] );
-#endif
     pathPoint[kX] = p2[0];
     pathPoint[kY] = p2[1];
     pathPoint[kZ] = p2[2];
     theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
     if ( theError ) {
-#ifdef QDEBUG
-              printf( "outofrange %x %x %x\r\n", pathX, pathY, tempLong );
-#endif
            return kPatternAngleOutOfRange;
     } else {
            tempLong = PutAPoint(pLgMaster, pathX, pathY );
-#ifdef QDEBUG
-              printf( "Put %x %x %x\r\n", pathX, pathY, tempLong );
-#endif
            if ( tempLong ) return tempLong;
     }
 

@@ -27,28 +27,23 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 
 #define	kNumberOfSensorSearchAttempts				3
 
-
+//FIXME---PAH---needs cmd/resp cleanup
 void RightOnFullReg ( struct lg_master *pLgMaster,
 		      char * parameters,
 		      uint32_t respondToWhom )
 {
-	uint32_t ptX, ptY;
-	uint32_t fndX;
-	uint32_t fndY;
+	int32_t ptX, ptY;
+	int32_t fndX;
+	int32_t fndY;
 	double XfoundAngles [ kNumberOfRegPoints ];
 	double YfoundAngles [ kNumberOfRegPoints ];
 	double XExternalAngles [ kNumberOfRegPoints ];
 	double YExternalAngles [ kNumberOfRegPoints ];
 	double foundAngles [ kNumberOfRegPoints * 2 ];
-	uint32_t Xarr [ kNumberOfRegPoints ];
-	uint32_t Yarr [ kNumberOfRegPoints ];
+	int32_t Xarr[kNumberOfRegPoints];
+	int32_t Yarr[kNumberOfRegPoints];
         int numberOfFoundTargets;
         int useTarget [ kFeedbackNumber ];
-
-
- /*
-  * set to maximum size
-  */
 	unsigned char *RespBuff=pLgMaster->theResponseBuffer;
 	uint32_t       resp_len=(sizeof(uint32_t) + (12 * kSizeOldLongDouble) +
 				 (2 * kNumberOfRegPoints * sizeof(uint32_t)) +
@@ -61,12 +56,12 @@ void RightOnFullReg ( struct lg_master *pLgMaster,
 	unsigned char theResult;
         int32_t RawGeomFlag;
         double theCoordinateBuffer[kNumberOfRegPoints * 3];
-        uint32_t theAngleBuffer[kNumberOfRegPoints * 2];
+        int32_t theAngleBuffer[kNumberOfRegPoints * 2];
         double *currentData;
 	int index;
 	double theTransformTolerance;
 	transform foundTransform;
-        uint32_t *pRawAngles;
+        int32_t *pRawAngles;
         double *pGeometricAngles;
         int32_t offset;
 	
@@ -99,7 +94,7 @@ void RightOnFullReg ( struct lg_master *pLgMaster,
         offset =    sizeof(int32_t) 
                   + sizeof(double) * kNumberOfRegPoints * 3
                   + sizeof(double) * kNumberOfRegPoints * 2;
-        pRawAngles = (uint32_t *)(&(parameters)[offset]);
+        pRawAngles = (int32_t *)(&(parameters)[offset]);
         if ( RawGeomFlag == 1 ) {
            for ( i = 0; i <  kNumberOfRegPoints ; i++ ) {
                theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
@@ -153,7 +148,7 @@ void RightOnFullReg ( struct lg_master *pLgMaster,
 		   *  allow for a variable speed search, in needed
 		   */
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 #ifdef ZDEBUG
 fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
 #endif
@@ -177,15 +172,15 @@ fprintf( stderr, "finish search for sensor %d\n", i );
                               return;
                         }
 			if ( !searchResult ) break;
-		        gCoarse2SearchStep /= 2;
+		        pLgMaster->gCoarse2SearchStep /= 2;
 		        gCoarse2Factor     /= 2; 
-			if ( gCoarse2SearchStep <= 0x00010000 ) {
-		        	gCoarse2SearchStep = 0x00010000;
+			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
+		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
 		        	gCoarse2Factor     = 1;
 			}
 		}
 		gCoarse2Factor     = gCoarseFactor;
-		gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 		
 		if ( searchResult ) {
 			lostSensors += 1U << i;

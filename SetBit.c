@@ -44,7 +44,7 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	  if (bitValue == 0)
 	    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	  else if ( bitValue == 1 ) {
-	    xydata.ctrl_flags |= UNBLANKISSET;
+	    xydata.ctrl_flags |= BEAMONISSET;
 	    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	  }
 	  else
@@ -58,13 +58,13 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	  if (bitValue == 0)
 	    {
 	      doClearSearchBeam(pLgMaster);
-	      xydata.ctrl_flags |= ~UNBLANKISSET;
+	      xydata.ctrl_flags &= BEAMONNOTSET;
 	      doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	    }
 	  else if ( bitValue == 1)
 	    {
 	      doSetSearchBeam(pLgMaster);
-	      xydata.ctrl_flags |= UNBLANKISSET;
+	      xydata.ctrl_flags |= BEAMONISSET;
 	      doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	    }
 	  else {

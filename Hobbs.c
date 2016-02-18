@@ -23,30 +23,32 @@
 
 time_t start_display;
 time_t end_display;
-time_t hobbs_counter;
-int hobbs_state;
 
-static int HobbsCountersUpdate(FILE *filefd, struct lg_master *pLgMaster)
+static int ReadHobbsFromFile(FILE *filenum, struct lg_master *pLgMaster);
+static int ReadHobbsFromFile(FILE *filenum, struct lg_master *pLgMaster);
+
+static int WriteHobbsToFile(FILE *filenum, struct lg_master *pLgMaster)
 {
   char   hobbsBuffer[HOBBS_MAX_BUFFLEN];
   size_t num_write;
   size_t bytes_to_write;
 
   memset(hobbsBuffer, 0, sizeof(hobbsBuffer));
-  if (!filefd || !pLgMaster)
+  if (!filenum ||  !pLgMaster)
     return(-1);
+
   // Get Hobbs counters and put into buffer
-  sprintf(hobbsBuffer, " %10ld \r\n %10ld \r\n %10ld \r\n %10ld \r\n",
-	  pLgMaster->hobbs.hobbs_counter,
-	  pLgMaster->hobbs.xscanner_counter,
-	  pLgMaster->hobbs.yscanner_counter,
-	  pLgMaster->hobbs.laser_counter);
+  sprintf(hobbsBuffer, "%10ld\r\n%10ld\r\n%10ld\r\n%10ld\r\n",
+	  pLgMaster->hobbs.hobbs_time,
+	  pLgMaster->hobbs.xscanner_time,
+	  pLgMaster->hobbs.yscanner_time,
+	  pLgMaster->hobbs.laser_time);
   bytes_to_write = strlen(hobbsBuffer);
   if (bytes_to_write <= 0)
     return(-2);
   
   // Write counters out to file
-  num_write = fwrite(hobbsBuffer, bytes_to_write, 1, filefd);
+  num_write = fwrite(hobbsBuffer, bytes_to_write, 1, filenum);
   if (num_write <= 0)
     return(-3);
   return(0);
@@ -56,6 +58,7 @@ int HobbsCountersInit(struct lg_master *pLgMaster)
 {
   FILE  *filefd;
   long   file_size;
+  int    rc=0;
   
   filefd = fopen("/etc/ags/conf/newhobbs", "w+");
   if (!filefd)
@@ -65,38 +68,26 @@ int HobbsCountersInit(struct lg_master *pLgMaster)
   file_size = ftell(filefd);
   // If zero-length then new file
   if (!file_size)
-    HobbsCountersUpdate(filefd, pLgMaster);
-      
-  return(0);
-}
-static int HobbsToFS(struct lg_master *pLgMaster)
-{
-     char CmdBuff[1024];
-     int err;
-
-
-     if (!pLgMaster)
-       return(-1);
-#if 0
-     sprintf( CmdBuff, "cp /etc/ags/conf/hobbs /xscanner /yscanner /laser /etc/ags/conf" );
-#else
-     sprintf( CmdBuff, "cp /etc/ags/conf/hobbs /etc/ags/conf" );
-#endif
-     err = system(  CmdBuff );
-     return(err);
+    {
+      rc = WriteHobbsToFile(filefd, pLgMaster);
+      if (rc)
+	fprintf(stderr,"\nUnable to write Hobbs counters to file");
+    }
+  else
+    {
+      // Read in data from file
+      rc = ReadHobbsFromFile(filefd, pLgMaster);
+      if (rc)
+	fprintf(stderr,"\nUnable to retrieve Hobbs counters from file");
+    }
+  fclose(filefd);
+  return(rc);
 }
 
 void StartHobbs(struct lg_master *pLgMaster)
 {
      end_display = 0;
-     start_display = time( (time_t *)NULL );    
-#ifdef SDEBUG
-     fprintf( stderr
-            , " StartHobbs start %d  end %d\r\n"
-            , start_display
-            , end_display
-            );
-#endif
+     start_display = time(NULL);    
 }
 
 
@@ -109,165 +100,131 @@ void EndHobbs(struct lg_master *pLgMaster)
     delta_time = end_display - start_display;
     // only count display intervals int32_ter that one second
     if ( delta_time > 1 ) {
-      pLgMaster->hobbs.hobbs_counter += delta_time;
-      pLgMaster->hobbs.xscanner_counter += delta_time;
-      pLgMaster->hobbs.yscanner_counter += delta_time;
-      pLgMaster->hobbs.laser_counter += delta_time;
+      pLgMaster->hobbs.hobbs_time += delta_time;
+      pLgMaster->hobbs.xscanner_time += delta_time;
+      pLgMaster->hobbs.yscanner_time += delta_time;
+      pLgMaster->hobbs.laser_time += delta_time;
     }
   }
-  // FIXME---PAH---NEEDS TO BE REWRITTEN
-  //  HobbsToFS(pLgMaster);  // write hobbs meters to flash
+
+  // FIXME---PAH---WRITE NEEDS TO MOVE TO BACKGROUND TASK
+  WriteHobbs(pLgMaster);  // write hobbs times to hobbs file
   start_display = 0;
   return;
 }
 
   // just work from RAM copy
-time_t ReadHobbs( char * HobbsName )
-{
-     char FromRAM[1024];
-     char NameBuff[1024];
-     time_t hobbs_time;
-     int filenum;
-     long length;
-
-     // FIXME---PAH---NEED TO FIX ALL THE HOBBS COUNT
-     return(0);
-#ifdef OBFdebug
-     fprintf( stderr, "OFBReadHobbs\n" );
-#endif
-     
-     memset( (void *)FromRAM, 0, 1024 );
-
-     sprintf( NameBuff, "/etc/ags/conf/%s", HobbsName ); 
-     filenum = open( NameBuff , O_RDONLY );
-     if ( filenum <= 0 ) {
-          hobbs_time = 0;
-          return( hobbs_time );
-     }
-     length = read( filenum, FromRAM, 1024 );
-     close( filenum );
-     if (length <=0)
-       return(-1);
-     if ( kCRC_OK == CheckCRC( (char *)FromRAM, 14 ) ) {
-          FromRAM[14] = 0;
-          FromRAM[15] = 0;
-          sscanf( FromRAM, "%d", (int *)&hobbs_time );
-     } else {
-          hobbs_time = 0;
-     }
-#ifdef SDEBUG
-     fprintf( stderr, " ReadHobbs counter %10d \r\n", hobbs_time );
-#endif
-
-     return( hobbs_time );
+static int ReadHobbsFromFile(FILE *filenum, struct lg_master *pLgMaster)
+{ 
+  char   *pBuff;
+  size_t length;
+  size_t read_count;
+  
+  // Figure out length of file
+  fseek(filenum, 0L, SEEK_SET);
+  fseek(filenum, 0L, SEEK_END);
+  length = ftell(filenum);
+  fseek(filenum, 0L, SEEK_SET);
+  if (!length)
+    return(-2);
+  // grab buffer to work with
+  pBuff = malloc(length);
+  if (!pBuff)
+    return(-3);
+  
+  // Read in data
+  read_count = fread(pBuff, length, 1, filenum);
+  fclose(filenum);
+  if (read_count <=0)
+    return(-4);
+  
+  // Get counters from file & populate lg struct
+  sscanf(pBuff,
+	 "%[^0123456789]s\r\n%[^0123456789]s\r\n%[^0123456789]s\r\n%[^0123456789]s\r\n",
+	 (char *)&pLgMaster->hobbs.hobbs_time,
+	 (char *)&pLgMaster->hobbs.xscanner_time,
+	 (char *)&pLgMaster->hobbs.yscanner_time,
+	 (char *)&pLgMaster->hobbs.laser_time);
+  return(0);
 }
 
-void DoHobbsSet(struct lg_master *pLgMaster, char * data, uint32_t respondToWhom )
+void DoHobbsSet(struct lg_master *pLgMaster, struct parse_hobbsset_parms *pInp, uint32_t respondToWhom)
 {
-  struct parse_hobbsset_parms *pInp = (struct parse_hobbsset_parms *)data;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  unsigned int hobbsIndex;
-  unsigned int hobbsValue;
-
-  hobbsIndex = pInp->inp_hobbsid;
-  hobbsValue = pInp->inp_hobbsval;
 
   pResp->hdr.status = RESPGOOD;
-  switch ( hobbsIndex )
+  switch(pInp->inp_hobbsid)
     {
-    case 1:
-      WriteHobbs( hobbsValue, "hobbs" );
+    case PARSE_HOBBS_HOBBS:
+      pLgMaster->hobbs.hobbs_time = pInp->inp_hobbsval;
       break;
-    case 2:
-      WriteHobbs( hobbsValue, "xscanner" );
+    case PARSE_HOBBS_XSCAN:
+      pLgMaster->hobbs.xscanner_time = pInp->inp_hobbsval;
       break;
-    case 3:
-      WriteHobbs( hobbsValue, "yscanner" );
+    case PARSE_HOBBS_YSCAN:
+      pLgMaster->hobbs.yscanner_time = pInp->inp_hobbsval;
       break;
-    case 4:
-      WriteHobbs( hobbsValue, "laser" );
+    case PARSE_HOBBS_LASER:
+      pLgMaster->hobbs.laser_time = pInp->inp_hobbsval;
       break;
     default:
       pResp->hdr.status = RESPFAIL;
       break;
     }
-  // FIXME---PAH---need to rewrite HOBBS counters
-  HobbsToFS(pLgMaster);  //  write the hobbs meters to flash
   HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
   return;
 }
 
-void DoHobbsGet( struct lg_master *pLgMaster, char * data, uint32_t respondToWhom )
+void DoHobbsGet( struct lg_master *pLgMaster, struct parse_hobbsget_parms *pInp, uint32_t respondToWhom )
 {
-  struct parse_hobbsget_parms *pInp = (struct parse_hobbsget_parms *)data;
-  struct parse_hobbsget_resp *pResp=(struct parse_hobbsget_resp *)pLgMaster->theResponseBuffer;
-  unsigned int hobbs_counter;
-  unsigned int hobbsIndex;
-  uint32_t theReturn=kOK;
+  struct parse_hobbsget_resp *pResp;
+  uint32_t return_size;
 
-  hobbsIndex = pInp->inp_hobbsid;
-  
-  switch ( hobbsIndex )
+  // Set up response buffer by clearing it
+  pResp = (struct parse_hobbsget_resp *)pLgMaster->theResponseBuffer;
+  memset((char *)pResp, 0, sizeof(struct parse_hobbsget_resp *));
+
+  // Assume we're going to have a good response
+  return_size = sizeof(struct parse_hobbsget_resp)-kCRCSize;
+  pResp->hdr.status = RESPGOOD;
+
+  // Set appropriate value to master struct val.  it will be periodically
+  // backed up to file via background task
+  switch(pInp->inp_hobbsid)
     {
-    case 1:
-      hobbs_counter = ReadHobbs("hobbs");
+    case PARSE_HOBBS_HOBBS:
+      pResp->resp_hobbscount = pLgMaster->hobbs.hobbs_time;
       break;
-    case 2:
-      hobbs_counter = ReadHobbs("xscanner");
+    case PARSE_HOBBS_XSCAN:
+      pResp->resp_hobbscount = pLgMaster->hobbs.xscanner_time;
       break;
-    case 3:
-      hobbs_counter = ReadHobbs("yscanner");
+    case PARSE_HOBBS_YSCAN:
+      pResp->resp_hobbscount = pLgMaster->hobbs.yscanner_time;
       break;
-    case 4:
-      hobbs_counter = ReadHobbs("laser");
+    case PARSE_HOBBS_LASER:
+      pResp->resp_hobbscount = pLgMaster->hobbs.laser_time;
       break;
     default:
-      theReturn = kFail;
+      pResp->hdr.status = RESPFAIL;
       break;
     }
 
-  if ( theReturn == kOK ) {
-    pResp->hdr.status = RESPGOOD;
-    pResp->resp_hobbscount = hobbs_counter;
-    
-    HandleResponse(pLgMaster, (sizeof(struct parse_hobbsget_resp)-kCRCSize), respondToWhom);
-  } else {
-    pResp->hdr.status = RESPFAIL;
-    HandleResponse(pLgMaster, (sizeof(struct parse_hobbsget_resp)-kCRCSize), respondToWhom);
-  }
+  if (pResp->hdr.status == RESPFAIL)
+    return_size = sizeof(struct parse_basic_resp) - kCRCSize;
+
+  HandleResponse(pLgMaster, return_size, respondToWhom);
   return;
 }
 
-void WriteHobbs( time_t counter, char * HobbsName )
+int WriteHobbs(struct lg_master *pLgMaster)
 {
-     char ToRAM[1024];
-     char CmdBuff[1024];
-     char NameBuff[1024];
-     int filenum;
-     
-     memset( (void *)ToRAM, 0, 1024 );
-     sprintf( CmdBuff, "touch /etc/ags/conf/%s", HobbsName ); 
-     system( CmdBuff );
-     memset( (void *)CmdBuff, 0, 1024 );
-
-#ifdef SDEBUG
-     fprintf( stderr, " WriteHobbs counter %10d \r\n", counter );
-#endif
-
-     sprintf( ToRAM, " %10d \r\n", (int)counter );
-     AppendCRC( ToRAM, 14 );
-
-     sprintf( NameBuff, "/etc/ags/conf/%s", HobbsName ); 
-     filenum = open( NameBuff, O_WRONLY|O_TRUNC );
-     if ( filenum <= 0 ) {
-#ifdef SDEBUG
-     fprintf( stderr, "cannot open Hobbs file for writing\n", counter );
-#endif
-     }
-     write( filenum, ToRAM, 16 );
-     close( filenum );
-     
-#ifdef OFBdebug
-     fprintf( stderr, "OFBWriteHobbs\n" );
-#endif
+  FILE  *filefd;
+  int    rc;
+  
+  filefd = fopen("/etc/ags/conf/newhobbs", "w+");
+  if (!filefd)
+    return(-1);
+  rc = WriteHobbsToFile(filefd, pLgMaster);
+  fclose(filefd);
+  return(rc);
 }

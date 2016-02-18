@@ -15,31 +15,18 @@
 
 #define kNumberDrift   12
 
-extern	int SearchForASensor(struct lg_master *pLgMaster,
-			     uint32_t startX, uint32_t startY,
-			     uint32_t *foundX, uint32_t *foundY );
+int SearchForASensor(struct lg_master *pLgMaster, int32_t startX, int32_t startY,
+		     int32_t *foundX, int32_t *foundY );
 
-extern	int	DoSearch (
-				uint32_t startX, uint32_t startY,
-				uint32_t *foundX, uint32_t *foundY );
+int DoSearch(int32_t startX, int32_t startY, int32_t *foundX, int32_t *foundY);
 
-extern int QuickCheckASensor(struct lg_master *pLgMaster, uint32_t centerX, uint32_t centerY);
+int QuickCheckASensor(struct lg_master *pLgMaster, int32_t centerX, int32_t centerY);
 
-extern int QuickCheckOne(struct lg_master *pLgMaster,
-			 uint32_t centerX, 
-			 uint32_t centerY,
-			 uint32_t *foundX, 
-			 uint32_t *foundY);
-extern int    DoRedundandSuperFineSearch
-        ( uint32_t *foundX, uint32_t *foundY );
-
-
-extern int     DoSuperFineSearch
-                           ( uint32_t *foundX, uint32_t *foundY,
-                                int numberOfSuperCrosses );
-
-extern int     DoFineSearch
-                        ( uint32_t *foundX, uint32_t *foundY );
+int QuickCheckOne(struct lg_master *pLgMaster, int32_t centerX, int32_t centerY,
+		  int32_t *foundX, int32_t *foundY);
+int DoRedundandSuperFineSearch(int32_t *foundX, int32_t *foundY);
+int DoSuperFineSearch(int32_t *foundX, int32_t *foundY, int numberOfSuperCrosses);
+int DoFineSearch(int32_t *foundX, int32_t *foundY);
 
 extern int32_t   gQCerrors[6];
 
@@ -48,30 +35,30 @@ extern double xNegAvg;
 extern double yPosAvg;
 extern double yNegAvg;
 
-extern uint32_t * xPosSave;
-extern uint32_t * xNegSave;
-extern uint32_t * yPosSave;
-extern uint32_t * yNegSave;
+extern int32_t * xPosSave;
+extern int32_t * xNegSave;
+extern int32_t * yPosSave;
+extern int32_t * yNegSave;
 
-extern uint32_t * xPosEdge;
-extern uint32_t * xNegEdge;
-extern uint32_t * yPosEdge;
-extern uint32_t * yNegEdge;
+extern int32_t * xPosEdge;
+extern int32_t * xNegEdge;
+extern int32_t * yPosEdge;
+extern int32_t * yNegEdge;
 
-extern uint32_t * xPosSuper;
-extern uint32_t * xNegSuper;
-extern uint32_t * yPosSuper;
-extern uint32_t * yNegSuper;
+extern int32_t * xPosSuper;
+extern int32_t * xNegSuper;
+extern int32_t * yPosSuper;
+extern int32_t * yNegSuper;
 
-extern uint32_t * xPosESuper;
-extern uint32_t * xNegESuper;
-extern uint32_t * yPosESuper;
-extern uint32_t * yNegESuper;
+extern int32_t * xPosESuper;
+extern int32_t * xNegESuper;
+extern int32_t * yPosESuper;
+extern int32_t * yNegESuper;
 
-extern uint32_t * xPosPosition;
-extern uint32_t * yPosPosition;
-extern uint32_t * xNegPosition;
-extern uint32_t * yNegPosition;
+extern int32_t * xPosPosition;
+extern int32_t * yPosPosition;
+extern int32_t * xNegPosition;
+extern int32_t * yNegPosition;
 
 extern double * xResArr;
 extern double * yResArr;
@@ -86,25 +73,15 @@ extern double gFixY[ kNumberDrift ];
 extern double gDriftX[ kNumberDrift ];
 extern double gDriftY[ kNumberDrift ];
 
-extern void InitDrift( uint32_t *Xarr, uint32_t *Yarr);
-
-extern void FindDrift( uint32_t cX,
-              uint32_t cY,
-              uint32_t fX,
-              uint32_t fY );
-
-extern void CorrectDrift( uint32_t cX,
-                   uint32_t cY,
-                   uint32_t *fX,
-                   uint32_t *fY );
-
-extern void SetSuperFineFactor ( uint32_t n ) ;
+void InitDrift(int32_t *Xarr, int32_t *Yarr);
+void FindDrift(int32_t cX, int32_t cY, int32_t fX, int32_t fY);
+void CorrectDrift(int32_t cX, int32_t cY, int32_t *fX, int32_t *fY );
+void SetSuperFineFactor ( uint32_t n ) ;
 
 extern int gTargetDrift;
 
 extern uint32_t gCoarseSearchStep;
 extern int           gCoarseFactor;
-extern uint32_t gCoarse2SearchStep;
 extern int           gCoarse2Factor;
 extern int  gNumberOfSpirals;
 extern int  gSpiralFactor;

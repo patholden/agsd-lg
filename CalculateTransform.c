@@ -31,8 +31,8 @@ void CalculateTransform ( struct lg_master *pLgMaster,
 {
         double theCoordinateBuffer[kNumberOfRegPoints * 3];
 	double foundAngles [ kNumberOfRegPoints * 2 ];
-	uint32_t Xarr [ kNumberOfRegPoints ];
-	uint32_t Yarr [ kNumberOfRegPoints ];
+	int32_t Xarr[kNumberOfRegPoints];
+	int32_t Yarr[kNumberOfRegPoints];
 	struct parse_clctrnsfrm_resp *pResp;
 	uint32_t *pOut;
 	double Xgeo;
@@ -47,7 +47,9 @@ void CalculateTransform ( struct lg_master *pLgMaster,
 	theTransformTolerance  = pLgMaster->gArgTol;
 	pResp = (struct parse_clctrnsfrm_resp *)pLgMaster->theResponseBuffer;
 	memset((char *)pResp, 0, (sizeof(struct parse_clctrnsfrm_resp)));
-
+	memset((char *)&Xarr, 0, sizeof(Xarr));
+	memset((char *)&Yarr, 0, sizeof(Yarr));
+	
         i = 0;
         while ( i < kNumberOfRegPoints ) {
             foundTarget[i] = 1;

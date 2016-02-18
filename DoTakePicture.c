@@ -18,7 +18,7 @@
 #include "DoTakePicture.h"
 #include "3DTransform.h"
 
-
+// FIXME---PAH---data[] needs to be lg_xydata struct
 void DoTakePicture ( struct lg_master *pLgMaster,
 		     struct parse_takepic_parms * pInp,
 		     uint32_t respondToWhom)
@@ -27,7 +27,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   double tmpDoubleArr[MAX_NEW_TRANSFORM_ITEMS];
   double partPoint[3];
   double outputPoint[3];
-  uint32_t  data[2];
+  int32_t  data[2];
   transform theTransform;
   uint32_t theError;
 #ifdef SPECIAL
@@ -49,7 +49,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   partPoint[2] = pInp->visionZ;
   
   TransformPoint ( &theTransform, partPoint, outputPoint );
-  theError = PointToBinary(pLgMaster, outputPoint, (uint32_t *)&data[0], (uint32_t *)&data[1]);
+  theError = PointToBinary(pLgMaster, outputPoint, (int32_t *)&data[0], (int32_t *)&data[1]);
   if (theError)
     {
       pResp->hdr.status = RESPFAIL;

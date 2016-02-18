@@ -2,16 +2,25 @@
 #define BOARDCOMM_H
 /*   $Id: BoardComm.h,v 1.20 2001/01/03 17:48:53 ags-sw Exp pickle $  */
 
-#define kMaxUnsigned  0xFFFFC000U
+#define  MAX_NUM_THREADS 1
 #define STEPDELAY   500
+#define NUM_HOBBS_COUNTERS  4
+#define PARSE_HOBBS_HOBBS 1
+#define PARSE_HOBBS_XSCAN 2
+#define PARSE_HOBBS_YSCAN 3
+#define PARSE_HOBBS_LASER 4
+#define kMaxUnsigned   0xFFFF
+#define kMinSigned     0x8000
+#define kMaxSigned     0x7FFF
 
 extern  uint32_t  gRespondToWhom;
 extern  int gSearchFlag;
 extern  int gStopFlag;
 struct displayData
 {
-  uint32_t	*sensorAngles;
-  uint16_t	numberOfSensorSets;
+  struct lg_xydata  *pattern;
+  int32_t           *sensorAngles;
+  uint16_t          numberOfSensorSets;
 };
 
 // The following header is fixed for incoming commands from
@@ -42,10 +51,10 @@ struct k_header {
   };
 } __attribute__ ((packed));
 struct hobbs_ctrs {
-  time_t    hobbs_counter;
-  time_t    xscanner_counter;
-  time_t    yscanner_counter;
-  time_t    laser_counter;
+  time_t    hobbs_time;
+  time_t    xscanner_time;
+  time_t    yscanner_time;
+  time_t    laser_time;
 };
 struct version_info {
   char      *pVersions;
@@ -66,9 +75,9 @@ struct lg_master {
   double          gTolerance;
   double          dmax;
   unsigned char   *gInputBuffer;
-  unsigned char   *gDataChunksBuffer;
-  unsigned char   *gSensorBuffer;
-  unsigned char   *gAFInputBuffer;
+  char            *gDataChunksBuffer;
+  char            *gSensorBuffer;
+  char            *gAFInputBuffer;
   unsigned char   *gRawBuffer;
   unsigned char   *gParametersBuffer;
   unsigned char   *theResponseBuffer;
@@ -85,15 +94,23 @@ struct lg_master {
   uint32_t        enet_retry_count;
   uint32_t        gotA1;
   uint32_t        gDataChunksLength;
-  uint32_t        patternLength;
+  uint32_t        gBuiltPattern;
   uint32_t        gPeriod;
   uint32_t        gDisplayFlag;
   uint32_t        gSrchStpPeriod;
   int32_t         gQCcount;
-  uint32_t        gXcheck;
-  uint32_t        gYcheck;
+  int32_t         gCoarse2SearchStep;
+  int32_t         gXcheck;
+  int32_t         gYcheck;
   uint8_t         gCALIBFileOK;
 };
+
+typedef struct ags_bkgd_thread_struct
+{
+  int              thread_instance;  // (debug)field to distinguish between threads.
+  struct lg_master *pLgMaster;      // pointer to master data structure
+  int              time_to_update;  // determines when to do backup, set by timer from Main loop
+} AGS_BKGD_THREAD;
 
 void	RandomSegment ( void );
 int32_t InitQCtimer( void );
@@ -136,6 +153,7 @@ int doClearReadyLED(struct lg_master *pLgMaster);
 int doSetSearchBeam(struct lg_master *pLgMaster);
 int doClearSearchBeam(struct lg_master *pLgMaster);
 void doClearLinkLED(struct lg_master *pLgMaster);
+int doSetShutterENB(struct lg_master *pLgMaster);
 int doLoadWriteNum(struct lg_master *pLgMaster, uint32_t write_count);
 int doLoadReadNum(struct lg_master *pLgMaster, uint32_t read_count);
 int doSetPulseOff(struct lg_master *pLgMaster, uint32_t pulse_off);
@@ -151,7 +169,7 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 void ResumeDisplay(struct lg_master *pLgMaster);
 int32_t GetQCflag(struct lg_master *pLgMaster);
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydata *pDeltaData, uint32_t n, uint32_t *c_out);
+		  struct lg_xydata *pDeltaData, uint32_t n, int32_t *c_out);
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		 struct lg_xydata *pDeltaData, uint32_t n, unsigned char *c_out);
 void PostCmdDispNoResp(struct lg_master *pLgMaster, struct displayData *p_dispdata, uint32_t respondToWhom);

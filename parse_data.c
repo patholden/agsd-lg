@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <linux/laser_api.h>
@@ -41,7 +42,7 @@
 #include "Files.h"
 
 uint32_t cmdState = 1;
-static  unsigned char *  gDisplayDataBuffer = 0;
+static char     *gDisplayDataBuffer = 0;
 static int32_t  nTargets;
 
 
@@ -60,7 +61,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 
   if (!pLgMaster || !pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer || !pLgMaster->theResponseBuffer || !data || (data_len > kMaxDataLength))
     {
-      fprintf(stderr, "\nPARSEDATA:  Received Bad input");
+      syslog(LOG_ERR, "PARSEDATA:  Received Bad input");
       return(-1);
     }
   pLgMaster->gParametersBuffer = &pLgMaster->gInputBuffer[4];  // Pointer to input data less k_header
@@ -86,25 +87,24 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
       if (*pLgMaster->gRawBuffer == 0xA1)
 	{
 	  pLgMaster->gotA1 = 1;
-	  fprintf( stderr, "\nreceived 0xA1 -- expect 0xA2 next" );
 	  return(0);
 	}
       else if (*pLgMaster->gRawBuffer == 0xA2)
 	{
-	  fprintf( stderr, "\nreceived 0xA2" );
 	  SlowDownAndStop(pLgMaster);
 	  if (pLgMaster->gotA1)
 	    {
+	      syslog(LOG_ERR, "received 0xA1 & 0xA2, sending 0xA3" );
 	      SendA3(pLgMaster);
 	      pLgMaster->gotA1 = 0;  // Start all over for A1->A2->A3 resync
 	    }
 	  else
-	    fprintf(stderr, "\nreceived 0xA2 with no 0xA1 predecessor");
+	    syslog(LOG_ERR, "received 0xA2 with no 0xA1 predecessor");
 	  return(0);
 	}
       else
 	{
-	  fprintf(stderr, "\nPARSEDATA:  Extraneous data received %d, len %d\n",
+	  syslog(LOG_ERR, "PARSEDATA:  Extraneous data received %d, len %d",
 		  *pLgMaster->gRawBuffer, *rawindex);
 	  return(0);
 	}
@@ -112,7 +112,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 
   if (*rawindex < COMM_RECV_MIN_LEN)
     {
-      fprintf(stderr, "\nPARSEDATA:  Bad input length %x", *rawindex);
+      syslog(LOG_ERR, "PARSEDATA:  Bad input length %x", *rawindex);
       return(-3);
     }
   if (pLgMaster->gHEX == 1 ) {
@@ -125,7 +125,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	  index++;
 	}
       else if ((pLgMaster->gRawBuffer[i] == 0x80) && (i == (*rawindex)-1))
-	fprintf(stderr, "PARSEDATA:  cannot have 0x80 as end byte\n");
+	syslog(LOG_ERR, "PARSEDATA:  cannot have 0x80 as end byte");
       else
 	{
 	  pLgMaster->gInputBuffer[index] = pLgMaster->gRawBuffer[i];
@@ -143,7 +143,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
   pLgMaster->seqNo    =  (pLgMaster->gInputBuffer[2] << 8) + pLgMaster->gInputBuffer[3];
 
 #if defined(ZDEBUG) || defined(KITDEBUG)
-  fprintf( stderr, "newCommand %02x  seqNo %04x\n", pLgMaster->newCommand, pLgMaster->seqNo );
+  syslog(LOG_ERR, "newCommand %02x  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
 #endif
   switch(pLgMaster->newCommand) {
     // 0x02  kSTOP
@@ -244,7 +244,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	      {
 		SendConfirmation (pLgMaster, kDisplay);
 		gDisplayDataBuffer =
-		  (unsigned char *)&(pLgMaster->gParametersBuffer[kSizeOfFlexDisplayParameters]);
+		  (char *)&(pLgMaster->gParametersBuffer[kSizeOfFlexDisplayParameters]);
 		DoFlexDisplay(pLgMaster,
 			      dataLength,
 			      (struct parse_flexdisp_parms *)pInp,
@@ -269,7 +269,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				   + dataLength)))
 	    {
 	      SendConfirmation(pLgMaster, kDisplayKitVideo);
-	      gDisplayDataBuffer = (unsigned char *)&pLgMaster->gParametersBuffer[kSizeOfDisplayKitVideoParameters];
+	      gDisplayDataBuffer = (char *)&pLgMaster->gParametersBuffer[kSizeOfDisplayKitVideoParameters];
 	      DoDisplayKitVideo(pLgMaster,
 				dataLength,
 				(unsigned char *)((struct parse_dispkitvid_parms *)pInp)->inp_transform,
@@ -652,7 +652,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				(kSizeOfCommand + kSizeOfHobbsSetParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kHobbsSet);
-	    DoHobbsSet (pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern );
+	    DoHobbsSet (pLgMaster, (struct parse_hobbsset_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -667,7 +667,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				(kSizeOfCommand + kSizeOfHobbsGetParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kHobbsGet);
-	    DoHobbsGet (pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern );
+	    DoHobbsGet (pLgMaster, (struct parse_hobbsget_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -695,7 +695,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	cmdState = 1;
 	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, kSizeOfCommand))
 	  {
-	    fprintf( stderr, "I'm melting!\n" );
+	    syslog(LOG_ERR, "I'm melting!" );
 	    SendConfirmation(pLgMaster, kTFS);
 	    doClearReadyLED(pLgMaster);
 	    doClearLinkLED(pLgMaster);
@@ -706,7 +706,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	    //	  flag      =  0x1234567;
 	    usleep( 2000000L );
 	    //	  reboot( magic, magic_too, flag );
-	    fprintf( stderr, "I'm freezing!\n" );
+	    syslog(LOG_ERR, "I'm freezing!" );
 	    /* just in case */
 	    usleep( 2000000L );
 	    //	  reboot( flag );
@@ -916,7 +916,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 				  + dataLength)))
 	    {
 	      SendConfirmation(pLgMaster, kShowTargets);
-	      DoShowTargets( pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern );
+	      DoShowTargets( pLgMaster, (struct parse_showtgt_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	    }
 	  else
 	    SendConfirmation(pLgMaster, kCRC16NoMatchMsg);

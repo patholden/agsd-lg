@@ -41,8 +41,8 @@ void RightOnCert(struct lg_master *pLgMaster,
    transform theTransform;
    double XgeomAngle;
    double YgeomAngle;
-   uint32_t XrawAngle;
-   uint32_t YrawAngle;
+   int32_t XrawAngle;
+   int32_t YrawAngle;
    double Xexpect;
    double Yexpect;
    double Xfound;
@@ -61,8 +61,8 @@ void RightOnCert(struct lg_master *pLgMaster,
    double aXg, aYg;
    double Xe, Ye;
    double Xf, Yf;
-   uint32_t bXe, bYe;
-   uint32_t bXf, bYf;
+   int32_t bXe, bYe;
+   int32_t bXf, bYf;
    double Xexternal; 
    double Yexternal; 
    double time_now, time_diff, time_start;
@@ -127,27 +127,27 @@ fprintf( stderr, "ROC127 rawA %x %x\n", bXe, bYe );
    switch( pLgMaster->gHeaderSpecialByte ) {
          case 0:
               gCoarse2Factor     = gCoarseFactor;
-              gCoarse2SearchStep = gCoarseSearchStep;
+              pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
               break;
          case 1:
               gCoarse2Factor     = 1;
-              gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
               break;
          case 2:
               gCoarse2Factor     = 2;
-              gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
               break;
          case 3:
               gCoarse2Factor     = 4;
-              gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
               break;
          case 4:
               gCoarse2Factor     = 8;
-              gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
               break;
          default:
               gCoarse2Factor     = 1;
-              gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
               break;
    }
 
