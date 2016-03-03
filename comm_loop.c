@@ -94,6 +94,7 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
 
   pLgMaster->enet_retry_count++;
   pLgMaster->serial_ether_flag = 2;
+  doSetLinkLED(pLgMaster);
   return(0);
 }
 
@@ -181,14 +182,91 @@ int CommInit(struct lg_master *pLgMaster)
   return(0);
 }
 
+#if 0
+static int ProcPktLookAhead(struct lg_master *pLgMaster, unsigned char *parse_buff, uint32_t *total_count)
+{
+    unsigned char *recv_data = 0;
+    unsigned char *pInp;
+    uint32_t      i;
+    uint32_t      loop_max=0;
+    uint32_t      data_len=0;
+    uint8_t       theCommand;
+
+    theCommand = *parse_buff;
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"Waiting for more data, command %x", theCommand);
+#endif
+  if ((theCommand != kDisplayChunksData) && (theCommand != kFilePutData)
+      && (theCommand != kDisplayKitVideo))
+    return(0);
+  
+  pInp = (unsigned char *)&parse_buff[4];  // Pointer to input parms
+  switch(theCommand)
+      {
+      case  kDisplayChunksData:
+	if ((((struct parse_chunkdata_parms *)pInp)->chunk_len - COMM_ENET_PKT_SIZE) > 0)
+	  loop_max = ((struct parse_chunkdata_parms *)pInp)->chunk_len % COMM_ENET_PKT_SIZE;
+	else
+	  return(0);
+	break;
+      case kFilePutData:
+	if ((((struct parse_putdata_parms *)pInp)->inp_buf_numbytes - COMM_ENET_PKT_SIZE) > 0)
+	  loop_max = ((struct parse_putdata_parms *)pInp)->inp_buf_numbytes % COMM_ENET_PKT_SIZE;
+	else
+	  return(0);
+	break;
+      case kDisplayKitVideo:
+	if ((((struct parse_dispkitvid_parms *)pInp)->inp_aptlen - COMM_ENET_PKT_SIZE) > 0)
+	  loop_max = ((struct parse_dispkitvid_parms *)pInp)->inp_aptlen % COMM_ENET_PKT_SIZE;
+	else
+	  return(0);
+	break;
+      default:
+	return(0);
+	break;
+      }
+
+    // We only read in up to 2k at a time.
+    recv_data = (unsigned char *)malloc(COMM_RECV_MAX_SIZE);
+    if (!recv_data || (errno == EBADF))
+      {
+	free(parse_buff);
+	return(COMMLOOP_ERROR);
+      }
+
+    // Now wait for rest of data
+    for (i = 0; i < loop_max; i++)
+      {
+	// Initialize buffer first
+	memset(recv_data, 0, COMM_RECV_MAX_SIZE);
+	data_len = recv(pLgMaster->datafd, recv_data, COMM_RECV_MAX_SIZE, 0);
+	if (errno == EBADF)
+	  return(COMMLOOP_ERROR);
+	if ((data_len > 0) && ((*total_count + data_len) <= COMM_RECV_MAX_SIZE))
+	  {
+#ifdef PATDEBUG
+	    syslog(LOG_DEBUG,"Got more data, command %x, length %d", parse_buff[0], data_len);
+#endif
+	    memcpy((char *)(parse_buff + *total_count), recv_data, data_len);
+	    *total_count += data_len;
+	  }
+	else if (data_len <= 0)
+	  break;
+      }
+    free(recv_data);
+    return(COMMLOOP_SUCCESS);
+}
+#endif
 static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 {
   struct pollfd  poll_fd;
   unsigned char *recv_data = 0;
+  unsigned char *parse_buff = 0;
   int       data_len = 0;
+  int       total_count = 0;
   int       error = 0;
   uint32_t  parsed_count = 0;
-  
+    
   if (!pLgMaster)
     return(-1);
 
@@ -211,43 +289,27 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 
   // Prep buffers for accepting/receiving new packet
   memset(recv_data, 0, COMM_RECV_MAX_SIZE);
-
-  // We've got our socket fd for client, now look for data
-  data_len = recv(pLgMaster->datafd, recv_data, COMM_RECV_MAX_SIZE, 0);
-  if (data_len <= 0)
+  for (;;)
     {
-      if (data_len < 0)
+      // We've got our socket fd for client, now look for data
+      parse_buff = (unsigned char *)(recv_data + total_count);
+      data_len = recv(pLgMaster->datafd, parse_buff, COMM_RECV_MAX_SIZE, 0);
+      if (data_len <= 0)
+	break;
+      total_count+= data_len;
+      if (!total_count || (total_count >= COMM_RECV_MAX_SIZE))
 	{
-	  if (data_len == EOF)
-	    {
-	      syslog(LOG_NOTICE,".");
-	      free(recv_data);
-	      return(0);
-	    }
-	  else
-	    {
-	      free(recv_data);
-	      // Check to see if we have more data or connection is busy
-	      if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-		return(0);
-	      syslog(LOG_ERR,"Recv data error:");
-	      return(-4);
-	    }
+	  syslog(LOG_DEBUG, "Data not ready on receive");
+	  break;
 	}
-      else
-	{
-	  syslog(LOG_NOTICE,"Recv data length 0, PC host closed connection");
-	  pLgMaster->datafd = -1;
-	  free(recv_data);
-	  return(-5);
-	}
+      error = poll((struct pollfd *)&poll_fd, 1, 5);
+      if (error < 1)
+	break;
+      if (!(poll_fd.revents & POLLIN))
+	break;
     }
-
   // Process incoming data
-#ifdef PATDEBUG
-  syslog(LOG_DEBUG,"Got some data, command %x, length %d", recv_data[0], data_len);
-#endif
-  error = parse_data(pLgMaster, recv_data, data_len, &parsed_count );
+  error = parse_data(pLgMaster, recv_data, total_count, &parsed_count);
   if (error < 0)
     {
       syslog(LOG_ERR, "Bad parse, error %d",error);

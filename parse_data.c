@@ -81,7 +81,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
       *rawindex += data_len;
     }
   // If we get A1 or A2 from host, need to allow 
-  if (*rawindex == 1)
+  if (*rawindex < COMM_RECV_MIN_LEN)
     {
       // 0xA2 is a special emergency -- reset byte
       if (*pLgMaster->gRawBuffer == 0xA1)
@@ -110,6 +110,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
 	}
     }
 
+  // Falling through A1/A2 check here with length less minimum payload size fails
   if (*rawindex < COMM_RECV_MIN_LEN)
     {
       syslog(LOG_ERR, "PARSEDATA:  Bad input length %x", *rawindex);

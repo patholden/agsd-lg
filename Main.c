@@ -154,6 +154,7 @@ int main ( int argc, char **argv )
   int     error=0;
   unsigned long    loop_count;
 
+
   openlog("agsd", 0, LOG_USER);
   syslog(LOG_NOTICE, "%s", ags_banner);
 
@@ -190,7 +191,7 @@ int main ( int argc, char **argv )
       closelog();
       exit(EXIT_FAILURE);
     }
-  error = InitBoard(pConfigMaster );
+  error = InitBoard(pConfigMaster);
   if (error)
     {
       syslog(LOG_ERR,"\nMain: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
@@ -303,6 +304,7 @@ int main ( int argc, char **argv )
       exit(EXIT_FAILURE);
     }
   loop_count = 0;
+  doClearReadyLED(pConfigMaster);
   while (exit_check())
     {
       if (pConfigMaster->serial_ether_flag == 2)
@@ -326,8 +328,9 @@ int main ( int argc, char **argv )
 #endif
     }
 
-  FlashLed(pConfigMaster, 7);
   // Clean up AGS specific stuff before exiting
+  doSetReadyLED(pConfigMaster);
+  doClearLinkLED(pConfigMaster);
   syslog(LOG_NOTICE, "Shutting down do to System or User interrupt");
   ags_cleanup(pConfigMaster);
   closelog();

@@ -156,6 +156,7 @@ int doClearReadyLED(struct lg_master *pLgMaster);
 int doSetSearchBeam(struct lg_master *pLgMaster);
 int doClearSearchBeam(struct lg_master *pLgMaster);
 void doClearLinkLED(struct lg_master *pLgMaster);
+void doSetLinkLED(struct lg_master *pLgMaster);
 int doSetShutterENB(struct lg_master *pLgMaster);
 int doLoadWriteNum(struct lg_master *pLgMaster, uint32_t write_count);
 int doLoadReadNum(struct lg_master *pLgMaster, uint32_t read_count);

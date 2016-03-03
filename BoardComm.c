@@ -678,6 +678,11 @@ void doClearLinkLED(struct lg_master *pLgMaster)
   doWriteDevCmdNoData(pLgMaster, CMDW_LINKLEDOFF);
   return;
 }
+void doSetLinkLED(struct lg_master *pLgMaster)
+{
+  doWriteDevCmdNoData(pLgMaster, CMDW_LINKLEDON);
+  return;
+}
 int doClearShutterENB(struct lg_master *pLgMaster)
 {
   return(doWriteDevCmdNoData(pLgMaster, CMDW_CLEARSHUTENB));

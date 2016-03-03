@@ -24,10 +24,10 @@ int CheckInput(struct lg_master *pLgMaster);
 #define COMM_ETHER       2
 #define COMM_SERIAL      1
 #define COMM_MAX_ENET_RETRIES  4
-#define COMM_RECV_MAX_SIZE    0x8000  // Set to 32k, Max buffer=8192 but need
+#define COMM_RECV_MAX_SIZE    0x10000  // Set to 64k, Max buffer=8192 but need
                                       //space for header & CRC & assume all data
                                       // > 0x80 each byte where payload ends up
-                                      //being doubled.
+                                      //being doubled plus extended blocks for more data.
 #define COMM_RECV_CHUNK_SIZE  0x4000   // Set to 8k+enough for header, used by comm-loop to read in chunks.
 
 enum
