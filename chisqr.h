@@ -4,8 +4,7 @@
  */
 
 
-extern double chisqr(double params[]);
-
+double chisqr(struct lg_master *pLgMaster, double params[]);
 extern double chiX[kNumberOfFlexPoints];
 extern double chiY[kNumberOfFlexPoints];
 extern double chiZ[kNumberOfFlexPoints];

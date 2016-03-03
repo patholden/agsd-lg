@@ -8,17 +8,13 @@ typedef struct { double oldLoc[3], xRad, yRad; }
 typedef struct { double rotMatrix[3][3], transVector[3]; }
         doubleTransform;
 
-extern  unsigned char   FindBestTransform
-                        ( doubleInputPoint iPt[4]
-                        , doubleTransform *tr
-                        , double deltaXHeight
-                        , double tolerance
-                        , double * bestCosine
-                        );
-
 extern double minL3Distance;
 
 extern unsigned char gBestTargetArray[128];
 extern int32_t gBestTargetNumber;
+
+unsigned char FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *iPt,
+				doubleTransform *tr, double deltaXHeight, double tolerance,
+				double * bestCosine);	
 
 #endif // LEDTRNSFORM_H

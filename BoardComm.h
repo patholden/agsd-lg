@@ -2,6 +2,8 @@
 #define BOARDCOMM_H
 /*   $Id: BoardComm.h,v 1.20 2001/01/03 17:48:53 ags-sw Exp pickle $  */
 
+#define DONTRESPOND  1      // command will NOT send response to PC host
+#define SENDRESPONSE  2     // command will send response to PC host
 #define  MAX_NUM_THREADS 1
 #define STEPDELAY   500
 #define NUM_HOBBS_COUNTERS  4
@@ -14,8 +16,6 @@
 #define kMaxSigned     0x7FFF
 
 extern  uint32_t  gRespondToWhom;
-extern  int gSearchFlag;
-extern  int gStopFlag;
 struct displayData
 {
   struct lg_xydata  *pattern;
@@ -74,6 +74,7 @@ struct lg_master {
   double          ping_count;
   double          gTolerance;
   double          dmax;
+  double          gHalfMirror;
   unsigned char   *gInputBuffer;
   char            *gDataChunksBuffer;
   char            *gSensorBuffer;
@@ -98,6 +99,7 @@ struct lg_master {
   uint32_t        gPeriod;
   uint32_t        gDisplayFlag;
   uint32_t        gSrchStpPeriod;
+  uint32_t        gTransmitLengthSum;
   int32_t         gQCcount;
   int32_t         gCoarse2SearchStep;
   int32_t         gXcheck;
@@ -116,7 +118,8 @@ void	RandomSegment ( void );
 int32_t InitQCtimer( void );
 int32_t GetQCtimer( void );
 void SetROIsearch( void );
-void ClearROIsearch( void );
+void ClearROIsearch(void);
+int CheckStopFlag(void);
 void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char * data,
 		 uint32_t respondToWhom);
 int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster);
@@ -172,8 +175,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		  struct lg_xydata *pDeltaData, uint32_t n, int32_t *c_out);
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		 struct lg_xydata *pDeltaData, uint32_t n, unsigned char *c_out);
-void PostCmdDispNoResp(struct lg_master *pLgMaster, struct displayData *p_dispdata, uint32_t respondToWhom);
-void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, uint32_t respondToWhom);
+void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, int32_t do_response, uint32_t respondToWhom);
 void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom);
 void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom);
 

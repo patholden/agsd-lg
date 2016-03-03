@@ -48,12 +48,12 @@ static int32_t  nTargets;
 
 
 int
-parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *rawindex)
+parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, uint32_t *rawindex)
 {
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   unsigned char *pInp;
-  int  index;
-  int i, cmdSize;
+  uint32_t       index;
+  uint32_t       i,cmdSize;
   uint32_t dataLength=0;
   uint32_t dataOffset;
   uint32_t number;
@@ -117,14 +117,14 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     }
   if (pLgMaster->gHEX == 1 ) {
     index = 0;
-    for ( i=0; i < (*rawindex); i++ ) {
-      if ((pLgMaster->gRawBuffer[i] == 0x80) && (i < (*rawindex)-1))
+    for ( i=0; i < *rawindex; i++ ) {
+      if ((pLgMaster->gRawBuffer[i] == 0x80) && (i < (*rawindex-1)))
 	{
 	  pLgMaster->gInputBuffer[index] = 0x80 + pLgMaster->gRawBuffer[i+1];
 	  i++;
 	  index++;
 	}
-      else if ((pLgMaster->gRawBuffer[i] == 0x80) && (i == (*rawindex)-1))
+      else if ((pLgMaster->gRawBuffer[i] == 0x80) && (i == (*rawindex-1)))
 	syslog(LOG_ERR, "PARSEDATA:  cannot have 0x80 as end byte");
       else
 	{
@@ -142,8 +142,8 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
   pLgMaster->gHeaderSpecialByte = pLgMaster->gInputBuffer[1];
   pLgMaster->seqNo    =  (pLgMaster->gInputBuffer[2] << 8) + pLgMaster->gInputBuffer[3];
 
-#if defined(ZDEBUG) || defined(KITDEBUG)
-  syslog(LOG_ERR, "newCommand %02x  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG, "newCommand %02x  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
 #endif
   switch(pLgMaster->newCommand) {
     // 0x02  kSTOP
@@ -151,7 +151,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if ( index >=(int)(kSizeOfCommand + 2)) {
       cmdState = 1;
       if ( kCRC_OK ==
-	   CheckCRC ( (char *)pLgMaster->gInputBuffer, kSizeOfCommand ) )
+	   CheckCRC(pLgMaster->gInputBuffer, kSizeOfCommand))
 	{
 	  SendConfirmation (pLgMaster, kStop);
 	  SearchBeamOff(pLgMaster);
@@ -167,7 +167,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if ( index >= cmdSize + 2 ) {
       cmdState = 1;
       if (kCRC_OK ==
-	   CheckCRC ( (char *)pLgMaster->gInputBuffer, cmdSize ) )
+	   CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	{
 	  SendConfirmation (pLgMaster, kDisplayChunksStart);
 	  DoDisplayChunksStart(pLgMaster, (struct parse_chunkstart_parms *)pInp, kRespondExtern);
@@ -177,29 +177,67 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     }
     break;
   case kDisplayChunksData:
-    if ( index > 12 ) {
+    cmdSize = kSizeOfCommand
+      + offsetof(struct parse_chunkdata_parms, chunk_apt_data);
+    
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"\nPARSECHUNKSDATA1: index %d,cmdSize %d",index,cmdSize);
+#endif
+    if (index > cmdSize) {
       // NOTE INCOMING PARMS (UINT32) ARE BIG-ENDIAN
       dataLength = htonl(((struct parse_chunkdata_parms *)pInp)->chunk_len);
       dataOffset = htonl(((struct parse_chunkdata_parms *)pInp)->chunk_offset);
-      cmdSize = kSizeOfCommand
-	+ offsetof(struct parse_chunkdata_parms, chunk_apt_data)
-	+ dataLength;
+      cmdSize += dataLength;
+      // Check to see if this is a restart
+      if (pLgMaster->gDataChunksLength && pLgMaster->gTransmitLengthSum && (dataOffset == 0))
+	{
+	  // Restarting AddChunks command, wipe out data collected so far
+	  // but need to preserve total length from ChunkStart command.
+	  ResetPlyCounter();
+	  pLgMaster->gTransmitLengthSum = 0;
+	  memset(pLgMaster->gDataChunksBuffer, 0, kMaxDataLength);
+	}
       if (index >= cmdSize + 2)
 	{
 	  cmdState = 1;
-	  if (kCRC_OK == CheckCRC ((char *)pLgMaster->gInputBuffer,
+	  if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				   (kSizeOfCommand
 				    + offsetof(struct parse_chunkdata_parms, chunk_apt_data)
 				    + dataLength)))
 	    {
+#ifdef PATDEBUG
+	      syslog(LOG_DEBUG,"\nPARSECHUNKSDATA1: sending confirmation length %d,offset %d",dataLength,dataOffset);
+#endif
 	      SendConfirmation (pLgMaster, kDisplayChunksData);
 	      AddDisplayChunksData (pLgMaster, dataLength, dataOffset,
 				    (char *)((struct parse_chunkdata_parms *)pInp)->chunk_apt_data, kRespondExtern);
 	    }
 	  else
-	    SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
+	    {
+#ifdef PATDEBUG
+	      syslog(LOG_DEBUG,"\nPARSECHUNKSDATA1: bad checksum length %d, offset %d",dataLength,dataOffset);
+#endif
+	      SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
+	    }
+	}
+      else
+	{
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"\nPARSECHUNKSDATA2: bad length:  got %d, expected at least %d",index,cmdSize);
+#endif
+	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
 	}
     }
+    else
+      {
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"\nPARSECHUNKSDATA3: bad length: got %d, expected at least %d",index,cmdSize);
+#endif
+	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
+      }	
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"\nPARSECHUNKSDATA4: index %d, cmdSize %d, rawindex %d",index,cmdSize,*rawindex);
+#endif
     break;
 #if 0
 // FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
@@ -211,7 +249,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	if (index >= cmdSize + 2)
 	  {
 	    cmdState = 1;
-	    if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	    if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				    (kSizeOfCommand +
 				     kSizeOfDisplayParameters +
 				     dataLength)))
@@ -237,7 +275,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
 	if (index >= cmdSize + 2)
 	  {
 	    cmdState = 1;
-	    if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	    if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				    (kSizeOfCommand +
 				     kSizeOfFlexDisplayParameters +
 				     dataLength)))
@@ -263,7 +301,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
       if (index >= cmdSize + 2)
 	{
 	  cmdState = 1;
-	  if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	  if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				  (kSizeOfCommand 
 				   + kSizeOfDisplayKitVideoParameters
 				   + dataLength)))
@@ -286,7 +324,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand +
 				 kSizeOfDisplayChunksDoParameters)))
 	  {
@@ -304,7 +342,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand +
 				 kSizeOfFlexDisplayChunksDoParameters)))
 	  {
@@ -325,7 +363,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
       
 	// Note this input is in BIG endian format on the wire
 	number = ntohl(((struct parse_dispsev_parms *)pInp)->num_seq);
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand +
 				 kSizeOfDisplaySeveralParameters)))
 	  {
@@ -349,7 +387,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFileGetStartParameters )))
 	  {
 	    SendConfirmation(pLgMaster, kFileGetStart);
@@ -364,7 +402,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFileGetDataParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFileGetData);
@@ -379,7 +417,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFilePutStartParameters )))
 	  {
 	    SendConfirmation (pLgMaster, kFilePutStart);
@@ -397,7 +435,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
       if (index >= cmdSize + 2)
 	{
 	  cmdState = 1;
-	  if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	  if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				  (kSizeOfCommand
 				   + kSizeOfFilePutDataParameters
 				   + dataLength)))
@@ -416,7 +454,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFilePutDoneParameters)))
 	  {
 	    SendConfirmation (pLgMaster, kFilePutDone);
@@ -431,7 +469,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfGoAngleParameters)))
 	  {
 	    SendConfirmation (pLgMaster, kGoAngle);
@@ -448,7 +486,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfDarkAngleParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kDarkAngle);
@@ -468,7 +506,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFindOneTargetParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFindOneTarget);
@@ -490,7 +528,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfQuickCheckCountParameters)))
 	  {
 	    SendConfirmation (pLgMaster, kQuickCheckCount);
@@ -515,7 +553,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfQuickCheckTimerParameters)))
 	  {
 	    SendConfirmation (pLgMaster, kQuickCheckTimer);
@@ -530,7 +568,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, cmdSize))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	  {
 	    SendConfirmation(pLgMaster, kDoFullReg);
 	    DoFullReg(pLgMaster,
@@ -546,7 +584,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, cmdSize))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	  {
 	    SendConfirmation(pLgMaster, kSetBit);
 	    DoSetBit(pLgMaster, (struct parse_setbit_parms *)pLgMaster->gParametersBuffer, kRespondExtern);
@@ -560,7 +598,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfQuickCheckParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kQuickCheck);
@@ -573,25 +611,25 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
   case kTakePicture:
 #ifdef SPECIAL
     gettimeofday( &tv, &tz );
-    printf( "parse661 tv %d %d\n", tv.tv_sec, tv.tv_usec );
+    syslog(LOG_NOTICE, "parse661 tv %d %d", tv.tv_sec, tv.tv_usec );
 #endif
     cmdSize = kSizeOfCommand + kSizeOfTakePictureParameters;
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-      if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+      if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 			      (kSizeOfCommand + kSizeOfTakePictureParameters)))
 	{
 	  SendConfirmation(pLgMaster, kTakePicture);
 #ifdef SPECIAL
 	  gettimeofday( &tv, &tz );
-	  printf( "parse675 tv %d %d\n", tv.tv_sec, tv.tv_usec );
+	  syslog(LOG_NOTICE,"parse675 tv %d %d", tv.tv_sec, tv.tv_usec);
 #endif
 	  // Referred to as MOVECAMERA in LaserGuide
 	  DoTakePicture (pLgMaster, (struct parse_takepic_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 #ifdef SPECIAL
 	  gettimeofday( &tv, &tz );
-	  printf( "parse678 tv %d %d\n", tv.tv_sec, tv.tv_usec );
+	  syslog(LOG_NOTICE, "parse678 tv %d %d\n", tv.tv_sec, tv.tv_usec);
 #endif
 	}
       else
@@ -603,7 +641,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfCalibrateXYParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kCalibrateXY);
@@ -618,7 +656,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFlexQuickCheckParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFlexQuickCheck);
@@ -633,7 +671,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfThresholdQuickCheckParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kThresholdQuickCheck);
@@ -648,7 +686,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfHobbsSetParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kHobbsSet);
@@ -663,7 +701,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfHobbsGetParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kHobbsGet);
@@ -678,7 +716,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfEtherAngleParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kEtherAngle);
@@ -693,7 +731,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, kSizeOfCommand))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, kSizeOfCommand))
 	  {
 	    syslog(LOG_ERR, "I'm melting!" );
 	    SendConfirmation(pLgMaster, kTFS);
@@ -721,7 +759,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, kSizeOfCommand))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, kSizeOfCommand))
 	  {
 	    SendConfirmation(pLgMaster, ksuperFOM);
 	    DosuperFOM (pLgMaster, kRespondExtern );
@@ -735,7 +773,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, cmdSize))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	{
 	  SendConfirmation(pLgMaster, kGetTargetsUsed);
 	  GetTargetsUsed (pLgMaster, kRespondExtern );
@@ -749,7 +787,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, kSizeOfCommand))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, kSizeOfCommand))
 	  {
 	    SendConfirmation(pLgMaster, kRefreshRate);
 	    DoRefreshRate ( pLgMaster, kRespondExtern );
@@ -763,7 +801,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, cmdSize))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	  {
 	    SendConfirmation(pLgMaster, kChangeDisplayPeriod);
 	    DoChangeDisplayPeriod (pLgMaster, (struct parse_chngdisp_parms *)pLgMaster->gParametersBuffer );
@@ -777,7 +815,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, cmdSize))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	  {
 	    SendConfirmation(pLgMaster, kChangeTransformTolerance);
 	    DoChangeTransformTolerance(pLgMaster, (char *)pLgMaster->gParametersBuffer);
@@ -791,7 +829,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer, kSizeOfCommand))
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, kSizeOfCommand))
 	  {
 	    SendConfirmation(pLgMaster, kReInit);
 	    DoReInit(pLgMaster, kRespondExtern );
@@ -805,7 +843,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfRightOnRegParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kRightOnReg);
@@ -822,7 +860,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfRegWithFeedbackParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kRegWithFeedback);
@@ -839,7 +877,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand+kSizeOfFlexRegWithFeedbackParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFlexRegWithFeedback);
@@ -856,7 +894,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfCalculateTransformParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kCalculateTransform);
@@ -872,7 +910,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFlexCalculateTransformParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFlexCalculateTransform);
@@ -889,7 +927,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfFlexCalWithFeedbackParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFlexCalWithFeedback);
@@ -911,7 +949,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
       if (index >= cmdSize + 2)
 	{
 	  cmdState = 1;
-	  if (kCRC_OK ==CheckCRC((char *)pLgMaster->gInputBuffer,
+	  if (kCRC_OK ==CheckCRC(pLgMaster->gInputBuffer,
 				 (kSizeOfCommand + kSizeOfShowTargetsParameters
 				  + dataLength)))
 	    {
@@ -928,7 +966,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfRightOnCertParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kRightOnCert);
@@ -943,7 +981,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfAutoFocusCmdParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kAutoFocusCmd);
@@ -960,7 +998,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *
     if (index >= cmdSize + 2)
       {
 	cmdState = 1;
-	if (kCRC_OK == CheckCRC((char *)pLgMaster->gInputBuffer,
+	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfDimAngleParameters)))
 	  {
 	    DimAngle (pLgMaster, (char *)pLgMaster->gParametersBuffer );

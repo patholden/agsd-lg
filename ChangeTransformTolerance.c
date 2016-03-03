@@ -7,6 +7,7 @@ static char rcsid[] = "$Id$";
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -29,7 +30,7 @@ void DoChangeTransformTolerance (struct lg_master *pLgMaster, char * parameters 
   
   memset(RespBuff, 0, resp_len);
   newTol = *((double *)&(parameters[0]));
-  fprintf(stderr,"change display  %f\n", newTol );
+  syslog(LOG_NOTICE,"change display  %f", newTol );
 
   if ((newTol >= 1.0e-10) && (newTol < 1.0))
     {

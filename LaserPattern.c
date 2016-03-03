@@ -1,7 +1,9 @@
 #include <stdint.h>
 // static char rcsid[] = "$Id: LaserPattern.c,v 1.11 2001/12/27 22:47:03 ags-sw Exp ags-sw $";
 
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <float.h>
 #include <math.h>
@@ -138,102 +140,75 @@ uint32_t PutGoTo3D (struct lg_master *pLgMaster, double x, double y, double z )
 				gOldPoint[kX] = gStartPoint[kX];
 				gOldPoint[kY] = gStartPoint[kY];
 				gOldPoint[kZ] = gStartPoint[kZ];
-				if ( gPendPenDown ) return UnpendPenDown (  );
-				else return 0U;
+				if (gPendPenDown)
+				  UnpendPenDown();
+				return(0);
 			}
 			else
 			{
-				gNowInside = true;
-				GetLinearBorderPoint ( addedPoint
-                                                    , gOldPoint
-                                                    , gStartPoint
-                                                     );
-		                if (! WithinLaserAngleRange ( gStartPoint ) ) {
-				    GetAngleBorderPoint ( addedPoint
-                                                        , gOldPoint
-                                                        , gStartPoint 
-                                                        );
-                                }
-				gPutPoint[kX] = gStartPoint[kX];
-				gPutPoint[kY] = gStartPoint[kY];
-				gPutPoint[kZ] = gStartPoint[kZ];
-				gOldPoint[kX] = gStartPoint[kX];
-				gOldPoint[kY] = gStartPoint[kY];
-				gOldPoint[kZ] = gStartPoint[kZ];
+			  gNowInside = true;
+			  GetLinearBorderPoint(addedPoint, gOldPoint, gStartPoint);
+			  if (!(WithinLaserAngleRange(gStartPoint)))
+			    GetAngleBorderPoint(addedPoint, gOldPoint, gStartPoint);
+			  gPutPoint[kX] = gStartPoint[kX];
+			  gPutPoint[kY] = gStartPoint[kY];
+			  gPutPoint[kZ] = gStartPoint[kZ];
+			  gOldPoint[kX] = gStartPoint[kX];
+			  gOldPoint[kY] = gStartPoint[kY];
+			  gOldPoint[kZ] = gStartPoint[kZ];
 			}
 		    } else {
-			if ( !gNowInside
-                                 &&
-                              LinearBorderPointsBetween ( gOldPoint
-                                                        , addedPoint
-                                                        , gStartPoint
-                                                        , tempPoint
-                                                        )
-                           )
-			{
-		                if (! WithinLaserAngleRange ( gStartPoint ) ) {
-                                    AngleBorderPointsBetween ( gOldPoint
-                                                             , addedPoint
-                                                             , gStartPoint
-                                                             , tempPoint
-                                                             );
-                                }
-				gNowInside = true;
-				gItIsStart = false;
-				gPutPoint[kX] = gStartPoint[kX];
-				gPutPoint[kY] = gStartPoint[kY];
-				gPutPoint[kZ] = gStartPoint[kZ];
-				gOldPoint[kX] = gStartPoint[kX];
-				gOldPoint[kY] = gStartPoint[kY];
-				gOldPoint[kZ] = gStartPoint[kZ];
+			if (!gNowInside &&
+			    (LinearBorderPointsBetween(gOldPoint, addedPoint, gStartPoint, tempPoint)))
+			  {
+			    if (!(WithinLaserAngleRange(gStartPoint)))
+			      AngleBorderPointsBetween(gOldPoint, addedPoint, gStartPoint, tempPoint);
+			    gNowInside = true;
+			    gItIsStart = false;
+			    gPutPoint[kX] = gStartPoint[kX];
+			    gPutPoint[kY] = gStartPoint[kY];
+			    gPutPoint[kZ] = gStartPoint[kZ];
+			    gOldPoint[kX] = gStartPoint[kX];
+			    gOldPoint[kY] = gStartPoint[kY];
+			    gOldPoint[kZ] = gStartPoint[kZ];
 			}
 			else
 			{
-				gNowInside = false;
-				gOldPoint[kX] = addedPoint[kX];
-				gOldPoint[kY] = addedPoint[kY];
-				gOldPoint[kZ] = addedPoint[kZ];
-				if ( gPendPenDown ) return UnpendPenDown (  );
-				else return 0U;
+			  gNowInside = false;
+			  gOldPoint[kX] = addedPoint[kX];
+			  gOldPoint[kY] = addedPoint[kY];
+			  gOldPoint[kZ] = addedPoint[kZ];
+			  if (gPendPenDown)
+			    UnpendPenDown();
+			  return(0);
 			}
                     }
 		}
 		else
 		{
-			if ( !gNowInside
-                                 &&
-                              AngleBorderPointsBetween ( gOldPoint
-                                                       , addedPoint
-                                                       , gStartPoint
-                                                       , tempPoint
-                                                       )
-                           )
+			if (!gNowInside &&
+			    AngleBorderPointsBetween(gOldPoint, addedPoint, gStartPoint, tempPoint))
 			{
-		                if (! WithinLaserLinearRange ( gStartPoint ) ) {
-                                    LinearBorderPointsBetween ( gOldPoint
-                                                              , addedPoint
-                                                              , gStartPoint
-                                                              , tempPoint
-                                                              );
-                                }
-				gNowInside = true;
-				gItIsStart = false;
-				gPutPoint[kX] = gStartPoint[kX];
-				gPutPoint[kY] = gStartPoint[kY];
-				gPutPoint[kZ] = gStartPoint[kZ];
-				gOldPoint[kX] = gStartPoint[kX];
-				gOldPoint[kY] = gStartPoint[kY];
-				gOldPoint[kZ] = gStartPoint[kZ];
+			  if (!(WithinLaserLinearRange(gStartPoint)))
+			    LinearBorderPointsBetween(gOldPoint, addedPoint, gStartPoint, tempPoint);
+			  gNowInside = true;
+			  gItIsStart = false;
+			  gPutPoint[kX] = gStartPoint[kX];
+			  gPutPoint[kY] = gStartPoint[kY];
+			  gPutPoint[kZ] = gStartPoint[kZ];
+			  gOldPoint[kX] = gStartPoint[kX];
+			  gOldPoint[kY] = gStartPoint[kY];
+			  gOldPoint[kZ] = gStartPoint[kZ];
 			}
 			else
 			{
-
-				gNowInside = false;
-				gOldPoint[kX] = addedPoint[kX];
-				gOldPoint[kY] = addedPoint[kY];
-				gOldPoint[kZ] = addedPoint[kZ];
-				if ( gPendPenDown ) return UnpendPenDown (  );
-				else return 0U;
+			  gNowInside = false;
+			  gOldPoint[kX] = addedPoint[kX];
+			  gOldPoint[kY] = addedPoint[kY];
+			  gOldPoint[kZ] = addedPoint[kZ];
+			  if (gPendPenDown)
+			    UnpendPenDown();
+			  return(0);
 			}
 		}
 	}
@@ -245,8 +220,9 @@ uint32_t PutGoTo3D (struct lg_master *pLgMaster, double x, double y, double z )
 	
 	if ( tempLong ) return tempLong;
 	
-	if ( gPendPenDown ) return UnpendPenDown (  );
-	else return 0U;
+	if (gPendPenDown)
+	  UnpendPenDown();
+	return(0);
 }
 
 
@@ -257,8 +233,8 @@ uint32_t FinishPattern (struct lg_master *pLgMaster)
 #endif
 	if ( gItIsStart ) return 0U;
 	if ( gRawInput ) return 0U;
-	UnpendPenDown (  );
-	SetPenUp (  );
+	UnpendPenDown();
+	SetPenUp();
 	gNowInside = true;
 #if _NEW_PATH_
 	tempLong = PutPointsEndingAt (pLgMaster, gStartPoint );
@@ -310,15 +286,12 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 		    GetAngleBorderPoint ( newPoint, gOldPoint, dummyPoint );
 		    
 		    if ( ! WithinLaserLinearRange( dummyPoint ) ) {
-		      GetLinearBorderPoint ( newPoint
-					     , gOldPoint
-					     , dummyPoint 
-					     );
+		      GetLinearBorderPoint(newPoint, gOldPoint, dummyPoint);
 		    }
 		    
 		    beamWasOn = gBeamOn;
-		    SetPenUp (  );
-		    tempLong = PutSequenceOfPoints (pLgMaster, dummyPoint );
+		    SetPenUp();
+		    tempLong = PutSequenceOfPoints (pLgMaster, dummyPoint);
 		    if ( tempLong ) return tempLong;
 		    gBeamOn = beamWasOn;
 		    
@@ -335,7 +308,7 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 		       )
 		    {
 		      beamWasOn = gBeamOn;
-		      SetPenUp (  );
+		      SetPenUp();
 		      tempLong = PutSequenceOfPoints (pLgMaster, sillyPoint );
 		      if ( tempLong ) return tempLong;
 		      gBeamOn = beamWasOn;
@@ -356,7 +329,7 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 		   )
 		{
 		  beamWasOn = gBeamOn;
-		  SetPenUp (  );
+		  SetPenUp();
 		  if ( ! WithinLaserLinearRange( sillyPoint ) ) {
 		    LinearBorderPointsBetween ( gOldPoint
 						, newPoint
@@ -887,7 +860,7 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
         } 
 	if ( gNumberOfStoredPoints >= kMaxNumberOfAPTVectors )
 			return kTooManyAPTVectors;
-	return 0U;
+	return(0);
 	
 #else
 
@@ -1035,8 +1008,7 @@ uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 	gOldAcosX = acosX;
 	gOldAcosY = acosY;
 	gOldAcosZ = acosZ;
-	
-	return 0U;
+	return(0);
 #endif
 }
 
@@ -1058,51 +1030,50 @@ static uint32_t PutAPoint(struct lg_master *pLgMaster, int32_t newXBin, int32_t 
 	if (gBeamOn)
 	  SetHighBeam (pCurXYData);
 	else
-	  SetLowBeam (pCurXYData);
+	  SetLowBeam(pCurXYData);
       }
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"PUTAPOINT: x=%d,y=%d",pCurXYData->xdata,pCurXYData->ydata);
-#endif
     pCurXYData++;
   return 0;
 }
 
-uint32_t PendPenDown ( void )
+void PendPenDown(void)
 {
-	gPendPenDown = true;
+    gPendPenDown = true;
+    gPenDownPending = false;
+    return;
+}
+
+void UnpendPenDown(void)
+{
+    gPendPenDown = false;
+    if (gPenDownPending)
+      {
 	gPenDownPending = false;
-	return 0;
+	return SetPenDown();
+      }
+    return;
 }
 
-uint32_t UnpendPenDown ( void )
+void SetPenDown(void)
 {
-	gPendPenDown = false;
-	if ( gPenDownPending )
-	{
-		gPenDownPending = false;
-		return SetPenDown (  );
-	}
-	return 0;
-}
-
-uint32_t SetPenDown ( void )
-{
-	if ( gPendPenDown ) gPenDownPending = true;
-	else gBeamOn = true;
-	return 0;
+    if (gPendPenDown)
+      gPenDownPending = true;
+    else
+      gBeamOn = true;
+    return;
 }
 
 
-uint32_t SetPenUp ( void )
+void SetPenUp(void)
 {
-	gBeamOn = false;
-	return 0;
+    gBeamOn = false;
+    return;
 }
 
-uint32_t SetDefaultZ ( double z )
+void SetDefaultZ(double z)
 {
-	gDefaultZ = z;
-	return 0;
+    gDefaultZ = z;
+    return;
 }
 
 void ChangeTransform (double *transform)
@@ -1301,10 +1272,6 @@ void GetAngleBorderPoint ( double *pointInside,
 		pointOutside[kY] * ( 1.0 - c );
 	borderPoint[kZ] = pointInside[kZ] * c +
 		pointOutside[kZ] * ( 1.0 - c );
-#ifdef PATDEBUG
-	syslog(LOG_DEBUG, "GETANGLBDRPT: %lf borderXYZ  %lf %lf %lf\n", c, borderPoint[kX],
-	       borderPoint[kY],borderPoint[kZ]);
-#endif
 }
 
 
@@ -1498,9 +1465,6 @@ unsigned char	AngleBorderPointsBetween (
 		}
 	}
 
-#ifdef PATDEBUG
-	syslog(LOG_DEBUG,"ANGLEBDRPTSBTWN: cIn=%f, cOut=%f", cIn, cOut);
-#endif
 	entrancePoint[kX] = endPoint[kX] * cIn +
 		startPoint[kX] * ( 1.0 - cIn );
 	entrancePoint[kY] = endPoint[kY] * cIn +
@@ -1512,12 +1476,7 @@ unsigned char	AngleBorderPointsBetween (
 	exitPoint[kY] = endPoint[kY] * cOut +
 		startPoint[kY] * ( 1.0 - cOut );
 	exitPoint[kZ] = endPoint[kZ] * cOut +
-		startPoint[kZ] * ( 1.0 - cOut );
-#ifdef PATDEBUG
-	syslog(LOG_DEBUG, "ANGLEBDRPTSBTWN: EXITPTS  x=%f,y=%f,z=%f\n",
-	       exitPoint[kX], exitPoint[kY], exitPoint[kZ]);
-#endif
-	
+		startPoint[kZ] * ( 1.0 - cOut );	
 	return true;
 }
 
@@ -1538,7 +1497,7 @@ uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double 
 uint32_t PointToBinary(struct lg_master *pLgMaster,  double *point, int32_t *xAngle, int32_t *yAngle)
 {
   double angleX, angleY;
-  GeometricAnglesFrom3D(point[kX], point[kY], point[kZ], &angleX, &angleY );
+  GeometricAnglesFrom3D(pLgMaster,point[kX], point[kY], point[kZ], &angleX, &angleY );
   return(ConvertGeometricAnglesToBinary(pLgMaster, angleX, angleY, xAngle, yAngle));
 }
 

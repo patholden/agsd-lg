@@ -1,11 +1,7 @@
-#include <stdint.h>
 /*   $Id: BoardCommDefines.h,v 1.2 1996/12/25 18:38:04 ags-sw Exp $  */
+#ifndef BOARDCOMMDEF_H
+#define BOARDCOMMDEF_H
 
-#ifndef __unix__
-#pragma once
-#endif
-
-#define _USE_BOARD_			1
 #define _NEW_PATH_			1
 
 #define	kPackAChannelAControl	0x00700009U
@@ -14,11 +10,7 @@
 
 #define	Digital48Type	0x24
 
-#if _USE_BOARD_
 #define kOnBoardMessageBase		0x00000500U
-#else
-#define kOnBoardMessageBase		0x00000000U
-#endif
 
 #define	kGSstatus				kOnBoardMessageBase
 
@@ -83,3 +75,4 @@ enum
 	kNewSegment,
 	kDoSegment
 };
+#endif

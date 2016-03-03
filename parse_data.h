@@ -3,7 +3,7 @@
 #define PARSE_DATA_H
 
 extern int
-parse_data(struct lg_master *pLgMaster, unsigned char *data, int data_len, int *rawindex);
+parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, uint32_t *rawindex);
 // Command input structures
 // NOTE---first 4 bytes for input parms are stripped off by parse_data()
 //        before calling a function to perform command/request.  CRC is

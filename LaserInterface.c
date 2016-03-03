@@ -42,8 +42,6 @@ static	double	gYGeometricCenterAngle;
 
 double gDeltaMirror = -1.0;
 double gMirrorThickness = 0.050;
-double gHalfMirror      = 0.025;
-
 enum
 {
 	kInitializingLaserInterfaceMsg = 1,
@@ -60,13 +58,6 @@ static	double	MirrorOffset ( double x );
 static	void				ConvertMirrorToExternalAngles
 						( double xIn, double yIn,
 						double *xOut, double *yOut );
-
-static	void				TwoPointsOnLine
-						( double angleX, double angleY,
-						double transformArray[12],
-						double point1[3],
-						double point2[3] );
-
 
 double		gBinaryCenter;
 double		gBinarySpanEachDirection;
@@ -109,198 +100,33 @@ uint32_t SuperFineSearchStep ( void )
 }
 
 
-void XYFromGeometricAnglesAndZ
-	( double xa, double ya, double z,
-	double *x, double *y )
+void XYFromGeometricAnglesAndZ(struct lg_master *pLgMaster, double xa, double ya,
+			       double z,double *x, double *y)
 {
         double mf, mo;
         double t1, t2, t3, t4, t5;
 
         mf = MirrorFactor ( ya );
-	*y = z * tan ( ya ) + gHalfMirror * mf;
+	*y = z * tan ( ya ) + pLgMaster->gHalfMirror * mf;
 	if ( fabs ( z ) > LDBL_MIN ) {
-                mo = MirrorOffset ( ya );
-                mf = MirrorFactor ( xa );
-                t1 = tan( xa );
-                t2 = 1.L / fabs ( cos ( ya ) );
-                t3 = fabs ( ( gDeltaMirror - gHalfMirror * mo ) / z );
+                mo = MirrorOffset(ya);
+                mf = MirrorFactor(xa);
+                t1 = tan(xa);
+                t2 = 1.L / fabs(cos(ya));
+                t3 = fabs ((gDeltaMirror - (pLgMaster->gHalfMirror * mo)) / z);
                 t4 = t2 + t3;
-                t5 = gHalfMirror * mf;
-		// *x = z * tan ( xa ) *
-                //     ( 
-                //               ( 1.L / fabs ( cos ( ya ) )
-                //        + fabs ( ( gDeltaMirror - gHalfMirror * mo ) / z ) )
-                //     )
-                //        + gHalfMirror * mf;
+                t5 = pLgMaster->gHalfMirror * mf;
                 *x = z * t1 * t4 + t5;
 	} else {
-                mf = MirrorFactor ( xa );
+                mf = MirrorFactor(xa);
 		if ( z > 0.0 )
-			*x = tan ( xa ) * fabs ( gDeltaMirror ) +
-				gHalfMirror * mf;
+		  *x = (tan(xa) * fabs(gDeltaMirror)) +
+		    (pLgMaster->gHalfMirror * mf);
 		else
-			*x = -tan ( xa ) * fabs ( gDeltaMirror ) +
-				gHalfMirror * mf;
+		  *x = (-tan(xa) * fabs(gDeltaMirror)) +
+		    (pLgMaster->gHalfMirror * mf);
 	}
 }
-
-uint32_t CenterBetweenLines (
-	double angleX1, double angleY1, double transformArray1[12],
-	double angleX2, double angleY2, double transformArray2[12],
-	double centerPoint[3], double *distance )
-{
-	double point11[3], point12[3], point21[3], point22[3];
-#if 0
-	// FIXME---PAH---a1 & a2 not used?
-	double a1[3], a2[3], b1[3], b2[3], bNorm, d[3];
-#else
-	double b1[3], b2[3], bNorm, d[3];
-#endif	
-	double B, D, G1, G2, k1, k2;
-	
-	TwoPointsOnLine ( angleX1, angleY1, transformArray1,
-		point11, point12 );
-	
-	TwoPointsOnLine ( angleX2, angleY2, transformArray2,
-		point21, point22 );
-	
-#if 0
-	a1[0] = .50 * ( point12[0] + point11[0] );
-	a1[1] = .50 * ( point12[1] + point11[1] );
-	a1[2] = .50 * ( point12[2] + point11[2] );
-#endif
-	
-	b1[0] = point12[0] - point11[0];
-	b1[1] = point12[1] - point11[1];
-	b1[2] = point12[2] - point11[2];
-	
-	bNorm = b1[0] * b1[0] + b1[1] * b1[1] + b1[2] * b1[2];
-	bNorm = sqrt ( bNorm );
-	if ( bNorm < LDBL_MIN ) return digiMathErr;
-	b1[0] /= bNorm;
-	b1[1] /= bNorm;
-	b1[2] /= bNorm;
-	
-#if 0
-	a2[0] = .50 * ( point22[0] + point21[0] );
-	a2[1] = .50 * ( point22[1] + point21[1] );
-	a2[2] = .50 * ( point22[2] + point21[2] );
-#endif	
-	b2[0] = point22[0] - point21[0];
-	b2[1] = point22[1] - point21[1];
-	b2[2] = point22[2] - point21[2];
-	
-	bNorm = b2[0] * b2[0] + b2[1] * b2[1] + b2[2] * b2[2];
-	bNorm = sqrt ( bNorm );
-	if ( bNorm < LDBL_MIN ) return digiMathErr;
-	b2[0] /= bNorm;
-	b2[1] /= bNorm;
-	b2[2] /= bNorm;
-	
-	d[0] = .50 * ( point12[0] + point11[0] - point22[0] - point21[0] );
-	d[1] = .50 * ( point12[1] + point11[1] - point22[1] - point21[1] );
-	d[2] = .50 * ( point12[2] + point11[2] - point22[2] - point21[2] );
-	
-	/* line1: a1 + k1 * b1; line2: a2 - k2 * b2 */
-	/* a1 - a2 = d */
-	/* minimize the length of: d + k1 * b1 + k2 * b2 */
-	
-	B = b1[0] * b2[0] + b1[1] * b2[1] + b1[2] * b2[2];
-	D = 1.L - B * B;
-	if ( fabs ( D ) < LDBL_MIN ) return digiParLinesErr;
-	
-	G1 = d[0] * b1[0] + d[1] * b1[1] + d[2] * b1[2];
-	G2 = d[0] * b2[0] + d[1] * b2[1] + d[2] * b2[2];
-	
-	k1 = ( G2 * B - G1 ) / D;
-	k2 = ( G1 * B - G2 ) / D;
-	
-	d[0] += k1 * b1[0] + k2 * b2[0];
-	d[1] += k1 * b1[1] + k2 * b2[1];
-	d[2] += k1 * b1[2] + k2 * b2[2];
-	
-	*distance = sqrt ( d[0] * d[0] + d[1] * d[1] + d[2] * d[2] );
-	
-	centerPoint[0] = .50 * (
-		.50 * ( point12[0] + point11[0] + point22[0] + point21[0] ) +
-			k1 * b1[0] - k2 * b2[0] );
-	centerPoint[1] = .50 * (
-		.50 * ( point12[1] + point11[1] + point22[1] + point21[1] ) +
-			k1 * b1[1] - k2 * b2[1] );
-	centerPoint[2] = .50 * (
-		.50 * ( point12[2] + point11[2] + point22[2] + point21[2] ) +
-			k1 * b1[2] - k2 * b2[2] );
-	
-	return 0U;
-}
-
-void TwoPointsOnLine ( double angleX, double angleY,
-	double transformArray[12],
-	double point1[3], double point2[3] )
-{
-	transform theTransform, invTransform;
-	double xa, ya, point[3];
-	
-	ConvertExternalAnglesToMirror ( angleX, angleY, &xa, &ya );
-	ConvertMirrorToGeometricAngles ( &xa, &ya );
-	
-	ArrayIntoTransform ( transformArray, &theTransform );
-	InvertTransform ( &theTransform, &invTransform );
-	
-	if ( gDeltaMirror == 0.0)
-	{
-		point[2] = -1.0;
-		XYFromGeometricAnglesAndZ
-			( xa, ya, point[2], &point[0], &point[1] );
-		TransformPoint ( &invTransform, point, point1 );
-		point[2] = -5.0;
-		XYFromGeometricAnglesAndZ
-			( xa, ya, point[2], &point[0], &point[1] );
-		TransformPoint ( &invTransform, point, point2 );
-	}
-	else
-	{
-		point[2] = -10.0 * gDeltaMirror;
-		XYFromGeometricAnglesAndZ
-			( xa, ya, point[2], &point[0], &point[1] );
-		TransformPoint ( &invTransform, point, point1 );
-		point[2] = -20.0 * gDeltaMirror;
-		XYFromGeometricAnglesAndZ
-			( xa, ya, point[2], &point[0], &point[1] );
-		TransformPoint ( &invTransform, point, point2 );
-	}
-}
-
-
-uint32_t ZeroOnLine ( double angleX, double angleY,
-	double transformArray[12], double *x, double *y )
-{
-	double point1[3], point2[3], dz;
-	
-	TwoPointsOnLine ( angleX, angleY, transformArray, point1, point2 );
-	
-	dz = point1[2] - point2[2];
-	
-	if ( fabs ( dz ) > LDBL_MIN )
-	{
-		*x = ( point1[2] * point2[0] - point2[2] * point1[0] ) / dz;
-		*y = ( point1[2] * point2[1] - point2[2] * point1[1] ) / dz;
-		return 0U;
-	}
-	else
-	{
-		if ( ( fabs ( point1[2] ) + fabs ( point2[2] ) ) > LDBL_MIN )
-			return kNoIntersection;
-		else
-		{
-			*x = ( point2[0] + point1[0] ) * 0.50;
-			*y = ( point2[1] + point1[1] ) * 0.50;
-			return 0U;
-		}
-	}
-} 
-
-
 void ConvertBinaryToMirrorAngles(int32_t xIn, int32_t yIn, double *xOut, double *yOut)
 {
     ConvertToNumber ( &xIn, &yIn );
@@ -311,8 +137,6 @@ void ConvertBinaryToMirrorAngles(int32_t xIn, int32_t yIn, double *xOut, double 
 	  ((double)(((yIn & kMaxSigned) -
 		     gBinaryCenter) / gBinarySpanEachDirection));
 }
-
-
 uint32_t ConvertMirrorAnglesToBinary(double xIn, double yIn,
 				     int32_t *xOut, int32_t *yOut)
 {
@@ -360,9 +184,6 @@ uint32_t ConvertMirrorAnglesToBinary(double xIn, double yIn,
 		   + ((yIn * gBinarySpanEachDirection) / gYMirrorAngularRange))));
 	}
     }
-#ifdef PATDEBUG
-  syslog(LOG_DEBUG,"ConvertAngleToBin: x=%d,y=%d",*xOut,*yOut);
-#endif
   return(theResult);
 }
 /*********************************************************/
@@ -381,12 +202,8 @@ uint32_t ConvertExternalAnglesToBinary(struct lg_master *pLgMaster,
     
     ConvertExternalAnglesToMirror ( xIn, yIn, &xMirror, &yMirror );
     ApplyCorrection(pLgMaster, &xMirror, &yMirror);
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"Entering ConvertMirrorAnglesToBinary from ConvertExt");
-#endif
     return(ConvertMirrorAnglesToBinary(xMirror, yMirror, xOut, yOut));
 }
-
 void ConvertExternalAnglesToMirror ( double xIn, double yIn,
 		double *xOut, double *yOut )
 {
@@ -394,35 +211,26 @@ void ConvertExternalAnglesToMirror ( double xIn, double yIn,
     *yOut = (yIn - gYExternalCenterAngle) *	gYExternalCoefficient;
     return;
 }
-
 void ConvertGeometricAnglesToMirror ( double *x, double *y )
 {
     *x = ( *x - gXGeometricCenterAngle ) * gXGeometricCoefficient;
     *y = ( *y - gYGeometricCenterAngle ) * gYGeometricCoefficient;
     return;
 }
-
 void ConvertMirrorToGeometricAngles ( double *x, double *y )
 {
     *x = *x / gXGeometricCoefficient + gXGeometricCenterAngle;
     *y = *y / gYGeometricCoefficient + gYGeometricCenterAngle;
     return;
 }
-
-
 uint32_t ConvertGeometricAnglesToBinary(struct lg_master *pLgMaster,
 					double xIn, double yIn,
 					int32_t *xOut, int32_t *yOut)
 {
     ConvertGeometricAnglesToMirror ( &xIn, &yIn );
     ApplyCorrection(pLgMaster, &xIn, &yIn );
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"Entering ConvertGeometricAnglesToBinary from ConvertGeometric");
-#endif
     return ConvertMirrorAnglesToBinary ( xIn, yIn, xOut, yOut );
 }
-
-
 void ConvertBinaryToGeometricAngles(struct lg_master *pLgMaster,
 				    int32_t xIn, int32_t yIn,
 				    double *xOut, double *yOut)
@@ -432,17 +240,15 @@ void ConvertBinaryToGeometricAngles(struct lg_master *pLgMaster,
     ConvertMirrorToGeometricAngles ( xOut, yOut );
     return;
 }
-
-void Convert3DToExternalAngles ( double x, double y, double z,
-	double *xOut, double *yOut )
+void Convert3DToExternalAngles(struct lg_master *pLgMaster, double x, double y, double z,
+			       double *xOut, double *yOut)
 {
     double xMirror, yMirror;
-    GeometricAnglesFrom3D ( x, y, z, &xMirror, &yMirror );
+    GeometricAnglesFrom3D(pLgMaster, x, y, z, &xMirror, &yMirror );
     ConvertGeometricAnglesToMirror ( &xMirror, &yMirror );
     ConvertMirrorToExternalAngles ( xMirror, yMirror, xOut, yOut );
     return;
 }
-
 void ConvertMirrorToExternalAngles ( double xIn, double yIn,
 	double *xOut, double *yOut )
 {
@@ -452,8 +258,6 @@ void ConvertMirrorToExternalAngles ( double xIn, double yIn,
 			    gYExternalCenterAngle));
     return;
 }
-
-
 void ConvertBinaryToExternalAngles(struct lg_master *pLgMaster,
 				   int32_t xIn, int32_t yIn,
 				   double *xOut, double *yOut)
@@ -464,62 +268,57 @@ void ConvertBinaryToExternalAngles(struct lg_master *pLgMaster,
     ConvertMirrorToExternalAngles(xMirror, yMirror, xOut, yOut);
     return;
 }
-
 double MirrorFactor ( double x )
 {
     return(1.0 / fabs ( cos ( x * .50 - gQuarterPi ) ) - gSqrtOfTwo );
 }
-
 double MirrorOffset ( double x )
 {
     return( 1.0 / fabs ( cos ( x * .50 - gQuarterPi ) ) );
 }
-
 #define kIterations 6
-
-void GeometricAnglesFrom3D
-	( double x, double y, double z,
-	double *xa, double *ya )
+void GeometricAnglesFrom3D(struct lg_master *pLgMaster, double x, double y,
+			   double z, double *xa, double *ya)
 {
 	double temp;
 	short i;
         double mf, mo;
 
-	if ( fabs ( z ) > LDBL_MIN )
+	if (fabs(z) > LDBL_MIN)
 	{
-		*ya = atan ( y / z );
+		*ya = atan(y / z);
 		if ( z < 0.0 ) *ya += M_PI;
 		i = kIterations;
 		while ( i-- )
 		{
                         mf = MirrorFactor ( *ya );
-			*ya = atan ( ( y - gHalfMirror * mf ) / z );
+			*ya = atan ( ( y - (pLgMaster->gHalfMirror * mf)) / z );
 			if ( z < 0.0 ) *ya += M_PI;
 		}
                 mo = MirrorOffset ( *ya );
 		temp = 1.0 / fabs ( cos ( *ya ) ) +
-			fabs ( ( gDeltaMirror - gHalfMirror * mo ) / z );
+		  fabs ( ( gDeltaMirror - (pLgMaster->gHalfMirror * mo)) / z );
 		*xa = atan ( ( x / z ) / temp );
 		if ( z < 0.0 ) *xa += M_PI;
 		i = kIterations;
 		while ( i-- )
 		{
                         mf = MirrorFactor ( *xa );
-			*xa = atan ( ( ( x - gHalfMirror * mf ) / z ) / temp );
+			*xa = atan ( ( ( x - (pLgMaster->gHalfMirror * mf)) / z ) / temp );
 			if ( z < 0.0 ) *xa += M_PI;
 		}
 	}
 	else
 	{
                 mo = MirrorOffset ( 0.0 );
-		temp = fabs ( gDeltaMirror - gHalfMirror * mo );
+		temp = fabs ( gDeltaMirror - (pLgMaster->gHalfMirror * mo));
 		*xa = atan ( x / temp );
 		if ( z < 0 ) *xa += M_PI;
 		i = kIterations;
 		while ( i-- )
 		{
                         mf = MirrorFactor ( *xa );
-			*xa = atan ( ( x - gHalfMirror * mf ) / temp );
+			*xa = atan ( ( x - (pLgMaster->gHalfMirror * mf)) / temp );
 			if ( z < 0 ) *xa += M_PI;
 		}
 		if ( fabs ( y ) > LDBL_MIN )

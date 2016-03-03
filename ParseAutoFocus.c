@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <syslog.h>
 
 #define BUFFSIZE 65536
 
-int
-ParseAutoFocus(int length, char * infile)
+int ParseAutoFocus(int length, char * infile)
 {
      char *ptr;
      char *ptr2;
@@ -58,10 +58,11 @@ ParseAutoFocus(int length, char * infile)
      while ( count < FileLength && *ptr != 0 )
        {
        // no periods allowed
-       if (*ptr == 0x2E ) {
-	 fprintf( stderr, "ParseAutoFocus error: period at %d\n", count);
-	 return( -1 );
-       }
+       if (*ptr == 0x2E)
+	 {
+	   syslog(LOG_ERR, "ParseAutoFocus error: period at %d", count);
+	   return(-1);
+	 }
 
        // at tDone = 0, look for lowlimit
        strcpy( testStr, "lowlimit" );
@@ -73,32 +74,26 @@ ParseAutoFocus(int length, char * infile)
 	   }
 	 }
 	 itest = sscanf( tmpline, "lowlimit = %s", number1 );
-	 if ( itest != 1 ) { 
-	   fprintf( stderr 
-                    , "ParseAutoFocus error: %s sscanf at %d  itest %d\n"
-                    , testStr
-                    , count
-                    , itest
-                    );
-             return( -1 );
-          }
+	 if (itest != 1)
+	   {
+	     syslog(LOG_ERR, "ParseAutoFocus error: %s sscanf at %d  itest %d",
+		    testStr, count, itest);
+             return(-1);
+	   }
           tmplen = strlen( number1 ); 
           for ( i=0; i < tmplen; i++ ) {
-              if ( ! isdigit( number1[i] ) ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: %s isdigit %d  number1 %c \n"
-                    , testStr
-                    , i
-                    , number1[i]
-                    );
-                 return( -1 );
-              }
+              if (!isdigit(number1[i]))
+		{
+		  syslog(LOG_ERR, "ParseAutoFocus error: %s isdigit %d  number1 %c",
+			 testStr, i, number1[i]);
+		  return(-1);
+		}
           }
           sscanf( number1, "%d", &lowlimit );
           tDone = 1;
        } 
 
-          // at tDone = 1, look for highlimit
+       // at tDone = 1, look for highlimit
        strcpy( testStr, "highlimit" );
        if ( strncmp( ptr, testStr, strlen(testStr )) == 0 && tDone == 1 ) {
           strncpy( tmpline, ptr, 255 );
@@ -108,26 +103,20 @@ ParseAutoFocus(int length, char * infile)
               }
           }
           itest = sscanf( tmpline, "highlimit = %s", number1 );
-          if ( itest != 1 ) { 
-             fprintf( stderr 
-                    , "ParseAutoFocus error: %s sscanf at %d  itest %d\n"
-                    , testStr
-                    , count
-                    , itest
-                    );
-             return( -1 ); 
-          }
+          if (itest != 1)
+	    { 
+	      syslog(LOG_ERR, "ParseAutoFocus error: %s sscanf at %d  itest %d",
+		     testStr, count, itest);
+	      return(-1);
+	    }
           tmplen = strlen( number1 ); 
           for ( i=0; i < tmplen; i++ ) {
-              if ( ! isdigit( number1[i] ) ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: %s isdigit %d  number1 %c \n"
-                    , testStr
-                    , i
-                    , number1[i]
-                    );
-                 return( -1 );
-              }
+              if (!isdigit(number1[i]))
+		{
+		  syslog(LOG_ERR, "ParseAutoFocus error: %s isdigit %d  number1 %c",
+			 testStr, i, number1[i]);
+		  return(-1);
+		}
           }
           sscanf( number1, "%d", &highlimit );
           tDone = 2;
@@ -143,25 +132,22 @@ ParseAutoFocus(int length, char * infile)
               }
           }
           itest = sscanf( tmpline, "seekhomedirection = %s", shd );
-          if ( itest != 1 ) { 
-             fprintf( stderr 
-                    , "ParseAutoFocus error: %s sscanf at %d  itest %d\n"
-                    , testStr
-                    , count
-                    , itest
-                    );
-             return( -1 );
-          }
-          if ( strncmp( shd, "cw", 2 ) == 0 ) {
-             seekdir = 1;
-          } else if ( strncmp( shd, "ccw", 3 ) == 0 ) {
+          if (itest != 1)
+	    { 
+	      syslog(LOG_ERR, "ParseAutoFocus error: %s sscanf at %d  itest %d",
+		     testStr, count, itest);
+	      return(-1);
+	    }
+          if (strncmp(shd, "cw", 2) == 0)
+	    seekdir = 1;
+          else if (strncmp(shd, "ccw", 3) == 0)
              seekdir = 2;
-          } else {
-             fprintf(stderr,
-		     "ParseAutoFocus error: %s sscanf at %d  not CW or CCW\n",
-		     testStr, count);
+          else
+	    {
+             syslog(LOG_ERR, "ParseAutoFocus error: %s sscanf at %d  not CW or CCW",
+		    testStr, count);
              return(-1);
-          }
+	    }
           tDone = 3;
        } 
 
@@ -175,20 +161,20 @@ ParseAutoFocus(int length, char * infile)
 	   }
           }
 	 itest = sscanf( tmpline, "defaultdistance = %s", number1 );
-	 if ( itest != 1 ) { 
-	   fprintf(stderr, 
-		   "ParseAutoFocus error: %s sscanf at %d  itest %d seekdir %d\n",
-                   testStr, count, itest,seekdir);
-             return(-1); 
-          }
+	 if (itest != 1)
+	   { 
+	     syslog(LOG_ERR, "ParseAutoFocus error: %s sscanf at %d  itest %d seekdir %d",
+		    testStr, count, itest,seekdir);
+	     return(-1);
+	   }
           tmplen = strlen( number1 ); 
           for ( i=0; i < tmplen; i++ ) {
-              if ( ! isdigit( number1[i] ) ) {
-		fprintf(stderr, 
-			"ParseAutoFocus error: %s isdigit %d  number1 %c \n",
-			testStr, i, number1[i]);
-		return(-1);
-              }
+              if (!isdigit(number1[i]))
+		{
+		  syslog(LOG_ERR, "ParseAutoFocus error: %s isdigit %d  number1 %c",
+			 testStr, i, number1[i]);
+		  return(-1);
+		}
           }
           sscanf( number1, "%d", &defaultdistance );
           tDone = 4;
@@ -206,11 +192,10 @@ ParseAutoFocus(int length, char * infile)
 	     }
 	   itest = sscanf( tmpline, "%s = %s", number1, number2 );
           if (itest != 2)
-	    { 
-	      fprintf(stderr, 
-		      "ParseAutoFocus error: distance sscanf at %d  itest %d\n",
-		      count, itest);
-             return(-1); 
+	    {
+	      syslog(LOG_ERR, "ParseAutoFocus error: distance sscanf at %d  itest %d",
+		     count, itest);
+	      return(-1); 
 	    }
 	  else
 	    {
@@ -219,9 +204,8 @@ ParseAutoFocus(int length, char * infile)
 		{
 		  if (!isdigit(number1[i]))
 		    {
-		      fprintf(stderr, 
-			      "ParseAutoFocus error: %s isdigit %d  number1 %c \n",
-			      testStr,i, number1[i]);
+		      syslog(LOG_ERR, "ParseAutoFocus error: %s isdigit %d  number1 %c ",
+			     testStr,i, number1[i]);
 		      return(-1);
 		    }
 		}
@@ -229,126 +213,46 @@ ParseAutoFocus(int length, char * infile)
 
 	      tmplen = strlen( number2 ); 
              for ( i=0; i < tmplen; i++ ) {
-                 if ( ! isdigit( number2[i] ) ) {
-                    fprintf( stderr 
-                           ,"ParseAutoFocus error: %s isdigit %d  number2 %c \n"
-                           , testStr
-                           , i
-                           , number2[i]
-                           );
-                    return( -1 );
-                 }
+                 if (!isdigit(number2[i]))
+		   {
+		     syslog(LOG_ERR,"ParseAutoFocus error: %s isdigit %d  number2 %c ",
+			    testStr, i, number2[i]);
+		     return( -1 );
+		   }
              }
              sscanf( number2, "%d", &i2 );
 
-             if ( i2 < lowlimit ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: "
-                    );
-                 fprintf( stderr 
-                    , "sscanf at %d "
-                    , count
-                    );
-                 fprintf( stderr 
-                    , " i2 %d "
-                    , i2 
-                    );
-                 fprintf( stderr 
-                    , " lowlimit %d "
-                    , lowlimit
-                    );
-                 fprintf( stderr 
-                    , "\n"
-                    );
+             if (i2 < lowlimit)
+	       {
+                 syslog(LOG_ERR, "ParseAutoFocus error: sscanf at %d i2 %d lowlimit %d",
+			count, i2, lowlimit);
                  return( -1 ); 
-             } 
-
-             if ( i2 > highlimit ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: "
-                    );
-                 fprintf( stderr 
-                    , "sscanf at %d "
-                    , count
-                    );
-                 fprintf( stderr 
-                    , " i2 %d "
-                    , i2 
-                    );
-                 fprintf( stderr 
-                    , " highlimit %d "
-                    , highlimit
-                    );
-                 fprintf( stderr 
-                    , "\n"
-                    );
+	       } 
+             if (i2 > highlimit)
+	       {
+                 syslog(LOG_ERR, "ParseAutoFocus error: sscanf at %d i2 %d highlimit %d",
+			count, i2, highlimit);
+                 return(-1);
+	       }
+             if (i1 < minDistance)
+	       {
+                 syslog(LOG_ERR, "ParseAutoFocus error: sscanf at %d i1 %d minDistance %d",
+			count, i1, minDistance);
+                 return(-1); 
+	       }
+             if (i1 > maxDistance)
+	       {
+                 syslog(LOG_ERR, "ParseAutoFocus error: sscanf at %d i1 %d maxDistance %d",
+			count, i1, maxDistance);
+                 return(-1);
+	       }
+             if (parsedDistance[i1] == 1)
+	       {
+                 syslog(LOG_ERR,
+			"ParseAutoFocus error: sscanf at %d i1 %d duplicate parsedDistance",
+			count, i1);
                  return( -1 ); 
-             } 
-
-             if ( i1 < minDistance ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: "
-                    );
-                 fprintf( stderr 
-                    , "sscanf at %d "
-                    , count
-                    );
-                 fprintf( stderr 
-                    , " i1 %d "
-                    , i1 
-                    );
-                 fprintf( stderr 
-                    , " minDistance %d "
-                    , minDistance
-                    );
-                 fprintf( stderr 
-                    , "\n"
-                    );
-                 return( -1 ); 
-             }
-
-             if ( i1 > maxDistance ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: "
-                    );
-                 fprintf( stderr 
-                    , "sscanf at %d "
-                    , count
-                    );
-                 fprintf( stderr 
-                    , " i1 %d "
-                    , i1 
-                    );
-                 fprintf( stderr 
-                    , " maxDistance %d "
-                    , maxDistance
-                    );
-                 fprintf( stderr 
-                    , "\n"
-                    );
-                 return( -1 ); 
-             }
-
-             if ( parsedDistance[i1] == 1 ) {
-                 fprintf( stderr 
-                    , "ParseAutoFocus error: "
-                    );
-                 fprintf( stderr 
-                    , "sscanf at %d "
-                    , count
-                    );
-                 fprintf( stderr 
-                    , " i1 %d "
-                    , i1 
-                    );
-                 fprintf( stderr 
-                    , " duplicate parsedDistance "
-                    );
-                 fprintf( stderr 
-                    , "\n"
-                    );
-                 return( -1 ); 
-             }
+	       }
              parsedDistance[i1] = 1;
           }
        }
@@ -357,10 +261,10 @@ ParseAutoFocus(int length, char * infile)
        count++;
      }
 
-     if ( tDone < 4 ) {
-       fprintf( stderr, "ParseAutoFocus error: tDone %d\n", tDone );
-       return( -1 );
-     }
-
-     return ( 0 );
+     if (tDone < 4)
+       {
+	 syslog(LOG_ERR, "ParseAutoFocus error: tDone %d", tDone);
+	 return(-1);
+       }
+     return(0);
 }

@@ -1,4 +1,16 @@
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+#include <math.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/tcp.h>
+#include <linux/laser_api.h>
+#include "BoardComm.h"
 
 /*
 static char rcsid[] = "$Id: 3DTransform.c,v 1.8 2007/04/02 08:37:11 pickle Exp pickle $";
@@ -210,13 +222,6 @@ p3Dist ( doubleInputPoint *iPt0
         dely = yp - ay3;
         delz = zp - az3;
         mag3p = sqrt( delx*delx + dely*dely + delz*delz );
-#ifdef ZDEBUG
-fprintf( stderr, "p3Dist   pt1 %lf %lf %lf\n", ax1, ay1, az1 );
-fprintf( stderr, "p3Dist   pt2 %lf %lf %lf\n", ax2, ay2, az2 );
-fprintf( stderr, "p3Dist   pt3 %lf %lf %lf\n", ax3, ay3, az3 );
-fprintf( stderr, "p3Dist   mag3p %lf\n", mag3p );
-#endif
-
         return( mag3p );
 }
 
@@ -394,7 +399,7 @@ short SolveTheSystem ( double a01, double sqd01,
 				( ( b2/( d2 + b2 ) ) <= DBL_MIN ) )
 			{
                                 if ( ( c2/( c2 + d2 ) ) <= DBL_MIN ) {
-                                     fprintf( stderr, "925 SolveTheSystem\n" );
+                                     syslog(LOG_ERR, "925 SolveTheSystem" );
                                      return 0;
                                 }
 				else
@@ -520,11 +525,6 @@ short SolveTheSystem ( double a01, double sqd01,
 			}
 		}
 	}
-        if ( numberOfSolutions == 0 ) {
-#ifdef ZDEBUG
-            fprintf( stderr, "1053 numberOfSolutions == 0\n" );
-#endif
-        }
 	return numberOfSolutions;
 }
 
@@ -567,7 +567,7 @@ short Solve4thDegree (
 
                 if ( ( r3[0] < 0.0 ) || ( r3[1] < 0.0 ) || ( r3[2] < 0.0 ) )
                         {
-                               fprintf( stderr, "Solve4thDegree   \n" );
+                               syslog(LOG_ERR, "Solve4thDegree" );
                                return 0;
                         }
 
@@ -675,12 +675,12 @@ short Solve4thDegree (
 					return 1;
 				}
                                 else {
-                                    fprintf( stderr, "Solve4thDegree   \n" );
+                                    syslog(LOG_ERR, "Solve4thDegree" );
                                     return 0;
                                 }
 			}
                         else {
-                             fprintf( stderr, "Solve4thDegree   \n" );
+                             syslog(LOG_ERR, "Solve4thDegree");
                              return 0;
                         }
 		}
@@ -696,7 +696,7 @@ short Solve4thDegree (
 					return 1;
 				}
                                 else {
-                                   fprintf( stderr, "Solve4thDegree   \n" );
+                                   syslog(LOG_ERR, "Solve4thDegree");
                                    return 0;
                                 }
 			}
@@ -1111,18 +1111,11 @@ void TransformIntoLongArray
  	theArray[9]  = (long double) theTransform->transVector[0];
  	theArray[10] = (long double) theTransform->transVector[1];
  	theArray[11] = (long double) theTransform->transVector[2];
+	return;
 }
-
 
 void ArrayIntoTransform(double *theArray, transform *theTransform )
 {
-#ifdef ZDEBUG
-int i;
-for ( i = 0; i < 12; i++ ) {
-   fprintf( stderr, "ArrayIntoTransform %d %lf\n", i, theArray[i] );
-}
-#endif
-        
 	theTransform->rotMatrix[0][0] = theArray[0];
  	theTransform->rotMatrix[0][1] = theArray[1];
  	theTransform->rotMatrix[0][2] = theArray[2];
@@ -1135,6 +1128,7 @@ for ( i = 0; i < 12; i++ ) {
  	theTransform->transVector[0] = theArray[9];
  	theTransform->transVector[1] = theArray[10];
  	theTransform->transVector[2] = theArray[11];
+	return;
 }
 
 void IdentityArray (double *theArray)

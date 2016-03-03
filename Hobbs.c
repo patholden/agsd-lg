@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -71,14 +72,14 @@ int HobbsCountersInit(struct lg_master *pLgMaster)
     {
       rc = WriteHobbsToFile(filefd, pLgMaster);
       if (rc)
-	fprintf(stderr,"\nUnable to write Hobbs counters to file");
+	syslog(LOG_ERR,"Unable to write Hobbs counters to file");
     }
   else
     {
       // Read in data from file
       rc = ReadHobbsFromFile(filefd, pLgMaster);
       if (rc)
-	fprintf(stderr,"\nUnable to retrieve Hobbs counters from file");
+	syslog(LOG_ERR,"Unable to retrieve Hobbs counters from file");
     }
   fclose(filefd);
   return(rc);
@@ -119,6 +120,10 @@ static int ReadHobbsFromFile(FILE *filenum, struct lg_master *pLgMaster)
   char   *pBuff;
   size_t length;
   size_t read_count;
+  time_t projector_time;
+  time_t xscanner_time;
+  time_t yscanner_time;
+  time_t laser_time;
   
   // Figure out length of file
   fseek(filenum, 0L, SEEK_SET);
@@ -140,11 +145,17 @@ static int ReadHobbsFromFile(FILE *filenum, struct lg_master *pLgMaster)
   
   // Get counters from file & populate lg struct
   sscanf(pBuff,
-	 "%[^0123456789]s\r\n%[^0123456789]s\r\n%[^0123456789]s\r\n%[^0123456789]s\r\n",
-	 (char *)&pLgMaster->hobbs.hobbs_time,
-	 (char *)&pLgMaster->hobbs.xscanner_time,
-	 (char *)&pLgMaster->hobbs.yscanner_time,
-	 (char *)&pLgMaster->hobbs.laser_time);
+	 "%[^0123456789]s\r\n%[^0123456789]s\r\n%[^0123456789]s\r\n%[^0123456789]s\r\n", 
+	 (char *)&projector_time,
+	 (char *)&xscanner_time,
+	 (char *)&yscanner_time,
+	 (char *)&laser_time);
+
+  // Update struct from file last recorded times
+  pLgMaster->hobbs.hobbs_time += projector_time;
+  pLgMaster->hobbs.xscanner_time += xscanner_time;
+  pLgMaster->hobbs.yscanner_time += yscanner_time;
+  pLgMaster->hobbs.laser_time += laser_time;
   return(0);
 }
 

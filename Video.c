@@ -9,6 +9,7 @@ static char rcsid[]="$Id: Video.c,v 1.15 2000/09/28 19:46:11 ags-sw Exp ags-sw $
 #include <time.h>
 #include <math.h>
 #include <values.h>
+#include <syslog.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -86,10 +87,7 @@ void   PerformVideoCheck( struct lg_master *pLgMaster, int respondFlag )
 
     GoToRaw(pLgMaster, (struct lg_xydata *)&pLgMaster->gCheckXY);
 #if defined(SDEBUG) || defined(KITDEBUG)
-    fprintf( stderr, "check XY raw " );
-    fprintf( stderr, " %x", pLgMaster->gXcheck );
-    fprintf( stderr, " %x", pLgMaster->gYcheck );
-    fprintf( stderr, "\n" );
+    syslog(LOG_ERR, "check XY raw %x %X", pLgMaster->gXcheck, pLgMaster->gYcheck);
 #endif
 
     count = sprintf( ToVideo,

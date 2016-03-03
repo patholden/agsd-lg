@@ -3,9 +3,10 @@ static char rcsid[] = "$Id: SensorRegistration.c,v 1.15 2007/04/02 08:42:12 pick
 */
 #include <stdint.h>
 #include <stdio.h>
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
+#include <math.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -103,13 +104,12 @@ double gFOM;
 double gFOMavg;
 	
 
-void SaveFullRegCoordinates ( short numberOfPoints,
-					double *theOriginalCoordinates )
+void SaveFullRegCoordinates(uint16_t numberOfPoints, double *theOriginalCoordinates)
 {
-	short i = numberOfPoints;
+	uint16_t i = numberOfPoints;
 	double *x = gX, *y = gY, *z = gZ;
 	
-	while ( i-- )
+	while (i--)
 	{
 		*x++ = *theOriginalCoordinates++;
 		*y++ = *theOriginalCoordinates++;
@@ -124,13 +124,9 @@ void DontFindTransform ( unsigned char doOrDont )
 	gDontFindTranform = doOrDont;
 }
 
-unsigned char FindTransformMatrix (
-                                    short numberOfPoints
-                                  , double deltaMirror
-                                  , double tolerance
-                                  , double *foundAngles
-                                  , double *theTransform
-                                   )
+unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOfPoints,
+				   double deltaMirror, double tolerance, double *foundAngles,
+				   double *theTransform)
 {
 	doubleInputPoint iPt[4], tempPt[100];
         doubleInputPoint normPt;
@@ -149,7 +145,7 @@ unsigned char FindTransformMatrix (
         double saveBest[MAXTRANSNUM];
         double sortBest[MAXTRANSNUM];
         int goodcount;
-	short i, j, k, n, p, nOfTrans;
+	uint16_t i, j, k, n, p, nOfTrans;
         int a,b,c,d;
         double oldLoc[3];
         double newLoc[3];
@@ -244,13 +240,6 @@ unsigned char FindTransformMatrix (
  		    gSavePt[i].xRad = foundAngles[i*2];
  		    gSavePt[i].yRad = foundAngles[i*2 + 1];
                 }
-#ifdef ZDEBUG
-fprintf( stderr, "gX %d %lf\n", i, gX[i] );
-fprintf( stderr, "gY %d %lf\n", i, gY[i] );
-fprintf( stderr, "gZ %d %lf\n", i, gZ[i] );
-fprintf( stderr, "xRad %d %.15lf\n", i, tempPt[i].xRad );
-fprintf( stderr, "yRad %d %.15lf\n", i, tempPt[i].yRad );
-#endif
 		i++;
  	}
  	
@@ -299,10 +288,6 @@ fprintf( stderr, "yRad %d %.15lf\n", i, tempPt[i].yRad );
                                      gColinear[i] ++;
                                      gColinear[j] ++;
                                      gColinear[k] ++;
-#ifdef ZDEBUG
-fprintf( stderr, "240 SR  ijk %d %d %d ", i, j, k );
-fprintf( stderr, " perpend %lf \n", perpend );
-#endif
                                 }
                                 cross = magCross(  &(tempPt[i])
                                                 ,  &(tempPt[j])
@@ -324,23 +309,11 @@ fprintf( stderr, " perpend %lf \n", perpend );
                                                    planeCount++;
                                                    gCoplanar[y]++;
                                               }
-#ifdef ZDEBUG
-fprintf( stderr
-       , "SR292 foundCount %d  planeCount %d y %d gCoplan %d\n"
-       , foundCount
-       , planeCount
-       , y
-       , gCoplanar[y]
-       );
-#endif
                                           }
                                       }
                                 }
                                 if(foundCount == planeCount && planeCount > 3) {
                                       gCoplanarCount++;
-#ifdef ZDEBUG
-fprintf( stderr, "SR gCoplanarCount %d\n", gCoplanarCount );
-#endif
                                 }
                         }
                 }
@@ -365,7 +338,7 @@ fprintf( stderr, "SR gCoplanarCount %d\n", gCoplanarCount );
 	    memcpy(&(iPt[1]),&(tempPt[b]),sizeof(inputPoint));
 	    memcpy(&(iPt[2]),&(tempPt[c]),sizeof(inputPoint));
 	    memcpy(&(iPt[3]),&(tempPt[d]),sizeof(inputPoint));
-	    FindBestTransform(iPt, &tempTr, deltaMirror, tolerance, &bestCosine);
+	    FindBestTransform(pLgMaster, iPt, &tempTr, deltaMirror, tolerance, &bestCosine);
 
               n = 3;
               while ( n-- ) {
@@ -377,9 +350,6 @@ fprintf( stderr, "SR gCoplanarCount %d\n", gCoplanarCount );
               }
               saveBest[saved] = bestCosine;
               tCos = 1.0 - bestCosine;
-#ifdef ZDEBUG
-fprintf( stderr, "tCos %.8lf tol %.8f\n", tCos, tolerance );
-#endif
               if ( tCos > gWorstTolAll ) {
                                      gWorstTolAll = tCos;
               }
@@ -404,28 +374,6 @@ fprintf( stderr, "tCos %.8lf tol %.8f\n", tCos, tolerance );
                                            gBestOfAllTransform.rotMatrix[ii][jj]
                                                = tempTr.rotMatrix[ii][jj];
                     }
-#ifdef ZDEBUG
-fprintf(stderr, "bestXYZ %14.8lf %14.8lf %14.8lf\n"
-              , gBestOfAllTransform.transVector[0]
-              , gBestOfAllTransform.transVector[1]
-              , gBestOfAllTransform.transVector[2]
-              );
-fprintf(stderr, "bestmatrix " );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[0][0] );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[0][1] );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[0][2] );
-fprintf(stderr, "\n");
-fprintf(stderr, "bestmatrix " );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[1][0] );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[1][1] );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[1][2] );
-fprintf(stderr, "\n");
-fprintf(stderr, "bestmatrix " );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[2][0] );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[2][1] );
-fprintf(stderr, "%14.8lf ", gBestOfAllTransform.rotMatrix[2][2] );
-fprintf(stderr, "\n");
-#endif
 	      }
               if ( tCos < tolerance ) {
                                      // if ( tCos > gWorstTolReg ) {
@@ -438,14 +386,6 @@ fprintf(stderr, "\n");
                        savePoint[d]++;
                        nOfTrans++;
               }
-#ifdef ZDEBUG
-fprintf( stderr, "saveGood   %d  saved %d  tCos %.2le   tol %.2le\n"
-               , saveGood[saved]
-               , saved
-               , tCos
-               , tolerance );
-fprintf( stderr, " nOfTrans  %d \n" , nOfTrans );
-#endif
               if ( tCos < minCos[a] ) { minCos[a] = tCos; }
               if ( tCos < minCos[b] ) { minCos[b] = tCos; }
               if ( tCos < minCos[c] ) { minCos[c] = tCos; }
@@ -454,10 +394,6 @@ fprintf( stderr, " nOfTrans  %d \n" , nOfTrans );
 	}
         free( combos );
         free( revdex );
-
-#ifdef SDEBUG
-fprintf(stderr, "nOfTrans %d   saved %d\n", nOfTrans, saved );
-#endif
 
         GnOfTrans = nOfTrans;
         gSaved = saved;
@@ -488,12 +424,6 @@ fprintf(stderr, "nOfTrans %d   saved %d\n", nOfTrans, saved );
         }
         gWorstTolReg = refTol;
         
-#ifdef QDEBUG
-        for ( i=0; i < gSaved; i++ ) {
-            fprintf( stderr, "SR524sort %4d %15.10lf\n", i, sortBest[i] );
-        }
-#endif
-
 #ifdef  FLASHLED
         FlashLed( (int)nOfTrans );
 #endif
@@ -502,9 +432,6 @@ fprintf(stderr, "nOfTrans %d   saved %d\n", nOfTrans, saved );
         if ( nOfTrans > 0  && tolerance < 0.002 ) {
            k = saved;
            while ( k-- ) {
-#ifdef SDEBUG
-fprintf( stderr, "saveGood   %d  k %d\n", saveGood[k], k );
-#endif
               if ( saveGood[k] ) {
                  goodcount++;
                  i = 3;
@@ -557,30 +484,11 @@ fprintf( stderr, "saveGood   %d  k %d\n", saveGood[k], k );
              newX = newLoc[0];
              newY = newLoc[1];
              newZ = newLoc[2];
-             XYFromGeometricAnglesAndZ( foundAngles[2*i], foundAngles[2*i+1],
-                   newZ,
-                   &foundX, &foundY );
+             XYFromGeometricAnglesAndZ(pLgMaster, foundAngles[2*i], foundAngles[2*i+1],
+				       newZ, &foundX, &foundY );
              gDiffX[i] = (double)(foundX - newX);
              gDiffY[i] = (double)(foundY - newY);
              diffMag = sqrt( gDiffX[i]*gDiffX[i] + gDiffY[i]*gDiffY[i] );
-#if defined(SDEBUG) || defined(ZDEBUG)
-fprintf(stderr, "angles %lf %lf\n", foundAngles[2*i], foundAngles[2*i+1] );
-fprintf(stderr, "found X,Y %lf %lf\n", foundX, foundY );
-fprintf(stderr, "diff X,Y  %10.4lf %10.4lf %10.4lf\n",
-   gDiffX[i], gDiffY[i], diffMag );
-             rMag = sqrt(foundX*foundX+foundY*foundY+newZ*newZ);
-fprintf(stderr, "550angXYrXYZ angX %lf angY %lf  R %lf  X %lf  Y %lf  Z %lf \n"
-              , 180 - 57.295779513 * foundAngles[2*i]
-              , 180 - 57.295779513 * foundAngles[2*i+1]
-              , rMag
-              , foundX
-              , foundY
-              , newZ
-               );
-             if ( savePoint[i] == 0 ) {
-fprintf(stderr, " rejected point\n" );
-             }
-#endif
              if ( savePoint[i] ) {
                  FOMsum  += diffMag;
                  usedPoints++;
@@ -590,9 +498,6 @@ fprintf(stderr, " rejected point\n" );
         FOMavg = FOMsum / (double)usedPoints;
         gFOMavg = FOMsum / (double)usedPoints;
         gFOM    = FOMavg;
-#ifdef SDEBUG
-fprintf(stderr, "gFOM %lf  min %lf  sum %lf\n", gFOM, FOMmin, FOMsum );
-#endif
         testFOM = gFOM;
         for( iTr = 0; iTr < gSaved ; iTr++ ) {
            ii = 3;
@@ -620,30 +525,11 @@ fprintf(stderr, "gFOM %lf  min %lf  sum %lf\n", gFOM, FOMmin, FOMsum );
                  newX = newLoc[0];
                  newY = newLoc[1];
                  newZ = newLoc[2];
-                 XYFromGeometricAnglesAndZ( foundAngles[2*i], foundAngles[2*i+1],
-                       newZ,
-                       &foundX, &foundY );
+                 XYFromGeometricAnglesAndZ(pLgMaster, foundAngles[2*i], foundAngles[2*i+1],
+					   newZ, &foundX, &foundY );
                  gDiffX[i] = (double)(foundX - newX);
                  gDiffY[i] = (double)(foundY - newY);
                  diffMag = sqrt( gDiffX[i]*gDiffX[i] + gDiffY[i]*gDiffY[i] );
-#if defined(SDEBUG) || defined(ZDEBUG)
-fprintf(stderr, "angles %lf %lf\n", foundAngles[2*i], foundAngles[2*i+1] );
-fprintf(stderr, "found X,Y %lf %lf\n", foundX, foundY );
-fprintf(stderr, "diff X,Y  %10.4lf %10.4lf %10.4lf\n",
-       gDiffX[i], gDiffY[i], diffMag );
-                 rMag = sqrt(foundX*foundX+foundY*foundY+newZ*newZ);
-fprintf(stderr, "550angXYrXYZ angX %lf angY %lf  R %lf  X %lf  Y %lf  Z %lf \n"
-                  , 180 - 57.295779513 * foundAngles[2*i]
-                  , 180 - 57.295779513 * foundAngles[2*i+1]
-                  , rMag
-                  , foundX
-                  , foundY
-                  , newZ
-                   );
-                 if ( savePoint[i] == 0 ) {
-    fprintf(stderr, " rejected point\n" );
-                 }
-#endif
                  if ( savePoint[i] ) {
                      FOMsum  += diffMag;
                      usedPoints++;
@@ -652,9 +538,6 @@ fprintf(stderr, "550angXYrXYZ angX %lf angY %lf  R %lf  X %lf  Y %lf  Z %lf \n"
             }
             FOMavg = FOMsum / (double)usedPoints;
                 // if FOM is reduced, replace the existing transform
-#if defined(SDEBUG) || defined(ZDEBUG)
-fprintf(stderr, "643gFOM %lf  test %lf  \n", FOMavg, testFOM );
-#endif
             if ( FOMavg < testFOM ) {
                testFOM = FOMavg;
                gFOMavg = FOMsum / (double)usedPoints;
@@ -669,10 +552,6 @@ fprintf(stderr, "643gFOM %lf  test %lf  \n", FOMavg, testFOM );
                     }
                }
             }
-#ifdef SDEBUG
-fprintf(stderr, "638gFOM %lf  min %lf  sum %lf\n", gFOM, FOMavg, FOMsum );
-#endif
-
         }
 
 
@@ -685,16 +564,10 @@ fprintf(stderr, "638gFOM %lf  min %lf  sum %lf\n", gFOM, FOMavg, FOMsum );
  * (and select points
  */
 
-#ifdef ZDEBUG
-fprintf( stderr, "nOfTrans %d\n", nOfTrans );
-#endif
         if ( nOfTrans > 0 ) {
              gNPoints = 0;
              for ( i=0; i<numberOfPoints ; i++ ) {
                 if ( savePoint[i] ) {
-#ifdef ZDEBUG
-fprintf( stderr, "savePoint # %d =  %d\n", i, savePoint[i] );
-#endif
                   chiXfoundAngle[gNPoints] = foundAngles[2*i];
                   chiYfoundAngle[gNPoints] = foundAngles[2*i+1];
                   chiX[gNPoints] = gX[i];
@@ -712,34 +585,9 @@ fprintf( stderr, "savePoint # %d =  %d\n", i, savePoint[i] );
                   chiZ[i] = gZ[i];
              }
         }
-
-#ifdef ZDEBUG
-        fprintf( stderr, "gNPoints %d   numberOfPoints %d\n",
-                      gNPoints, numberOfPoints );
-#endif
         ndim = 6;
         ftol = 0.000001;
         TransformtoRPY ( &tr,&roll,&pitch,&yaw,&x_trans,&y_trans,&z_trans );
-#ifdef ZDEBUG
-fprintf(stderr, "RPY %14.8lf %14.8lf %14.8lf\n", roll, pitch, yaw );
-fprintf(stderr, "XYZ %14.8lf %14.8lf %14.8lf\n", x_trans, y_trans, z_trans );
-fprintf(stderr, "matrix " );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[0][0] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[0][1] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[0][2] );
-fprintf(stderr, "\n");
-fprintf(stderr, "matrix " );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[1][0] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[1][1] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[1][2] );
-fprintf(stderr, "\n");
-fprintf(stderr, "matrix " );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[2][0] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[2][1] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[2][2] );
-fprintf(stderr, "\n");
-#endif
-
         Ys = (double *)calloc( 8, sizeof(double) );
         Pmatrix = (double **)calloc( 8, sizeof(double *) );
         for ( i=0; i<8; i++ ) {
@@ -752,25 +600,17 @@ fprintf(stderr, "\n");
         Pmatrix[1][4] = x_trans;
         Pmatrix[1][5] = y_trans;
         Pmatrix[1][6] = z_trans;
-        Ys[1] = chisqr( &(Pmatrix[1][0]) );
-#ifdef ZDEBUG
-fprintf(stderr, "\nchisqr (before) %14.8lf\n", Ys[1]);
-#endif
-
+        Ys[1] = chisqr(pLgMaster, &Pmatrix[1][0]);
         for ( i=2; i<=7; i++ ) {
             for ( j=1; j<=6; j++ ) {
                 Pmatrix[i][j] = Pmatrix[1][j];
                 if( (i-1) == j ) Pmatrix[i][j] += 0.01;
             }
-            Ys[i] = chisqr( &(Pmatrix[i][0]) );
+            Ys[i] = chisqr(pLgMaster, &Pmatrix[i][0]);
         }
-
-            /*  execute amoeba only if the tolerance was small */
-        if ( nOfTrans > 0  && tolerance < 0.0001 && gNPoints >= 4 ) {
-             amoeba ( Pmatrix, Ys, ndim, ftol, &chisqr, &nfunk );
-        }
-
-
+	/*  execute amoeba only if the tolerance was small */
+        if ((nOfTrans > 0)  && (tolerance < 0.0001) && (gNPoints >= 4))
+	  amoeba (pLgMaster, Pmatrix, Ys, ndim, ftol, &chisqr, &nfunk );
         roll    = Pmatrix[1][1];
         pitch   = Pmatrix[1][2];
         yaw     = Pmatrix[1][3];
@@ -778,9 +618,8 @@ fprintf(stderr, "\nchisqr (before) %14.8lf\n", Ys[1]);
         y_trans = Pmatrix[1][5];
         z_trans = Pmatrix[1][6];
         TransformfromRPY ( roll, pitch, yaw, x_trans, y_trans, z_trans, &tr );
-
  	TransformIntoArray ( &tr, theTransform );
-        Ys[1] = chisqr( &(Pmatrix[1][0]) );
+        Ys[1] = chisqr(pLgMaster, &Pmatrix[1][0]);
         gChisqr = Ys[1];
 /*
  *   do another filtering based on the gMaxDiffMag (if greater than zero)
@@ -795,9 +634,8 @@ fprintf(stderr, "\nchisqr (before) %14.8lf\n", Ys[1]);
                 newX = newLoc[0];
                 newY = newLoc[1];
                 newZ = newLoc[2];
-                XYFromGeometricAnglesAndZ( foundAngles[2*i], foundAngles[2*i+1],
-                   newZ,
-                   &foundX, &foundY );
+                XYFromGeometricAnglesAndZ(pLgMaster, foundAngles[2*i], foundAngles[2*i+1],
+					  newZ, &foundX, &foundY );
                 gDiffX[i] = (double)(foundX - newX);
                 gDiffY[i] = (double)(foundY - newY);
                 gDiffMag[i] = sqrt( gDiffX[i]*gDiffX[i] + gDiffY[i]*gDiffY[i] );
@@ -813,75 +651,62 @@ fprintf(stderr, "\nchisqr (before) %14.8lf\n", Ys[1]);
                 newX = newLoc[0];
                 newY = newLoc[1];
                 newZ = newLoc[2];
-                XYFromGeometricAnglesAndZ( foundAngles[2*i], foundAngles[2*i+1],
-                   newZ,
-                   &foundX, &foundY );
+                XYFromGeometricAnglesAndZ(pLgMaster, foundAngles[2*i], foundAngles[2*i+1],
+					  newZ, &foundX, &foundY);
                 gDiffX[i] = (double)(foundX - newX);
                 gDiffY[i] = (double)(foundY - newY);
                 gDiffMag[i] = sqrt( gDiffX[i]*gDiffX[i] + gDiffY[i]*gDiffY[i] );
-                if ( gDiffMag[i] > gMaxDiffMag ) {
-                   savePoint[i] = 0;
-#ifdef ZDEBUG
-fprintf( stderr, "deleting savePoint # %d =  %d  diff %lf\n", i, savePoint[i], gDiffMag[i] );
-#endif
-                } else {
-#ifdef ZDEBUG
-fprintf( stderr, "accepts  savePoint # %d =  %d  diff %lf\n", i, savePoint[i], gDiffMag[i] );
-#endif
-                }
+                if (gDiffMag[i] > gMaxDiffMag)
+		  savePoint[i] = 0;
              }
              gNPoints = 0;
-             for ( i=0; i<numberOfPoints ; i++ ) {
-                if ( savePoint[i] ) {
-#ifdef ZDEBUG
-fprintf( stderr, "savePoint # %d =  %d\n", i, savePoint[i] );
-#endif
-                  chiXfoundAngle[gNPoints] = foundAngles[2*i];
-                  chiYfoundAngle[gNPoints] = foundAngles[2*i+1];
-                  chiX[gNPoints] = gX[i];
-                  chiY[gNPoints] = gY[i];
-                  chiZ[gNPoints] = gZ[i];
-                  gNPoints++;
-                }
-             }
+             for (i=0; i<numberOfPoints ; i++)
+	       {
+		 if (savePoint[i])
+		   {
+		     chiXfoundAngle[gNPoints] = foundAngles[2*i];
+		     chiYfoundAngle[gNPoints] = foundAngles[2*i+1];
+		     chiX[gNPoints] = gX[i];
+		     chiY[gNPoints] = gY[i];
+		     chiZ[gNPoints] = gZ[i];
+		     gNPoints++;
+		   }
+	       }
              ndim = 6;
              ftol = 0.000001;
              TransformtoRPY( &tr,&roll,&pitch,&yaw,&x_trans,&y_trans,&z_trans );
-
              Y2s = (double *)calloc( 8, sizeof(double) );
              Qmatrix = (double **)calloc( 8, sizeof(double *) );
-             for ( i=0; i<8; i++ ) {
+             for (i=0; i<8; i++)
                  Qmatrix[i] = (double *)calloc( 8, sizeof(double) );
-             }
-        
              Qmatrix[1][1] = roll;
              Qmatrix[1][2] = pitch;
              Qmatrix[1][3] = yaw;
              Qmatrix[1][4] = x_trans;
              Qmatrix[1][5] = y_trans;
              Qmatrix[1][6] = z_trans;
-             Y2s[1] = chisqr( &(Qmatrix[1][0]) );
+             Y2s[1] = chisqr(pLgMaster, &Qmatrix[1][0]);
 
              for ( i=2; i<=7; i++ ) {
                  for ( j=1; j<=6; j++ ) {
                      Qmatrix[i][j] = Qmatrix[1][j];
                      if( (i-1) == j ) Qmatrix[i][j] += 0.01;
                  }
-                 Y2s[i] = chisqr( &(Pmatrix[i][0]) );
+                 Y2s[i] = chisqr(pLgMaster, &Pmatrix[i][0]);
              }
-                 /*  execute amoeba only if the tolerance was small */
-             if ( nOfTrans > 0  && tolerance < 0.0001 && gNPoints >= 4 ) {
-                  amoeba ( Qmatrix, Y2s, ndim, ftol, &chisqr, &nfunk );
-
-                  Xroll    = Qmatrix[1][1];
-                  Xpitch   = Qmatrix[1][2];
-                  Xyaw     = Qmatrix[1][3];
-                  Xx_trans = Qmatrix[1][4];
-                  Xy_trans = Qmatrix[1][5];
-                  Xz_trans = Qmatrix[1][6];
-                  TransformfromRPY(Xroll, Xpitch, Xyaw, Xx_trans, Xy_trans, Xz_trans, &Xtr);
-                  newSumDiff = 0.0;
-                  for ( i=0; i<numberOfPoints ; i++ ) {
+	     /*  execute amoeba only if the tolerance was small */
+             if ( nOfTrans > 0  && tolerance < 0.0001 && gNPoints >= 4 )
+	       {
+		 amoeba(pLgMaster, Qmatrix, Y2s, ndim, ftol, &chisqr, &nfunk);
+		 Xroll    = Qmatrix[1][1];
+		 Xpitch   = Qmatrix[1][2];
+		 Xyaw     = Qmatrix[1][3];
+		 Xx_trans = Qmatrix[1][4];
+		 Xy_trans = Qmatrix[1][5];
+		 Xz_trans = Qmatrix[1][6];
+		 TransformfromRPY(Xroll, Xpitch, Xyaw, Xx_trans, Xy_trans, Xz_trans, &Xtr);
+		 newSumDiff = 0.0;
+		 for ( i=0; i<numberOfPoints ; i++ ) {
                      oldLoc[0] = gX[i];
                      oldLoc[1] = gY[i];
                      oldLoc[2] = gZ[i];
@@ -889,9 +714,8 @@ fprintf( stderr, "savePoint # %d =  %d\n", i, savePoint[i] );
                      newX = newLoc[0];
                      newY = newLoc[1];
                      newZ = newLoc[2];
-                     XYFromGeometricAnglesAndZ( foundAngles[2*i], foundAngles[2*i+1],
-                        newZ,
-                        &foundX, &foundY );
+                     XYFromGeometricAnglesAndZ(pLgMaster, foundAngles[2*i], foundAngles[2*i+1],
+					       newZ, &foundX, &foundY);
                      gDiffX[i] = (double)(foundX - newX);
                      gDiffY[i] = (double)(foundY - newY);
                      gDiffMag[i] = sqrt( gDiffX[i]*gDiffX[i] + gDiffY[i]*gDiffY[i] );
@@ -908,32 +732,12 @@ fprintf( stderr, "savePoint # %d =  %d\n", i, savePoint[i] );
                      z_trans = Qmatrix[1][6];
                      TransformfromRPY(roll, pitch, yaw, x_trans, y_trans, z_trans, &tr);
      	             TransformIntoArray ( &tr, theTransform );
-                     Y2s[1] = chisqr( &(Qmatrix[1][0]) );
+                     Y2s[1] = chisqr(pLgMaster, &Qmatrix[1][0]);
                      gChisqr = Y2s[1];
                   }
              }
 
         }
-
-
-#ifdef ZDEBUG
-fprintf(stderr, "chisqr (after)  %14.8lf\n\n", Ys[1]);
-fprintf(stderr, "RPY %14.8lf %14.8lf %14.8lf\n", roll, pitch, yaw );
-fprintf(stderr, "XYZ %14.8lf %14.8lf %14.8lf\n", x_trans, y_trans, z_trans );
-fprintf(stderr, "matrix " );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[0][0] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[0][1] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[0][2] );
-fprintf(stderr, "\n"); fprintf(stderr, "matrix " );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[1][0] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[1][1] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[1][2] );
-fprintf(stderr, "\n"); fprintf(stderr, "matrix " );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[2][0] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[2][1] );
-fprintf(stderr, "%14.8lf ", tr.rotMatrix[2][2] );
-fprintf(stderr, "\n"); fprintf(stderr, "\n");
-#endif
 
 /*
  * make figure of merit calculation
@@ -949,21 +753,11 @@ fprintf(stderr, "\n"); fprintf(stderr, "\n");
              newX = newLoc[0];
              newY = newLoc[1];
              newZ = newLoc[2];
-             XYFromGeometricAnglesAndZ( foundAngles[2*i], foundAngles[2*i+1],
-                   newZ,
-                   &foundX, &foundY );
+             XYFromGeometricAnglesAndZ(pLgMaster, foundAngles[2*i], foundAngles[2*i+1],
+				       newZ, &foundX, &foundY);
              gDiffX[i] = (double)(foundX - newX);
              gDiffY[i] = (double)(foundY - newY);
              gDiffMag[i] = sqrt( gDiffX[i]*gDiffX[i] + gDiffY[i]*gDiffY[i] );
-#if defined(SDEBUG) || defined(ZDEBUG)
-fprintf(stderr, "old X,Y,Z  %lf %lf %lf\n",gX[i],gY[i],gZ[i]);
-fprintf(stderr, "new X,Y,Z  %lf %lf %lf\n",newX,newY,newZ);
-fprintf(stderr, "diff X,Y  %10.4lf %10.4lf %10.4lf\n",
- 	 gDiffX[i], gDiffY[i], gDiffMag[i] );
-             if ( savePoint[i] == 0 ) {
-fprintf(stderr, " rejected point\n" );
-             }
-#endif
              if ( savePoint[i] ) {
                  FOMsum  += gDiffMag[i];
                  usedPoints++;
@@ -971,27 +765,21 @@ fprintf(stderr, " rejected point\n" );
 	     if( gDiffMag[i] < FOMmin ) FOMmin = gDiffMag[i];
         } 
         gFOM = FOMsum / (double)usedPoints;
-        // gFOM = FOMmin;
-             /*
-              *  free the memory
-              */
+	/*
+	 *  free the memory
+	 */
         free(Ys);
         for ( i=0; i<8; i++ ) {
             free(Pmatrix[i]);
         }
+	// FIXME---PAH---NEED TO FREE UP QMATRIX TOO???
         free(Pmatrix);
-        
- 	
 	return true;
 }
 
 
-double
-magCross ( doubleInputPoint *iPt0
-         , doubleInputPoint *iPt1
-         , doubleInputPoint *iPt2
-         , doubleInputPoint *Pnorm
-         )
+double magCross(doubleInputPoint *iPt0, doubleInputPoint *iPt1,
+		doubleInputPoint *iPt2, doubleInputPoint *Pnorm)
 {
         double ax1, ax2, ax3;
         double ay1, ay2, ay3;
@@ -1044,7 +832,6 @@ magCross ( doubleInputPoint *iPt0
         Pnorm->oldLoc[0] = xNorm;
         Pnorm->oldLoc[1] = yNorm;
         Pnorm->oldLoc[2] = zNorm;
-
         return( mag );
 }
 

@@ -6,6 +6,7 @@
 #include <time.h>
 #include <stddef.h>
 #include <string.h>
+#include <syslog.h>
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -104,7 +105,7 @@ static int GetBufferSize ( int32_t request,   int32_t * size );
 void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom )
 {
   char     FSName[128];
-  char     system_buff[128];
+  char     system_buff[512];
   char lcName[LCNAME_SIZE];
   int  i,j;
   int err=0;
@@ -390,7 +391,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 handle_resp:
     if ( err )
       {
-	syslog(LOG_ERR, "\nFILEGETDATA: failed file %s,our-file %s,offs %d,req %d,size%d", lcName, FSName,offset, request, MaxSize);
+	syslog(LOG_ERR, "FILEGETDATA: failed file %s,our-file %s,offs %d,req %d,size%d", lcName, FSName,offset, request, MaxSize);
 	pRespErr->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
       }
@@ -402,6 +403,9 @@ handle_resp:
 	memcpy(pRespGood->lcName, (void *)lcName, LCNAME_SIZE);
 	pRespGood->resp_offset = offset;
 	pRespGood->resp_numbytes = size;
+#ifdef PATDEBUG
+	syslog(LOG_DEBUG, "FILEGETDATA: Sending response file %s", lcName);
+#endif
 	HandleResponse (pLgMaster, (size+offsetof(struct parse_getdata_resp,resp_buffer)), respondToWhom );
       }
     return;
@@ -799,37 +803,33 @@ static int ReadReturn ( char *buff, uint32_t * size, int32_t offset, int32_t req
 void ReadVersion(struct lg_master *pLgMaster)
 {
   time_t   ltime;
-  int length;
-  int hlen;
+  size_t buff_len;
   char time_buffer[256];
   char kernel_buffer[256];
   char hobb_buffer[HOBBS_BUFF_SIZE];
-  int klen;
   struct utsname utsbuff;
 
   memset(hobb_buffer, 0, sizeof(hobb_buffer));
   memset(kernel_buffer, 0, sizeof(kernel_buffer));
   memset(time_buffer, 0, sizeof(time_buffer));
   memset((char *)&utsbuff, 0, sizeof(utsbuff));
-  
+
   // Get local time
   ltime = time(NULL);
   sprintf(time_buffer, "%s\r\n", asctime(localtime(&ltime)));
-  length = strlen(time_buffer);
-  memcpy(pLgMaster->vers_data.pVersions, (void *)time_buffer, (size_t)length);
-  // Get kernel version info
+  buff_len = strlen(time_buffer);
+  strncat(pLgMaster->vers_data.pVersions, (void *)time_buffer, buff_len);
   uname(&utsbuff);
-  klen = sprintf(kernel_buffer, "kernel version %s %s\r\n",
+  // Get kernel version info
+  buff_len = sprintf(kernel_buffer, "laserguide 2016  version 104.097\r\nkernel version %s %s\r\n",
 		 utsbuff.release, utsbuff.version);
-#ifdef PATDEBUG
-  syslog(LOG_DEBUG,"kernel release %s", utsbuff.release);
-  syslog(LOG_DEBUG,"kernel version %s", utsbuff.version);
-#endif
-  strncat(pLgMaster->vers_data.pVersions, kernel_buffer, klen);
-  // Get hobbs count
-  hlen = sprintf(hobb_buffer, "Hobbs %-10ld \r\nQuickCheck V2.0\r\n",
+  strncat(pLgMaster->vers_data.pVersions, kernel_buffer, buff_len);
+  // Get hobbs counts
+  buff_len = sprintf(hobb_buffer, "Hobbs %-10ld\r\n",
 		 pLgMaster->hobbs.hobbs_time);
-  strncat(pLgMaster->vers_data.pVersions, hobb_buffer, hlen);
+  strncat(pLgMaster->vers_data.pVersions, hobb_buffer, buff_len);
+  // Set QuickCheck Version
+  strcat(pLgMaster->vers_data.pVersions, "QuickCheck V2.0\r\n");
   pLgMaster->vers_data.version_size = strlen(pLgMaster->vers_data.pVersions);
   pLgMaster->vers_data.isVersInit = 1;
  return;
@@ -844,10 +844,6 @@ static int WriteToBuffer ( char *buff, int32_t offset, int32_t size )
   if((size+offset) >= BIG_SIZE)
     return(-1);
   memmove( (void *)(&(BIG_Buffer[offset])), (void *)buff, (size_t) size );
-#ifdef SDEBUG
-  printf( "1176 size %d  offset %d\n", size, offset );
-#endif
-
   return err;
 }
 
@@ -892,10 +888,6 @@ static int ReadFromFS ( char *buff, char * name, int32_t offset, int32_t request
   int    filenum;
   int    length;
 
-#ifdef SDEBUG
-  printf( "ReadFromFS req %d off %d \n", request, offset );
-#endif
-  
   if ( offset == 0 )
   {
        memset( (void *)BIG_Buffer, 0, BIG_SIZE );
@@ -904,13 +896,10 @@ static int ReadFromFS ( char *buff, char * name, int32_t offset, int32_t request
        // FIXME---PAH---CONVERT TO FILE OPERATIONS
        filenum = open( name, O_RDONLY );
        if ( filenum <= 0 ) {
-         printf( "error opening %s\n", name );
+         syslog(LOG_ERR, "error opening %s", name);
          return(1);
        }
        filelength = read( filenum, BIG_Buffer, BIG_SIZE );
-#ifdef SDEBUG
-printf( "1265 file size %d\n",length );
-#endif
        close( filenum );
   }
  
@@ -968,45 +957,12 @@ int GetBufferSize ( int32_t request, int32_t * size )
 }
 int InitCheckVersion(struct lg_master *pLgMaster)
 {
-  char testStr[256];
-  char *this_line=0;
-  char tmpline[256];
-  char *token;
-  char version1=0;
-  char version2=0;
-  char version3=0;
-  int  version_found = 0;
-  
-  memset(testStr, 0, sizeof(testStr));
-  memset(tmpline, 0, sizeof(tmpline));
   pLgMaster->vers_data.pVersions =
-    malloc(HOBBS_BUFF_SIZE + (2 * KERN_BUFF_SIZE));
+    malloc(AGS_SIZE);
   if (!pLgMaster->vers_data.pVersions)
     return(-1);
 
   // Set up versions struct
   ReadVersion(pLgMaster);
-  
-  token = strdup(pLgMaster->vers_data.pVersions); 
-  this_line = strtok(token, "\r\n"); 
-  while ((this_line != NULL) && !version_found)
-    {
-      strcpy(testStr, "kernel version");
-      if (strncmp(this_line, testStr, (strlen(testStr))) == 0)
-	{
-	  sscanf(this_line, "%[^0123456789]s.%[^0123456789]s.%[^0123456789]s", (char *)&version1,(char *)&version2,(char *)&version3);
-	  
-	  version_found = 1;
-	}
-      this_line = NULL;
-      this_line = strtok(NULL, "\r\n"); 
-    }
-#if 0
-  if (version1 < 4)
-    {
-      syslog(LOG_ERR,"\nVersion %d.%d.%d, expected 4.1.7",version1, version2, version3);
-      return(-1);
-    }
-  #endif
   return(0);
 }

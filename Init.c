@@ -234,15 +234,15 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 int LGMasterInit(struct lg_master *pLgMaster)
 {
   memset((char *)pLgMaster, 0, sizeof(struct lg_master));
-  pLgMaster->gInputBuffer = malloc( kMaxDataLength );
-  pLgMaster->gRawBuffer = malloc( kMaxDataLength );
-  pLgMaster->theResponseBuffer = malloc( kMaxDataLength );
-  pLgMaster->gAFInputBuffer = malloc((size_t)(kSizeOfCommand
+  pLgMaster->gInputBuffer = (unsigned char *)malloc( kMaxDataLength );
+  pLgMaster->gRawBuffer = (unsigned char *)malloc( kMaxDataLength );
+  pLgMaster->theResponseBuffer = (unsigned char *)malloc( kMaxDataLength );
+  pLgMaster->gAFInputBuffer = (char *)malloc((size_t)(kSizeOfCommand
 					      + kMaxParametersLength
 					      + kMaxDataLength
 					      + kCRCSize ) );
-  pLgMaster->gDataChunksBuffer = malloc((size_t)kMaxDataLength);
-  pLgMaster->gSensorBuffer = malloc((size_t)
+  pLgMaster->gDataChunksBuffer = (char *)malloc((size_t)kMaxDataLength);
+  pLgMaster->gSensorBuffer = (char *)malloc((size_t)
 		(kMaxNumberOfPlies * kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
   
   if (!pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer
@@ -255,6 +255,7 @@ int LGMasterInit(struct lg_master *pLgMaster)
     
   // Initialize elements here
   pLgMaster->gTolerance = 0.0300;
+  pLgMaster->gHalfMirror = 0.025;
   pLgMaster->gArgTol = GARGTOL_DEFAULT;
   pLgMaster->gProjectorSerialNumber = -1L;
   pLgMaster->gSrchStpPeriod = 32;

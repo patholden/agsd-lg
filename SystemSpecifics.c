@@ -6,6 +6,7 @@ static char rcsid[] = "$Id: SystemSpecifics.c,v 1.10 2007/03/30 18:57:42 pickle 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -16,9 +17,7 @@ static char rcsid[] = "$Id: SystemSpecifics.c,v 1.10 2007/03/30 18:57:42 pickle 
 #include "AppCommon.h"
 #include "parse_data.h"
 #include "BoardCommDefines.h"
-/* #include "AppWindows.h" */
 #include "AppErrors.h"
-#include "AppResponses.h"
 #include "AppStrListIDs.h"
 #include "QuickCheckManager.h"
 #include "ROI.h"
@@ -48,13 +47,13 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
   }
 #if defined(KITDEBUG)
   LTemp = GetQCcounter(pLgMaster);
-  fprintf( stderr, "SS42 %d %d %d %d\n", gQCtimer,QCresult,gFirstTimer,LTemp );
+  syslog(LOG_ERR, "SS42 %d %d %d %d", gQCtimer,QCresult,gFirstTimer,LTemp );
 #endif
   if ( gQCtimer > 0 ) {
 #if defined(ZDEBUG) || defined(KITDEBUG)
-    fprintf( stderr, "SS43 gDisplayFlag %d\n", pLgMaster->gDisplayFlag );
-    fprintf( stderr, "SS44 gFirstTimer %d\n", gFirstTimer );
-    fprintf( stderr, "SS45 gQCtimer %d\n", gQCtimer );
+    syslog(LOG_ERR, "SS43 gDisplayFlag %d", pLgMaster->gDisplayFlag );
+    syslog(LOG_ERR, "SS44 gFirstTimer %d", gFirstTimer );
+    syslog(LOG_ERR, "SS45 gQCtimer %d", gQCtimer );
 #endif
     if (pLgMaster->gDisplayFlag > 0)
       {
@@ -67,7 +66,7 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
 	  {
 	    diff = GetQCtimer();
 #if defined(ZDEBUG) || defined(KITDEBUG)
-	    fprintf( stderr, "SS54 diff %d\n", diff );
+	    syslog(LOG_ERR, "SS54 diff %d", diff );
 #endif
 	    if (diff >= gQCtimer)
 	      QCresult = 1;
@@ -79,13 +78,13 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
 
   if( QCresult > 0 ) {
 #if defined(TDEBUG) || defined(KITDEBUG)
-    fprintf( stderr, "line 124 SystemSpecifics about to Stop QC %d\n", QCresult );
+    syslog(LOG_ERR, "line 124 SystemSpecifics about to Stop QC %d", QCresult );
 #endif
     gFirstTimer = 1;
     if ( gQuickCheck == 1 ) {
       doQuickCheck = ShouldDoQuickCheck(); 
 #if defined(ZDEBUG) || defined(KITDEBUG)
-      fprintf( stderr, "SS67 doQC %d\n", doQuickCheck );
+      syslog(LOG_ERR, "SS67 doQC %d", doQuickCheck );
 #endif
       if ( doQuickCheck ) {
 	SlowDownAndStop(pLgMaster);
@@ -103,9 +102,9 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
       }
     } else {
 #if defined(TDEBUG) || defined(KITDEBUG)
-      fprintf( stderr, "line 124 SystemSpecifics about to Stop QC %d\n", QCresult );
-      fprintf( stderr, "line 125 SystemSpecifics gVideoCheck %d\n", gVideoCheck );
-      fprintf( stderr, "line 126 SystemSpecifics gVideoCount %d\n", gVideoCount );
+      syslog(LOG_NOTICE, "line 124 SystemSpecifics about to Stop QC %d", QCresult);
+      syslog(LOG_NOTICE, "line 125 SystemSpecifics gVideoCheck %d", gVideoCheck);
+      syslog(LOG_NOTICE, "line 126 SystemSpecifics gVideoCount %d", gVideoCount);
 #endif
       if ( gVideoCheck == 1 ) {
 	SlowDownAndStop(pLgMaster);

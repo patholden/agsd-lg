@@ -1,11 +1,6 @@
-#include <stdint.h>
 /*   $Id: AppErrors.h,v 1.3 1997/05/11 23:21:21 ags-sw Exp $  */
-
-#ifndef __unix__
-#pragma once
-#endif
-
-#include <stdlib.h>
+#ifndef APPERRORS_H
+#define APPERRORS_H
 
 enum {
         noErr                                           = 0
@@ -27,5 +22,5 @@ extern	void	StartupPtr ( char **theThing, size_t theSize,
 					void ( *CleanUp ) ( void ) );
 extern	void	GenericErrorAlert ( short errStrID, short errStrNo,
 					int32_t theError );
-
+#endif
 

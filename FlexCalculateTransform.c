@@ -56,7 +56,6 @@ void FlexCalculateTransform ( struct lg_master *pLgMaster,
         int32_t int32_tColinear;
         int32_t int32_tPlanar;
 
-
         memset(pLgMaster->theResponseBuffer, 0, resp_len);
 	int32_tColinear = 0;
         int32_tPlanar = 0;
@@ -90,9 +89,6 @@ void FlexCalculateTransform ( struct lg_master *pLgMaster,
             ConvertExternalAnglesToBinary(pLgMaster, angX, angY, &Xbin, &Ybin);
             Xarr[i] = Xbin;
             Yarr[i] = Ybin;
-#ifdef SDEBUG    
-fprintf( stderr, "CalcTrans %2d ext ang %08x %08x\n", i, Xbin, Ybin );
-#endif
             i++;
         } 
 
@@ -116,40 +112,29 @@ fprintf( stderr, "CalcTrans %2d ext ang %08x %08x\n", i, Xbin, Ybin );
            // if gHeaderSpecialByte is NOT 0x40,
            // then reject duplicate targets
            //
-        if ( !(pLgMaster->gHeaderSpecialByte & 0x40)  ) {
-          for ( i = 0; i < nTargets; i++ ) {
-            for ( j = i; j < nTargets; j++ ) {
-                if ( i != j ) {
-                    if ( (gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]) ) {
-                         foundTarget[j] = 0;
-#ifdef ZDEBUG
-                         fprintf( stderr, "target %d rejected %d\n", j, i );
-                         fprintf( stderr, "  gX %lf %lf\n", gX[i], gX[j] );
-                         fprintf( stderr, "  gY %lf %lf\n", gY[i], gY[j] );
-                         fprintf( stderr, "  gZ %lf %lf\n", gZ[i], gZ[j] );
-#endif
-                    }
-                }
-            }
-          }
-        }
-
-
-        theResult = FindTransformMatrix ( nTargets
-                                        , gDeltaMirror
-                                        , theTransformTolerance
-                                        , foundAngles
-                                        , (double *)&foundTransform
-                                         );
+        if (!(pLgMaster->gHeaderSpecialByte & 0x40))
+	  {
+	    for (i = 0; i < nTargets; i++)
+	      {
+		for (j = i; j < nTargets; j++)
+		  {
+		    if (i != j)
+		      {
+			if ((gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
+			  foundTarget[j] = 0;
+		      }
+		  }
+	      }
+	  }
+        theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror,
+                                        theTransformTolerance, foundAngles,
+                                        (double *)&foundTransform);
 
           /* desperate attempt to get something */
-        if ( gSaved == 0 && gForceTransform ) {
-            theResult = FindTransformMatrix ( nTargets
-                                            , gDeltaMirror
-                                            , 0.00001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                             );
+        if ((gSaved == 0) && gForceTransform)
+	  {
+	    theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror,
+                                            0.00001, foundAngles, (double *)&foundTransform);
             GnOfTrans = 0;
         }
 
@@ -181,9 +166,6 @@ fprintf( stderr, "CalcTrans %2d ext ang %08x %08x\n", i, Xbin, Ybin );
 	for( i=0; i < nTargets; i++ ) {
                         ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
                         ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-#ifdef ZDEBUG
-fprintf( stderr, "FCT dac xy %08x %08x  i %d\n", Xarr[i], Yarr[i], i );
-#endif
         }
 	index = sizeof(uint32_t)
                   + 12 * ( kSizeOldLongDouble )

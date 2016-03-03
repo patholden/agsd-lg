@@ -143,9 +143,6 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
                   + sizeof(double) * kNumberOfFlexPoints * 2;
         pRawAngles = (uint32_t *)(&(parameters)[offset]);
 
-#ifdef ZDEBUG
-fprintf( stderr, "RawGeomFlag %d\n", RawGeomFlag );
-#endif
         if ( RawGeomFlag == 1 ) {
            for ( i = 0; i <  numberOfTargets ; i++ ) {
                theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
@@ -154,13 +151,6 @@ fprintf( stderr, "RawGeomFlag %d\n", RawGeomFlag );
                    theAngleBuffer[2*(i+4)  ] = pRawAngles[2*(i)  ];
                    theAngleBuffer[2*(i+4)+1] = pRawAngles[2*(i)+1];
                }
-#ifdef ZDEBUG
-fprintf( stderr
-       , "raw angle %x %x\n"
-       , theAngleBuffer[2*i  ]
-       , theAngleBuffer[2*i+1]
-       );
-#endif
            }
         } else if ( RawGeomFlag == 2 ) {
            for ( i = 0; i <  numberOfTargets ; i++ ) {
@@ -177,18 +167,6 @@ fprintf( stderr
 							      &(theAngleBuffer[2*(i+4)]),
 							      &(theAngleBuffer[2*(i+4)+1]));
                 }
-#ifdef ANGDEBUG
-fprintf( stderr
-       , "geometric %lf %lf "
-       , pGeometricAngles[2*i]
-       , pGeometricAngles[2*i+1] 
-       );
-fprintf( stderr
-       , "raw angle %x %x\n"
-       , theAngleBuffer[2*i  ]
-       , theAngleBuffer[2*i+1]
-       );
-#endif
            }
         } else {
         }
@@ -233,23 +211,10 @@ fprintf( stderr
 		   */
 		gCoarse2Factor     = gCoarseFactor;
 		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-#ifdef ZDEBUG
-fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
-#endif
 		while ( j-- ) {
                         ptX = theAngleBuffer[2*i  ];
                         ptY = theAngleBuffer[2*i+1];
-#ifdef ZDEBUG
-			fprintf( stderr, "197 about to search i %d j %d\n", i, j );
-#endif
-#ifdef ZPAUSE
-			printf( "PAUSE: ");
-			itemp = getchar();
-#endif
                         if ( useTarget[i] == 1 ) {
-#ifdef ZDEBUG
-			  fprintf( stderr, "201 about to search i %d j %d\n", i, j );
-#endif
 			  searchResult = SearchForASensor ( pLgMaster, ptX,
 							    ptY, &fndX, &fndY );
 			  if ( searchResult == kStopWasDone ) {
@@ -263,13 +228,10 @@ fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
                         }
                         Xarr[i] = fndX;
                         Yarr[i] = fndY;
-			if ( searchResult == kStopWasDone ) {
-#ifdef ZDEBUG
-fprintf( stderr, "kStopWasDone %d %d\n", gSearchFlag, gStopFlag );
-#endif
-                              return;
-                        }
-			if ( !searchResult ) break;
+			if (searchResult == kStopWasDone)
+			  return;
+			if (!searchResult)
+			  break;
 		        pLgMaster->gCoarse2SearchStep /= 2;
 		        gCoarse2Factor     /= 2; 
 			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
@@ -293,28 +255,6 @@ fprintf( stderr, "kStopWasDone %d %d\n", gSearchFlag, gStopFlag );
 			ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,
 						      &(XExternalAngles[i]),
 						      &(YExternalAngles[i]));
-#ifdef ZDEBUG
-fprintf( stderr, "fndX %x ", fndX );
-fprintf( stderr, "fndY %x ", fndY );
-fprintf( stderr, "\n" );
-fprintf( stderr, "curX %lf", XfoundAngles[i] );
-fprintf( stderr, "curY %lf", YfoundAngles[i] );
-fprintf( stderr, "\n" );
-fprintf( stderr, "curX %lf", XExternalAngles[i] );
-fprintf( stderr, "curY %lf", YExternalAngles[i] );
-fprintf( stderr, "\n" );
-fprintf( stderr, "reg  %d  "
-                 " %.3lf %.3lf %.3lf "
-                 " %.6lf %.6lf  "
-                 "\n"
-               , i
-               , gX[i]
-               , gY[i]
-               , gZ[i]
-               , XExternalAngles[i]
-               , YExternalAngles[i]
-               );
-#endif
                 }
 		
 		i++;
@@ -327,12 +267,9 @@ fprintf( stderr, "reg  %d  "
              if ( foundTarget[i] == 1 )  numberOfFoundTargets ++;
           }
           if ( numberOfFoundTargets >= 4 ) {
-	     theResult = FindTransformMatrix ( numberOfTargets
-                                          , gDeltaMirror
-                                          , theTransformTolerance
-                                          , foundAngles
-                                          , (double *)&foundTransform
-                                          );
+	    theResult = FindTransformMatrix(pLgMaster, numberOfTargets,
+					    gDeltaMirror, theTransformTolerance,
+					    foundAngles, (double *)&foundTransform);
           }
           for ( i = 0; i < numberOfTargets ; i++ ) {
               if ( savePoint[i] > 0 ) {
@@ -352,42 +289,21 @@ fprintf( stderr, "reg  %d  "
             return_code = kFlexFail;
         }
 
-#ifdef SDEBUG
- for ( i = 0; i < numberOfTargets ; i++ ) {
-    printf( "save %d point %d   status %d\n",i, savePoint[i],target_status[i]);
- }
-#endif
-
-        // if( gTargetDrift ) {
-        //           InitDrift( Xarr, Yarr );
-        // }
-
         /* 
          *  last desperate attempt to find transform
          *  provided that at least four targets have been found
          */
         if ( gSaved == 0 && numberOfFoundTargets >= 4 && gForceTransform ) {
             return_code = kFlexFail;
-            theResult = FindTransformMatrix ( numberOfTargets
-                                            , gDeltaMirror
-                                            , 0.001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
+            theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror, 0.001,
+                                            foundAngles, (double *)&foundTransform);
                // redo with the suggested tolerance
                // now in variable gWorstTolReg
             if ( theResult == true ) {
                 useTol = gWorstTolReg;
-                theResult = FindTransformMatrix ( numberOfTargets
-                                            , gDeltaMirror
-                                            , useTol
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
+                theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror,
+						useTol, foundAngles, (double *)&foundTransform);
             }
-#ifdef ZDEBUG
-fprintf( stderr, "FullRegWithFeedback last desperate attempt %d\n", theResult );
-#endif
             for ( i = 0; i < numberOfTargets ; i++ ) {
               if ( savePoint[i] > 0 ) {
                    target_status[i] = 2;
@@ -396,26 +312,15 @@ fprintf( stderr, "FullRegWithFeedback last desperate attempt %d\n", theResult );
         }
         if ( gSaved == 0 && numberOfFoundTargets >= 4 && (saveHeaderSpecialByte & 0x20) ) {
             return_code = kFlexFail;
-            theResult = FindTransformMatrix ( numberOfTargets
-                                            , gDeltaMirror
-                                            , 0.001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
+            theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror, 0.001,
+                                            foundAngles, (double *)&foundTransform);
                // redo with the suggested tolerance
                // now in variable gWorstTolReg
             if ( theResult == true ) {
                 useTol = gWorstTolReg;
-                theResult = FindTransformMatrix ( numberOfTargets
-                                            , gDeltaMirror
-                                            , useTol
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
+                theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror, useTol,
+                                            foundAngles, (double *)&foundTransform);
             }
-#ifdef ZDEBUG
-fprintf( stderr, "FlexRegWithFeedback last desperate attempt %d\n", theResult );
-#endif
             for ( i = 0; i < numberOfTargets ; i++ ) {
               if ( savePoint[i] > 0 ) {
                    target_status[i] = 2;
@@ -441,23 +346,12 @@ fprintf( stderr, "FlexRegWithFeedback last desperate attempt %d\n", theResult );
             gWorstTolReg = 0.0;
         }
 
-
-#ifdef ZDEBUG
-fprintf( stderr, "l436 Special %x  result %x\n", saveHeaderSpecialByte, theResult);
-#endif
-
-        if ( (saveHeaderSpecialByte & 0x20) != 0x20 ) {
-
-#ifdef ZDEBUG
-fprintf( stderr, "l440 Special %x  result %x\n", saveHeaderSpecialByte, theResult);
-#endif
-            if ( theResult == true ) {
-	        return_code = kOK ;
-            } else {
-
-#ifdef ZDEBUG
-fprintf( stderr, "l446 Special %x  result %x\n", saveHeaderSpecialByte, theResult);
-#endif
+        if ( (saveHeaderSpecialByte & 0x20) != 0x20 )
+	  {
+            if (theResult == true)
+	        return_code = kOK;
+            else
+	      {
                 return_code = kFlexFail;
                 gWorstTolReg = 0.0;
 	        index = sizeof(uint32_t);
@@ -480,9 +374,6 @@ fprintf( stderr, "l446 Special %x  result %x\n", saveHeaderSpecialByte, theResul
 	        index = 6 * sizeof(uint32_t);
 	        ucPtr = (unsigned char *)(RespBuff + index);
                 *(uint32_t *)ucPtr = 0;
-#ifdef ZDEBUG
-		fprintf( stderr, "FRWF397  Colin %x  Plan %x\n", int32_tColinear, int32_tPlanar );
-#endif
  
 		memcpy(RespBuff, &return_code, sizeof(uint32_t));
 		HandleResponse (pLgMaster,
@@ -516,10 +407,6 @@ fprintf( stderr, "l446 Special %x  result %x\n", saveHeaderSpecialByte, theResul
                      ;
 	ucPtr = (unsigned char *)(RespBuff + index);
         *(double *)ucPtr = gBestTolAll;
-
-#ifdef ZDEBUG
-fprintf( stderr, "FRWF520 tol %.9lf %.9lf %.9lf\n", gWorstTolAll, gWorstTolReg, gBestTolAll );
-#endif
 	index = sizeof(uint32_t)
                      + 12 * ( sizeof ( double ) )
                      +        sizeof ( double ) 
@@ -571,9 +458,6 @@ fprintf( stderr, "FRWF520 tol %.9lf %.9lf %.9lf\n", gWorstTolAll, gWorstTolReg, 
 	for( i=0; i < kNumberOfFlexPoints; i++ ) {
                         ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
                         ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-#ifdef ZDEBUG
-fprintf( stderr, "FRWF dac xy %08x %08x  i %d\n", Xarr[i], Yarr[i], i );
-#endif
         }
 
 	index = sizeof(uint32_t)
@@ -589,9 +473,6 @@ fprintf( stderr, "FRWF dac xy %08x %08x  i %d\n", Xarr[i], Yarr[i], i );
 	for( i=0; i < kNumberOfFlexPoints; i++ ) {
                         ((double *)ucPtr)[2*i  ] = XExternalAngles[i];
                         ((double *)ucPtr)[2*i+1] = YExternalAngles[i];
-#ifdef ZDEBUG
-fprintf( stderr, "FRWF extern xy %lf %lf  i %d\n", XExternalAngles[i], YExternalAngles[i], i );
-#endif
         }
 
 	index = sizeof(uint32_t)
@@ -607,10 +488,6 @@ fprintf( stderr, "FRWF extern xy %lf %lf  i %d\n", XExternalAngles[i], YExternal
 	ucPtr = (unsigned char *)(RespBuff + index);
 	for( i=0; i < kNumberOfFlexPoints; i++ ) {
                         ((int32_t *)ucPtr)[i] = target_status[i];
-#ifdef ZDEBUG
-printf( "FCWF239 save %d point %d   status %d\n",i, savePoint[i],target_status[i]);
-#endif
-
         }
 
 	index = sizeof(uint32_t)
@@ -633,9 +510,6 @@ printf( "FCWF239 save %d point %d   status %d\n",i, savePoint[i],target_status[i
             ((int32_t *)ucPtr)[1] = int32_tPlanar;
         }
 
-#ifdef ZDEBUG
-	fprintf( stderr, "FRWF617  response %x\n", return_code);
-#endif
 	memcpy(RespBuff, &return_code, sizeof(uint32_t));
 	HandleResponse (pLgMaster, resp_len, respondToWhom );
 	return;

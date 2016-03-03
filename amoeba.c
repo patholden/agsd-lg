@@ -2,10 +2,26 @@
  * static char rcsid[] = "$Id: amoeba.c,v 1.2 1999/05/04 15:35:47 ags-sw Exp $";
  */
 #include <stdint.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <time.h>
+#include <math.h>
+#include <assert.h>
+#include <sys/io.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/tcp.h>
+#include <sys/ioctl.h>
+#include <linux/laser_api.h>
+#include "BoardComm.h"
 #include "amoeba.h"
 
 #define NMAX 500
@@ -17,15 +33,15 @@
 
 #define SWAP(a,b) {swap=(a);(a)=(b);(b)=swap;}
 
-static double amotry(double **p, double *y, double *psum, int ndim,
-         double(*funk)(double []), int ihi, double fac);
+static double amotry(struct lg_master *pLgMaster, double **p, double *y, double *psum, int ndim,
+		     double(*funk)(struct lg_master *,double []), int ihi, double fac);
 
 static double *vector(int32_t nl, int32_t nh);
 
 static void free_vector( double *v, int32_t nl, int32_t nh );
 
-void amoeba(double **p, double *y, int ndim, double ftol,
-            double (*funk)(double []), int *nfunk)
+void amoeba(struct lg_master *pLgMaster, double **p, double *y, int ndim, double ftol,
+            double (*funk)(struct lg_master *, double []), int *nfunk)
 {
   int i, ihi, ilo, inhi, j, mpts;
   double rtol, sum, swap, ysave, ytry, *psum;
@@ -58,16 +74,16 @@ void amoeba(double **p, double *y, int ndim, double ftol,
        break;
     }
     if (*nfunk >= NMAX) {
-      fprintf( stderr, "NMAX  exceeded" );
+      syslog(LOG_ERR, "NMAX  exceeded");
       return;
     }
     *nfunk += 2;
-    ytry=amotry(p,y,psum,ndim,funk,ihi,-1.0);
+    ytry=amotry(pLgMaster, p,y,psum,ndim,funk,ihi,-1.0);
     if (ytry <= y[ilo]) {
-      ytry=amotry(p,y,psum,ndim,funk,ihi,2.0);
+      ytry=amotry(pLgMaster, p,y,psum,ndim,funk,ihi,2.0);
     } else if (ytry >= y[inhi]) {
       ysave=y[ihi];
-      ytry=amotry(p,y,psum,ndim,funk,ihi,0.5);
+      ytry=amotry(pLgMaster, p,y,psum,ndim,funk,ihi,0.5);
       if (ytry >= ysave) {
         for (i=1;i<=mpts;i++) {
           if (i != ilo) {
@@ -75,7 +91,7 @@ void amoeba(double **p, double *y, int ndim, double ftol,
               psum[j]=0.5*(p[i][j]+p[ilo][j]);
               p[i][j]=psum[j];
             }
-            y[i]=(*funk)(psum);
+            y[i]=(*funk)(pLgMaster, psum);
           }
         }
         *nfunk += ndim;
@@ -84,14 +100,11 @@ void amoeba(double **p, double *y, int ndim, double ftol,
     } else --(*nfunk);
   }
   free_vector(psum,1,ndim);
-
-#ifdef ZDEBUG
-  fprintf( stderr, "*nfunk %d\n", *nfunk );
-#endif
+  return;
 }
 
-double amotry(double **p, double *y, double *psum, int ndim,
-         double(*funk)(double []), int ihi, double fac)
+double amotry(struct lg_master *pLgMaster, double **p, double *y, double *psum, int ndim,
+	      double(*funk)(struct lg_master *,double []), int ihi, double fac)
 {
   int j;
   double fac1,fac2,ytry,*ptry;
@@ -101,7 +114,7 @@ double amotry(double **p, double *y, double *psum, int ndim,
   fac2=fac1-fac;
   for (j=1;j<=ndim;j++)
       ptry[j]=psum[j]*fac1-p[ihi][j]*fac2;
-  ytry=(*funk)(ptry);
+  ytry=(*funk)(pLgMaster, ptry);
   if (ytry < y[ihi]) {
     y[ihi]=ytry;
     for (j=1;j<=ndim;j++) {
@@ -121,9 +134,9 @@ double *vector(int32_t nl, int32_t nh)
 
   v=(double *)calloc((size_t)(nh-nl+1+NR_END),sizeof(double));
   if (!v) {
-    fprintf( stderr, "allocation failure in vector()\n" );
+    syslog(LOG_ERR, "allocation failure in vector()\n" );
   }
-  return v-nl+NR_END;
+  return(v-nl+NR_END);
 }
 
 void free_vector( double *v, int32_t nl, int32_t nh )

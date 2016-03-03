@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -60,14 +61,14 @@ void DoTakePicture ( struct lg_master *pLgMaster,
 
 #ifdef SPECIAL
   gettimeofday( &tv, &tz );
-  printf( "Picture78 tv %d %d\n", tv.tv_sec, tv.tv_usec );
+  syslog(LOG_NOTICE, "Picture78 tv %d %d", tv.tv_sec, tv.tv_usec );
 #endif
 
   PostCommand(pLgMaster, kDarkAngle, (char *)&data[0], kRespondExtern );
 
 #ifdef SPECIAL
   gettimeofday( &tv, &tz );
-  printf( "Picture85 tv %d %d\n", tv.tv_sec, tv.tv_usec );
+  syslog(LOG_NOTICE, "Picture85 tv %d %d", tv.tv_sec, tv.tv_usec );
 #endif
   return;
 }

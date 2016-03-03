@@ -8,10 +8,6 @@
 #define pascal 
 #endif
 
-#ifndef __unix__
-#pragma once
-#endif
-
 #define STRICT_WINDOWS 1
 #define STRICT_MENUS 1
 #define STRICT_CONTROLS 0

@@ -1,7 +1,16 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
 #include <math.h>
-
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/tcp.h>
+#include <linux/laser_api.h>
+#include "BoardComm.h"
 #include "3DTransform.h"
 
 int TransformtoRPY (transform *m, double *roll, double *pitch, 

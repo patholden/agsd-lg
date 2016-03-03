@@ -5,6 +5,7 @@ static char rcsid[] = "$Id: QuickCheckManager.c,v 1.15 2007/03/30 18:59:23 pickl
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -299,7 +300,7 @@ int PerformPeriodicQuickCheck (struct lg_master *pLgMaster)
   }
   if (gCurrentQCSensor > gQuickCheckTargetNumber[gCurrentQCSet])
     {
-      fprintf(stderr, "QuickCheckManager 301 BAD ERROR  %d %d %d\n", gNumberOfSets,
+      syslog(LOG_ERR, "QuickCheckManager 301 BAD ERROR  %d %d %d", gNumberOfSets,
 	      gCurrentQCSensor, gQuickCheckTargetNumber[gCurrentQCSet]);
       gCurrentQCSensor = 0;
     }
@@ -335,7 +336,7 @@ void InitQuickCheckHistory ( void )
 	return;
 }
 
-
+//FIXME---PAH---NEED TO FIX CMD/RESP HERE
 void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
   char *theResponseBuffer=(char *)pLgMaster->theResponseBuffer;
@@ -351,41 +352,22 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
   tempMsg = 0U;
 
   i = kNumberOfFlexPoints;
-  while ( i-- )
+  while (i--)
     {
       numberOfMissesOnASensor = 0;
       j = kQCHistoryLength;
-      while ( j-- )
+      while (j--)
 	{
-	  if ( gFailureArray[gCurrentQCSet][i][j] )
+	  if (gFailureArray[gCurrentQCSet][i][j])
 	    numberOfMissesOnASensor++;
-#ifdef ZDEBUG
-	  fprintf( stderr
-		   , "QCM373 i %d j %d miss %d fail %d set %d\n"
-		   , i
-		   , j
-		   , numberOfMissesOnASensor
-		   , gFailureArray[gCurrentQCSet][i][1]
-		   , gCurrentQCSet
-		   );
-#endif
 	}
-      if ( numberOfMissesOnASensor >= 1 )
+      if (numberOfMissesOnASensor >= 1)
 	{
 	  tempMsg += (1U << i);
 	  numberOfBadSensors++;
 	}
-#ifdef ZDEBUG
-      fprintf( stderr
-	       , "QCM388 i %2d bad %2d tempMsg %8x failNum %2d\n"
-	       , i
-	       , numberOfBadSensors 
-	       , tempMsg
-	       , gQuickFailNumber
-	       );
-#endif
     }
-  if ( numberOfBadSensors >= gQuickFailNumber )
+  if (numberOfBadSensors >= gQuickFailNumber)
     {
       byte3 = (0x00FF0000 & tempMsg) >> 16;
       return_code = kQuickCheckPlyFail + byte3;
@@ -398,11 +380,6 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
       ret_16 = (uint16_t)(0xFFFF & tempMsg);
       memcpy(tmpPtr, &ret_16, sizeof(uint16_t));
       ShortConv((unsigned char *)tmpPtr);
-#ifdef ZDEBUG
-      fprintf( stderr
-	       , "QCM653 about to QCM periodic HandleResponse\n"
-	       );
-#endif
       HandleResponse(pLgMaster, (sizeof(uint32_t) + 2 * sizeof(uint16_t)), kRespondExtern);
     }
 }

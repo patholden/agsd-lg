@@ -1,14 +1,32 @@
-#include <stdint.h>
 //static char rcsid[] = "$Id: L3DTransform.c,v 1.2 1999/10/22 15:39:02 ags-sw Exp $";
-
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <time.h>
+#include <assert.h>
+#include <sys/io.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/tcp.h>
+#include <sys/ioctl.h>
+#include <linux/laser_api.h>
+#include <float.h>
+#include <math.h>
+#include "BoardComm.h"
+#include "L3DTransform.h"
 /********************************************************************/
 /*								*/
 /*	By Ilya R. Lapshin at Assembly Guidance Systems, Inc.	*/
 /*								*/
 /********************************************************************/
-
-
-
 int permuted[24][4] = { { 0, 1, 2, 3 }
                       , { 0, 1, 3, 2 }
                       , { 0, 2, 1, 3 }
@@ -38,7 +56,6 @@ int permuted[24][4] = { { 0, 1, 2, 3 }
 unsigned char gBestTargetArray[128];
 int32_t gBestTargetNumber;
 
-
 enum {
 	false,
 	true
@@ -46,18 +63,10 @@ enum {
 
 typedef unsigned char Boolean;
 
-#include <float.h>
-#include <math.h>
-#include <stdio.h>
 #define pi()	3.14159265358979323846L
 
-static	long double		gQuarterPi_;
-static	long double		gSqrtOfTwo_;
-
-#include "L3DTransform.h"
-// #include "LaserInterface.h"
-extern  double          gHalfMirror;
-
+static	long double 	gQuarterPi_;
+static	long double	gSqrtOfTwo_;
 
 typedef struct { long double oldLoc[3], xRad, yRad; }
 	inputPoint;
@@ -83,14 +92,6 @@ aDist ( inputPoint *iPt0, inputPoint *iPt1, inputPoint *iPt2 );
 static	void		TransformPoint
 						( transform *tr, long double oldLoc[3],
 						long double newLoc[3] );
-	
-extern	unsigned char	FindBestTransform
-			( doubleInputPoint iPt[4]
-                        , doubleTransform *tr
-			, double deltaXHeight
-			, double tolerance
-                        , double * bestCosine
-                        );
 	
 static	long double	Square ( long double x );
 
@@ -130,25 +131,15 @@ static	short		Solve2ndDegree
 static	long double	MirrorFactor_ ( long double x );
 
 static	long double	MirrorOffset_ ( long double x );
-
-static	void		GetAngles ( long double x[3],
-						long double *xa, long double *ya,
-						long double deltaXHeight );
-
-static	long double ZfromR ( long double R,
-						long double xa, long double ya,
-						long double deltaXHeight );
-
-static	long double	CoeffX ( long double z,
-						long double xa, long double ya,
-						long double deltaXHeight );
-
-static	long double	CoeffY ( long double z, long double ya );
-
-static	short		From3PtsToTrans
-					( inputPoint *iPt0, inputPoint *iPt1,
-					inputPoint *iPt2,
-					long double deltaXHeight, transform tr[16] );
+static void GetAngles(struct lg_master *pLgMaster, long double *x, long double *xa, long double *ya,
+		      long double deltaXHeight);
+static long double ZfromR(struct lg_master *pLgMaster, long double R,long double xa,
+			  long double ya, long double deltaXHeight );
+static long double CoeffX(struct lg_master *pLgMaster, long double z, long double xa, long double ya,
+			  long double deltaXHeight);
+static long double CoeffY(struct lg_master *pLgMaster, long double z, long double ya);
+static short From3PtsToTrans(struct lg_master *pLgMaster, inputPoint *iPt0, inputPoint *iPt1,
+			     inputPoint *iPt2, long double deltaXHeight, transform *tr);
 
 double minDistance = 1.0;
 double minL3Distance = 1.0;
@@ -183,58 +174,60 @@ long double MirrorOffset_ ( long double x )
 	return ( 1.L / cos ( x * .5L - gQuarterPi_ ) );
 }
 
-void GetAngles
-	( long double x[3], long double *xa, long double *ya,
+void GetAngles(struct lg_master *pLgMaster, long double *x, long double *xa, long double *ya,
 	long double deltaXHeight )
 {
 	long double temp;
 	short i;
-	if ( fabs ( x[2] ) > LDBL_MIN )
-	{
-		*ya = atan ( x[1] / x[2] );
-		if ( x[2] < 0.L ) *ya += pi (  );
-		i = kIterations;
-		while ( i-- )
-		{
-			*ya =
-				atan ( ( x[1] - gHalfMirror * MirrorFactor_ ( *ya ) )
-				/ x[2] );
-			if ( x[2] < 0.L ) *ya += pi (  );
-		}
-		temp = 1.L / fabs ( cos ( *ya ) ) +
-			fabs ( ( deltaXHeight -
-			gHalfMirror * MirrorOffset_ ( *ya ) ) / x[2] );
-		*xa = atan ( ( x[0] / x[2] ) / temp );
-		if ( x[2] < 0.L ) *xa += pi (  );
-		i = kIterations;
-		while ( i-- )
-		{
-			*xa = atan
-				( ( ( x[0] - gHalfMirror * MirrorFactor_ ( *xa ) ) /
-				x[2] ) / temp );
-			if ( x[2] < 0.L ) *xa += pi (  );
-		}
-	}
+	if (fabs(x[2]) > LDBL_MIN)
+	  {
+	    *ya = atan(x[1] / x[2]);
+	    if (x[2] < 0.L)
+	      *ya += pi();
+	    i = kIterations;
+	    while (i--)
+	      {
+		*ya =
+		  atan((x[1] - (pLgMaster->gHalfMirror * MirrorFactor_(*ya))) / x[2]);
+		if (x[2] < 0.L)
+		  *ya += pi();
+	      }
+	    temp = (1.L / fabs(cos(*ya)))
+	      + fabs((deltaXHeight - pLgMaster->gHalfMirror * MirrorOffset_(*ya))
+		     / x[2]);
+	    *xa = atan((x[0] / x[2]) / temp);
+	    if ( x[2] < 0.L )
+	      *xa += pi();
+	    i = kIterations;
+	    while (i--)
+	      {
+		*xa = atan(((x[0] - pLgMaster->gHalfMirror * MirrorFactor_(*xa)) / x[2]) / temp);
+		if (x[2] < 0.L)
+		  *xa += pi();
+	      }
+	  }
 	else
 	{
-		temp = fabs ( deltaXHeight -
-			gHalfMirror * MirrorOffset_ ( 0.L ) );
-		*xa = atan ( x[0] / temp );
-		if ( x[2] < 0 ) *xa += pi (  );
-		i = kIterations;
-		while ( i-- )
-		{
-			*xa = atan ( ( x[0] - gHalfMirror * MirrorFactor_ ( *xa ) )
-				/ temp );
-			if ( x[2] < 0 ) *xa += pi (  );
-		}
-		if ( fabs ( x[1] ) > LDBL_MIN )
-		{
-			if ( x[1] < 0 ) *ya = -0.5L * pi (  );
-			else *ya = 0.5L * pi (  );
-		}
-		else
-			*ya = 0.L;
+	  temp = fabs(deltaXHeight - (pLgMaster->gHalfMirror * MirrorOffset_(0.L)));
+	  *xa = atan(x[0] / temp);
+	  if (x[2] < 0)
+	    *xa += pi();
+	  i = kIterations;
+	  while (i--)
+	    {
+	      *xa = atan((x[0] - pLgMaster->gHalfMirror * MirrorFactor_(*xa)) / temp);
+	      if (x[2] < 0)
+		*xa += pi();
+	    }
+	  if (fabs(x[1]) > LDBL_MIN)
+	    {
+	      if (x[1] < 0)
+		*ya = -0.5L * pi();
+	      else
+		*ya = 0.5L * pi();
+	    }
+	  else
+	    *ya = 0.L;
 	}
 	return;	
 }
@@ -246,12 +239,9 @@ void GetAngles
 /*	error allowance errDist, returns false, otherwise returns       */
 /*	true and the transform in tr.				        */
 /************************************************************************/
-Boolean FindBestTransform
-	( doubleInputPoint DiPt[4]
-        , doubleTransform *Dtr
-	, double DdeltaXHeight
-        , double Dtolerance
-        , double * bestCosine )
+Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
+			  doubleTransform *Dtr, double DdeltaXHeight, double Dtolerance,
+			  double * bestCosine)
 {
 	short i, j, numberOfTrans;
         int a, b, c, d;
@@ -274,257 +264,126 @@ Boolean FindBestTransform
         tr = &Ttr;
 
              // reject quartet if two targets are the same
-        for ( i=0; i<4; i++ ) {
-            for ( j=i; j<4; j++ ) {
-                if ( j != i ) {
-                    if (
-                          ( DiPt[i].oldLoc[0] == DiPt[j].oldLoc[0] )
-                            &&
-                          ( DiPt[i].oldLoc[1] == DiPt[j].oldLoc[1] )
-                            &&
-                          ( DiPt[i].oldLoc[2] == DiPt[j].oldLoc[2] )
-                       )  {
-#ifdef Z3DEBUG
-  printf ( "L3D267 rejecting %d %d at %lf %lf %lf\n"
-         , i
-         , j
-         , DiPt[i].oldLoc[0]
-         , DiPt[i].oldLoc[1]
-         , DiPt[i].oldLoc[2]
-         );
-#endif
-                        return false;
-                    }
-                }
-            }
-        }
-
+        for (i=0; i<4; i++)
+	  {
+            for (j=i; j<4; j++)
+	      {
+                if (j != i)
+		  {
+                    if ((DiPt[i].oldLoc[0] == DiPt[j].oldLoc[0])
+			&& (DiPt[i].oldLoc[1] == DiPt[j].oldLoc[1])
+			&& (DiPt[i].oldLoc[2] == DiPt[j].oldLoc[2]))
+		      return(false);
+		  }
+	      }
+	  }
         deltaXHeight = DdeltaXHeight;
         tolerance = Dtolerance;
-        for ( i=0; i<4; i++ ) {
+        for ( i=0; i<4; i++)
+	  {
             iPt[i].oldLoc[0] = (long double)(DiPt[i].oldLoc[0]);
             iPt[i].oldLoc[1] = (long double)(DiPt[i].oldLoc[1]);
             iPt[i].oldLoc[2] = (long double)(DiPt[i].oldLoc[2]);
             iPt[i].xRad = (long double)(DiPt[i].xRad);
             iPt[i].yRad = (long double)(DiPt[i].yRad);
-        }
-	
-	gQuarterPi_ = pi ( ) * .25L;
-	gSqrtOfTwo_ = sqrt ( 2.L );
-	
+	  }
+	gQuarterPi_ = pi() * .25L;
+	gSqrtOfTwo_ = sqrt(2.L);
 	theBestCos = -1.L;
         numberOfTrans = 0;
         goodPermutes = 0;
-        for ( index = 0; index < 24; index++ ) {
-                a = permuted[index][0];
-                b = permuted[index][1];
-                c = permuted[index][2];
-                d = permuted[index][3];
-                angdist = aDist( &iPt[a], &iPt[b], &iPt[c] );
-                if ( angdist < minAngDistance ) continue;
-                perpend = pDist( &iPt[a], &iPt[b], &iPt[c] );
-                if ( perpend < minDistance ) continue;
-                numberOfTrans = From3PtsToTrans ( &iPt[a]
-                                                , &iPt[b]
-                                                , &iPt[c]
-                                                , deltaXHeight
-                                                , trFor3Pts
-                                                );
-
-#ifdef Z3DEBUG
-                       printf( "304 L3D pt0 ", iPt[a].oldLoc[0] );
-                       printf( " %Lf ", iPt[a].oldLoc[0] );
-                       printf( " %Lf ", iPt[a].oldLoc[1] );
-                       printf( " %Lf ", iPt[a].oldLoc[2] );
-                       printf( " %Lf ", iPt[a].xRad );
-                       printf( " %Lf ", iPt[a].yRad );
-                       printf( "\n" );
-                       printf( "304 L3D pt1 ", iPt[b].oldLoc[0] );
-                       printf( " %Lf ", iPt[b].oldLoc[0] );
-                       printf( " %Lf ", iPt[b].oldLoc[1] );
-                       printf( " %Lf ", iPt[b].oldLoc[2] );
-                       printf( " %Lf ", iPt[b].xRad );
-                       printf( " %Lf ", iPt[b].yRad );
-                       printf( "\n" );
-                       printf( "304 L3D pt2 ", iPt[c].oldLoc[0] );
-                       printf( " %Lf ", iPt[c].oldLoc[0] );
-                       printf( " %Lf ", iPt[c].oldLoc[1] );
-                       printf( " %Lf ", iPt[c].oldLoc[2] );
-                       printf( " %Lf ", iPt[c].xRad );
-                       printf( " %Lf ", iPt[c].yRad );
-                       printf( "\n" );
-                       printf( "304 L3D pt3 ", iPt[d].oldLoc[0] );
-                       printf( " %Lf ", iPt[d].oldLoc[0] );
-                       printf( " %Lf ", iPt[d].oldLoc[1] );
-                       printf( " %Lf ", iPt[d].oldLoc[2] );
-                       printf( " %Lf ", iPt[d].xRad );
-                       printf( " %Lf ", iPt[d].yRad );
-                       printf( "\n" );
-
-                       printf( "305 L3D %d trans\n" , (int)numberOfTrans );
-#endif
-                if      ( numberOfTrans == 0 ) {
-#ifdef Z3DEBUG
-                       printf( "284 L3D 0 trans\n" );
-#endif
-/*            MAJOR CHANGE -- if a quartet fails, continue to the next
- *                      return false;
- */
-                       continue;
-                }
-
-		tan4thPtX = tan ( iPt[d].xRad );
-		tan4thPtY = tan ( iPt[d].yRad );
-		sec4thPtSq =
-			Square ( tan4thPtX ) + Square ( tan4thPtY ) + 1.L;
-		theBestCos = -1.L;
-
-#ifdef Z3DEBUG
-printf("394L3D num of trans %d\n",(int)numberOfTrans);
-#endif
-		while ( numberOfTrans-- )
-		{
-			TransformPoint ( &trFor3Pts[numberOfTrans],
-				iPt[d].oldLoc, newPoint );
-			GetAngles ( newPoint, &xa, &ya, deltaXHeight );
-			newPoint[0] = tan ( xa );
-			newPoint[1] = tan ( ya );
-#ifdef Z3DEBUG
-printf("360L3D xy a %Lf %Lf not %d\n",xa,ya,(int)numberOfTrans);
-#endif
-                        tempBestCos =
-                                (    newPoint[0]*tan4thPtX
-                                   + newPoint[1]*tan4thPtY + 1.L )
-                                /
-                                     sqrt ( sec4thPtSq *
-                                             ( Square ( newPoint[0] )
-                                             +
-                                               Square ( newPoint[1] )
-                                             + 1.L
-                                             )
-                                           );
-#ifdef Z3DEBUG
-                        printf( "374  tempBestCos  %20.12Lf %Lg\n", tempBestCos, 1.0 - tempBestCos );
-#endif
-			if ( tempBestCos > theBestCos ) {
-				theBestCos = tempBestCos;
-                                  // copy over best transform
-				  // trBestForEach3 = trFor3Pts[numberOfTrans];
-                                i = 3;
-                                while ( i-- ) {
-                                        trBestForEach3.transVector[i] = trFor3Pts[numberOfTrans].transVector[i];
-                                        j = 3;
-                                        while ( j-- )
-                                                trBestForEach3.rotMatrix[i][j] = trFor3Pts[numberOfTrans].rotMatrix[i][j];
-                                }
-
-			}
-		}
-	        if ( fabs ( 1.L - theBestCos ) < tolerance ) {
-	              goodPermutes++;
-                }
-                if ( (double)(theBestCos) > *bestCosine ) {
-                      *bestCosine = (double)(theBestCos);
-	              i = 3;
-	              while ( i-- )
-	              {
-		              tr->transVector[i] = trBestForEach3.transVector[i];
-		              j = 3;
-		              while ( j-- )
-			              tr->rotMatrix[i][j] = trBestForEach3.rotMatrix[i][j];
-	              }
-                }
-	}
+        for (index = 0; index < 24; index++)
+	  {
+	    a = permuted[index][0];
+	    b = permuted[index][1];
+	    c = permuted[index][2];
+	    d = permuted[index][3];
+	    angdist = aDist( &iPt[a], &iPt[b], &iPt[c] );
+	    if (angdist < minAngDistance)
+	      continue;
+	    perpend = pDist( &iPt[a], &iPt[b], &iPt[c] );
+	    if (perpend < minDistance)
+	      continue;
+	    numberOfTrans = From3PtsToTrans(pLgMaster,&iPt[a], &iPt[b], &iPt[c],
+					    deltaXHeight, (transform *)&trFor3Pts);
+	    if (numberOfTrans == 0)
+	      continue;
+	    tan4thPtX = tan ( iPt[d].xRad );
+	    tan4thPtY = tan ( iPt[d].yRad );
+	    sec4thPtSq = Square(tan4thPtX) + Square(tan4thPtY) + 1.L;
+	    theBestCos = -1.L;
+	    while (numberOfTrans--)
+	      {
+		TransformPoint ( &trFor3Pts[numberOfTrans],
+				 iPt[d].oldLoc, newPoint );
+		GetAngles (pLgMaster, (long double *)&newPoint[0], &xa, &ya, deltaXHeight );
+		newPoint[0] = tan(xa);
+		newPoint[1] = tan(ya);
+		tempBestCos = ((newPoint[0]*tan4thPtX) + (newPoint[1]*tan4thPtY) + 1.L)
+		  / (sqrt(sec4thPtSq * (Square(newPoint[0]) + Square(newPoint[1]) + 1.L)));
+		if (tempBestCos > theBestCos)
+		  {
+		    theBestCos = tempBestCos;
+		    // copy over best transform
+		    // trBestForEach3 = trFor3Pts[numberOfTrans];
+		    i = 3;
+		    while (i--)
+		      {
+			trBestForEach3.transVector[i] = trFor3Pts[numberOfTrans].transVector[i];
+			j = 3;
+			while (j--)
+			  trBestForEach3.rotMatrix[i][j] = trFor3Pts[numberOfTrans].rotMatrix[i][j];
+		      }
+		  }
+	      }
+	    if (fabs(1.L - theBestCos) < tolerance)
+	      goodPermutes++;
+	    if ((double)theBestCos > *bestCosine)
+	      {
+		*bestCosine = (double)theBestCos;
+		i = 3;
+		while (i--)
+		  {
+		    tr->transVector[i] = trBestForEach3.transVector[i];
+		    j = 3;
+		    while (j--)
+		      tr->rotMatrix[i][j] = trBestForEach3.rotMatrix[i][j];
+		  }
+	      }
+	  }
         numberOfTrans = goodPermutes;
-        if ( *bestCosine <= 0.L ) {
-#ifdef Z3DEBUG
-                        printf( "315  BestCos  %20.12Lf %Lg\n", *bestCosine , 1.0 - *bestCosine );
-#endif
-                        return false;
-        }
-	
+        if (*bestCosine <= 0.L)
+	  return(false);
 	/* At this point we found the best transform for each			*/
 	/* three point combination of four input points					*/
 	/* Now we are averaging them (don't worry, it's not all			*/
 	/* we'll do). */
-	
-	// i = 3;
-	// while ( i-- )
-	// {
-	// 	tr->transVector[i] = 0.L;
-	// 	j = 3;
-	// 	while ( j-- ) tr->rotMatrix[i][j] = 0.L;
-	// }
-
-	// numberOfTrans = 0;
-        if ( (double)(theBestCos) > *bestCosine ) {
-                      *bestCosine = (double)(theBestCos);
-        }
-	// if ( fabs ( 1.L - theBestCos ) > tolerance ) return false;
-#ifdef Z3DEBUG
-fprintf( stderr, "\n" );
-#endif
-
-        if ( numberOfTrans == 0 ) {
-#ifdef Z3DEBUG
-fprintf( stderr, "361  0 transforms\n" );
-#endif
-                return false;
-        }
-	
+        if ((double)theBestCos > *bestCosine)
+	  *bestCosine = (double)(theBestCos);
+        if (numberOfTrans == 0)
+	  return(false);
 	/* The problem is that the tr->rotMatrix generally is not	*/
 	/* of the type that describe rotation.  What follows should	*/
 	/* alter it so it is a rotating matrix.				*/
-	
-	if ( Determinant3D ( tr->rotMatrix ) <= 0.L ) return false;
-	
-	MakeARotMatrix ( tr->rotMatrix );
-	
-	
-#if 1
+	if (Determinant3D(tr->rotMatrix) <= 0.L)
+	  return(false);
+	MakeARotMatrix(tr->rotMatrix);
 	i = 4;
-	while ( i-- )
-	{
-		tan4thPtX = tan ( iPt[i].xRad );
-		tan4thPtY = tan ( iPt[i].yRad );
-		sec4thPtSq =
-			Square ( tan4thPtX ) + Square ( tan4thPtY ) + 1.L;
-		TransformPoint ( tr, iPt[i].oldLoc, newPoint );
-		GetAngles ( newPoint, &xa, &ya, deltaXHeight );
-		newPoint[0] = tan ( xa );
-		newPoint[1] = tan ( ya );
-		tempBestCos =
-			(newPoint[0]*tan4thPtX + newPoint[1]*tan4thPtY + 1.L) /
-			sqrt ( sec4thPtSq * ( Square ( newPoint[0] ) +
-			Square ( newPoint[1] ) + 1.L ) );
-#ifdef Z3DEBUG
-printf( "L3D514 %20.12Lf %Lg\n", tempBestCos, 1.0 - tempBestCos );
-#endif
-		if ( fabs ( 1.L - tempBestCos ) > tolerance ) return false;
+	while (i--)
+	  {
+	    tan4thPtX = tan(iPt[i].xRad);
+	    tan4thPtY = tan(iPt[i].yRad);
+	    sec4thPtSq = Square(tan4thPtX) + Square(tan4thPtY) + 1.L;
+	    TransformPoint(tr, iPt[i].oldLoc, newPoint);
+	    GetAngles(pLgMaster, (long double *)&newPoint[0], &xa, &ya, deltaXHeight);
+	    newPoint[0] = tan(xa);
+	    newPoint[1] = tan(ya);
+	    tempBestCos =
+	      ((newPoint[0]*tan4thPtX) + (newPoint[1]*tan4thPtY) + 1.L)
+	      / sqrt((sec4thPtSq * (Square(newPoint[0]) + Square(newPoint[1])) + 1.L));
+		if (fabs(1.L - tempBestCos) > tolerance)
+		  return(false);
 	}
-#else
-	{
-		long double debugDiscrepancy, errDistSq, tempPoint[3];
-		errDistSq = Square ( tolerance );
-		
-		i = 4;
-		while ( i-- )
-		{
-			TransformPoint ( tr, iPt[i].oldLoc, newPoint );
-			j = 4;
-			while ( j-- )
-			{
-				TransformPoint
-					( &trBestForEach3, iPt[i].oldLoc, tempPoint );
-				debugDiscrepancy =
-					Square ( tempPoint[2] - newPoint[2] ) + 
-					Square ( tempPoint[1] - newPoint[1] ) +
-					Square ( tempPoint[0] - newPoint[0] );
-				if ( errDistSq <= debugDiscrepancy ) return false;
-			}
-		}
-	}
-#endif
         Dtr->rotMatrix[0][0] = (double)(tr->rotMatrix[0][0]);
         Dtr->rotMatrix[0][1] = (double)(tr->rotMatrix[0][1]);
         Dtr->rotMatrix[0][2] = (double)(tr->rotMatrix[0][2]);
@@ -537,19 +396,19 @@ printf( "L3D514 %20.12Lf %Lg\n", tempBestCos, 1.0 - tempBestCos );
         Dtr->transVector[0] = (double)(tr->transVector[0]);
         Dtr->transVector[1] = (double)(tr->transVector[1]);
         Dtr->transVector[2] = (double)(tr->transVector[2]);
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[0][0] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[0][1] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[0][2] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[1][0] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[1][1] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[1][2] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[2][0] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[2][1] );
-        printf( "transform %20.12lf\n", Dtr->rotMatrix[2][2] );
-        printf( "transform %20.12lf\n", Dtr->transVector[0] );
-        printf( "transform %20.12lf\n", Dtr->transVector[1] );
-        printf( "transform %20.12lf\n", Dtr->transVector[2] );
-	return true;
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][0] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][1] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][2] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][0] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][1] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][2] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][0] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][1] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][2] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[0] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[1] );
+        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[2] );
+	return(true);
 }
 
 /* Works only for matrices with det > 0 */
@@ -668,7 +527,7 @@ void MakeARotMatrix ( long double m[3][3] )
 /*	is actually found. 												*/
 /********************************************************************/
 
-long double ZfromR ( long double R, long double xa, long double ya,
+long double ZfromR(struct lg_master *pLgMaster, long double R, long double xa, long double ya,
 		long double deltaXHeight )
 {
 	long double cosX, cosY, sinX, sinY, fX, fY, d;
@@ -676,49 +535,39 @@ long double ZfromR ( long double R, long double xa, long double ya,
 	cosY = cos ( ya );
 	sinX = sin ( xa );
 	sinY = sin ( ya );
-	fX = gHalfMirror * MirrorFactor_ ( xa );
-	fY = gHalfMirror * MirrorFactor_ ( ya );
-	d = deltaXHeight - gHalfMirror * MirrorOffset_ ( ya );
-	return (
-		d * Square ( sinX ) * fabs ( cosY )
-		- fabs ( cosX * cosY ) * sqrt (
-		Square ( R ) - Square ( d * sinX )
-		
-			- Square ( fY ) * ( 1.L - Square ( cosX * sinY ) )
-			- Square ( fX * cosX )
-			+ 2.L * d * fX * sinX * cosX
-			- 2.L * d * fY * Square ( sinX ) * sinY *
-				( ( cosY < 0.L ) ? -1.L : 1.L )
-			+ 2.L * fX * fY * cosX * sinX * sinY * 
-				( ( cosY < 0.L ) ? -1.L : 1.L )
-
-		)
-
-			- fY * Square ( cosX ) * cosY * sinY
-			- fX * fabs ( cosY ) * sinX * cosX );
+	fX = pLgMaster->gHalfMirror * MirrorFactor_(xa);
+	fY = pLgMaster->gHalfMirror * MirrorFactor_(ya);
+	d = deltaXHeight - (pLgMaster->gHalfMirror * MirrorOffset_(ya));
+	return ((d * Square(sinX) * fabs(cosY))
+		- (fabs(cosX * cosY) * sqrt(Square(R) - Square(d * sinX))
+		   - (Square(fY) * (1.L - Square(cosX * sinY)))
+		   - Square(fX * cosX)
+		   + (2.L * d * fX * sinX * cosX)
+		   - (2.L * d * fY * Square(sinX) * sinY * ((cosY < 0.L) ? -1.L : 1.L))
+		   + (2.L * fX * fY * cosX * sinX * sinY * ((cosY < 0.L) ? -1.L : 1.L)))
+		- (fY * Square(cosX) * cosY * sinY)
+		- (fX * fabs(cosY) * sinX * cosX));
 }
 
-long double CoeffX ( long double z, long double xa, long double ya,
+long double CoeffX(struct lg_master *pLgMaster, long double z, long double xa, long double ya,
 		long double deltaXHeight )
 {
-	if ( fabs ( z ) > LDBL_MIN )
-		return ( tan ( xa ) * ( 1.L / fabs ( cos ( ya ) ) + 
-		fabs ( ( deltaXHeight -
-			gHalfMirror * MirrorOffset_ ( ya ) ) / z ) ) + 
-		gHalfMirror * MirrorFactor_ ( xa ) / z );
-	else return ( tan ( xa ) / fabs ( cos ( ya ) ) );
+    if (fabs(z) > LDBL_MIN)
+      return(tan(xa) * (1.L / fabs(cos(ya))
+			+ fabs((deltaXHeight - pLgMaster->gHalfMirror * MirrorOffset_(ya)) / z))
+	     + pLgMaster->gHalfMirror * MirrorFactor_(xa) / z);
+    return(tan(xa) / fabs(cos(ya)));
 }
 
-long double CoeffY ( long double z, long double ya )
+long double CoeffY(struct lg_master *pLgMaster, long double z, long double ya )
 {
-	if ( fabs ( z ) > LDBL_MIN )
-		return ( tan ( ya ) + gHalfMirror * MirrorFactor_ ( ya ) / z );
-	else return ( tan ( ya ) );
+    if (fabs(z) > LDBL_MIN)
+      return(tan(ya) + pLgMaster->gHalfMirror * MirrorFactor_(ya) / z);
+    return (tan(ya));
 }
 
-short From3PtsToTrans
-	( inputPoint *iPt0, inputPoint *iPt1, inputPoint *iPt2,
-	long double deltaXHeight, transform tr[16] )
+static short From3PtsToTrans(struct lg_master *pLgMaster, inputPoint *iPt0, inputPoint *iPt1,
+			     inputPoint *iPt2, long double deltaXHeight, transform *tr)
 {	
 	long double secSq0, secSq1, secSq2;
 	long double a01, a02, a12;
@@ -810,24 +659,21 @@ short From3PtsToTrans
 			maxR[j] /= (long double)outputNumber;
 		}
 		
-		tempZ0 = ZfromR
-			( maxR[0], iPt0->xRad, iPt0->yRad, deltaXHeight );
-		ax0 = CoeffX ( tempZ0, iPt0->xRad, iPt0->yRad, deltaXHeight );
-		ay0 = CoeffY ( tempZ0, iPt0->yRad );
+		tempZ0 = ZfromR(pLgMaster, maxR[0], iPt0->xRad, iPt0->yRad, deltaXHeight);
+		ax0 = CoeffX(pLgMaster, tempZ0, iPt0->xRad, iPt0->yRad, deltaXHeight);
+		ay0 = CoeffY(pLgMaster, tempZ0, iPt0->yRad);
 
-		tempZ1 = ZfromR
-			( maxR[1], iPt1->xRad, iPt1->yRad, deltaXHeight );
-		ax1 = CoeffX ( tempZ1, iPt1->xRad, iPt1->yRad, deltaXHeight );
-		ay1 = CoeffY ( tempZ1, iPt1->yRad );
+		tempZ1 = ZfromR(pLgMaster, maxR[1], iPt1->xRad, iPt1->yRad, deltaXHeight);
+		ax1 = CoeffX(pLgMaster, tempZ1, iPt1->xRad, iPt1->yRad, deltaXHeight);
+		ay1 = CoeffY(pLgMaster, tempZ1, iPt1->yRad);
 
-		tempZ2 = ZfromR
-			( maxR[2], iPt2->xRad, iPt2->yRad, deltaXHeight );
-		ax2 = CoeffX ( tempZ2, iPt2->xRad, iPt2->yRad, deltaXHeight );
-		ay2 = CoeffY ( tempZ2, iPt2->yRad );
+		tempZ2 = ZfromR(pLgMaster, maxR[2], iPt2->xRad, iPt2->yRad, deltaXHeight);
+		ax2 = CoeffX(pLgMaster, tempZ2, iPt2->xRad, iPt2->yRad, deltaXHeight);
+		ay2 = CoeffY(pLgMaster, tempZ2, iPt2->yRad);
 		
-		secSq0 = Square ( ax0 ) + Square ( ay0 ) + 1.L;
-		secSq1 = Square ( ax1 ) + Square ( ay1 ) + 1.L;
-		secSq2 = Square ( ax2 ) + Square ( ay2 ) + 1.L;
+		secSq0 = Square(ax0) + Square(ay0) + 1.L;
+		secSq1 = Square(ax1) + Square(ay1) + 1.L;
+		secSq2 = Square(ax2) + Square(ay2) + 1.L;
 		
 		a01 = ( ax0 * ax1 + ay0 * ay1 + 1.L ) / sqrt ( secSq0 * secSq1 );
 		a02 = ( ax0 * ax2 + ay0 * ay2 + 1.L ) / sqrt ( secSq0 * secSq2 );
@@ -838,95 +684,84 @@ short From3PtsToTrans
 	}
 
 	i = outputNumber;
-	while ( i-- )
-	{
-		iterN = 0;
-		do
-		{
-			tempZ0 = ZfromR
-				( newRs[i][0], iPt0->xRad, iPt0->yRad, deltaXHeight );
-			ax0 = CoeffX
-				( tempZ0, iPt0->xRad, iPt0->yRad, deltaXHeight );
-			ay0 = CoeffY ( tempZ0, iPt0->yRad );
+	while (i--)
+	  {
+	    iterN = 0;
+	    do
+	      {
+		tempZ0 = ZfromR(pLgMaster, newRs[i][0], iPt0->xRad, iPt0->yRad, deltaXHeight);
+		ax0 = CoeffX(pLgMaster, tempZ0, iPt0->xRad, iPt0->yRad, deltaXHeight);
+		ay0 = CoeffY(pLgMaster, tempZ0, iPt0->yRad);
 
-			tempZ1 = ZfromR
-				( newRs[i][1], iPt1->xRad, iPt1->yRad, deltaXHeight );
-			ax1 = CoeffX
-				( tempZ1, iPt1->xRad, iPt1->yRad, deltaXHeight );
-			ay1 = CoeffY ( tempZ1, iPt1->yRad );
+		tempZ1 = ZfromR(pLgMaster, newRs[i][1], iPt1->xRad, iPt1->yRad, deltaXHeight);
+		ax1 = CoeffX(pLgMaster, tempZ1, iPt1->xRad, iPt1->yRad, deltaXHeight);
+		ay1 = CoeffY(pLgMaster, tempZ1, iPt1->yRad);
 
-			tempZ2 = ZfromR
-				( newRs[i][2], iPt2->xRad, iPt2->yRad, deltaXHeight );
-			ax2 = CoeffX
-				( tempZ2, iPt2->xRad, iPt2->yRad, deltaXHeight );
-			ay2 = CoeffY ( tempZ2, iPt2->yRad );
+		tempZ2 = ZfromR(pLgMaster, newRs[i][2], iPt2->xRad, iPt2->yRad, deltaXHeight);
+		ax2 = CoeffX(pLgMaster, tempZ2, iPt2->xRad, iPt2->yRad, deltaXHeight);
+		ay2 = CoeffY(pLgMaster, tempZ2, iPt2->yRad);
 
-			secSq0 = Square ( ax0 ) + Square ( ay0 ) + 1.L;
-			secSq1 = Square ( ax1 ) + Square ( ay1 ) + 1.L;
-			secSq2 = Square ( ax2 ) + Square ( ay2 ) + 1.L;
+		secSq0 = Square ( ax0 ) + Square ( ay0 ) + 1.L;
+		secSq1 = Square ( ax1 ) + Square ( ay1 ) + 1.L;
+		secSq2 = Square ( ax2 ) + Square ( ay2 ) + 1.L;
 			
-			a01 = ( ax0 * ax1 + ay0 * ay1 + 1.L ) /
-				sqrt ( secSq0 * secSq1 );
-			a02 = ( ax0 * ax2 + ay0 * ay2 + 1.L ) /
-				sqrt ( secSq0 * secSq2 );
-			a12 = ( ax1 * ax2 + ay1 * ay2 + 1.L ) /
-				sqrt ( secSq1 * secSq2 );
+		a01 = ((ax0 * ax1) + (ay0 * ay1) + 1.L) / sqrt(secSq0 * secSq1);
+		a02 = ((ax0 * ax2) + (ay0 * ay2) + 1.L) / sqrt(secSq0 * secSq2);
+		a12 = ((ax1 * ax2) + (ay1 * ay2) + 1.L) / sqrt(secSq1 * secSq2);
 			
-			j = SolveTheSystem
-				( a01, sqd01, a02, sqd02, a12, sqd12, tempRs );
+		j = SolveTheSystem(a01, sqd01, a02, sqd02, a12, sqd12, tempRs);
 			
-			minDr = 3.L;
-			fBetterRisFound = false;
-			while ( j-- )
-			{	
-				tempDr = 0.L;
-				k = 3;
-				while ( k-- )
-				{
-					if ( tempRs[j][k] > newRs[i][k] )
-					{
-						if ( tempRs[j][k] > LDBL_MIN ) tempDr +=
-							fabs ( tempRs[j][k] - newRs[i][k] ) /
-							tempRs[j][k];
-						else tempDr +=
-							fabs ( tempRs[j][k] - newRs[i][k] );
-					}
-					else
-					{
-						if ( newRs[i][k] > LDBL_MIN ) tempDr +=
-							fabs ( tempRs[j][k] - newRs[i][k] ) /
-							newRs[i][k];
-						else tempDr +=
-							fabs ( tempRs[j][k] - newRs[i][k] );
-					}
-				}
-				if ( tempDr < minDr )
-				{
-					fBetterRisFound = true;
-					bestJ = j;
-					minDr = tempDr;
-				}
-			}
-			if ( fBetterRisFound  )
-			{
-				newRs[i][0] = tempRs[bestJ][0];
-				newRs[i][1] = tempRs[bestJ][1];
-				newRs[i][2] = tempRs[bestJ][2];
-			}
-		} while ( ( minDr > kReallySmall ) && ( iterN++ < kMaxIter ) );
+		minDr = 3.L;
+		fBetterRisFound = false;
+		while (j--)
+		  {	
+		    tempDr = 0.L;
+		    k = 3;
+		    while (k--)
+		      {
+			if (tempRs[j][k] > newRs[i][k])
+			  {
+			    if (tempRs[j][k] > LDBL_MIN ) tempDr +=
+							    fabs ( tempRs[j][k] - newRs[i][k] ) /
+							    tempRs[j][k];
+			    else tempDr += fabs ( tempRs[j][k] - newRs[i][k] );
+			  }
+			else
+			  {
+			    if (newRs[i][k] > LDBL_MIN) tempDr +=
+							  fabs ( tempRs[j][k] - newRs[i][k] ) /
+							  newRs[i][k];
+			    else tempDr += fabs ( tempRs[j][k] - newRs[i][k] );
+			  }
+		      }
+		    if (tempDr < minDr)
+		      {
+			fBetterRisFound = true;
+			bestJ = j;
+			minDr = tempDr;
+		      }
+		  }
+		if (fBetterRisFound)
+		  {
+		    newRs[i][0] = tempRs[bestJ][0];
+		    newRs[i][1] = tempRs[bestJ][1];
+		    newRs[i][2] = tempRs[bestJ][2];
+		  }
+	      }
+	    while ((minDr > kReallySmall) && (iterN++ < kMaxIter));
 		
-		if ( minDr > kReallySmall )
+	    if ( minDr > kReallySmall )
+	      {
+		j = i;
+		while ( ++j < outputNumber );
 		{
-			j = i;
-			while ( ++j < outputNumber );
-			{
-				newRs[j-1][0] = newRs[j][0];
-				newRs[j-1][1] = newRs[j][1];
-				newRs[j-1][2] = newRs[j][2];
-			}
-			outputNumber--;
+		  newRs[j-1][0] = newRs[j][0];
+		  newRs[j-1][1] = newRs[j][1];
+		  newRs[j-1][2] = newRs[j][2];
 		}
-	}
+		outputNumber--;
+	      }
+	  }
 	
 	sqd01 = sqrt ( sqd01 );
 	iPtD01[0] /= sqd01;
@@ -940,37 +775,31 @@ short From3PtsToTrans
 		
 	i = outputNumber;
 	while ( i-- )
-	{
-		oPt0[2] = ZfromR
-				( newRs[i][0], iPt0->xRad, iPt0->yRad, deltaXHeight );
-		oPt1[2] = ZfromR
-				( newRs[i][1], iPt1->xRad, iPt1->yRad, deltaXHeight );
-		oPt2[2] = ZfromR
-				( newRs[i][2], iPt2->xRad, iPt2->yRad, deltaXHeight );
-													
-		oPt0[0] = oPt0[2] * tan ( iPt0->xRad ) *
-			( 1.L / fabs ( cos ( iPt0->yRad ) ) +
-			fabs ( ( deltaXHeight -
-			gHalfMirror * MirrorOffset_ ( iPt0->yRad ) ) / oPt0[2] ) )
-			+ gHalfMirror * MirrorFactor_ ( iPt0->xRad );
-		oPt0[1] = oPt0[2] * tan ( iPt0->yRad ) +
-			gHalfMirror * MirrorFactor_ ( iPt0->yRad );
+	  {
+	    oPt0[2] = ZfromR(pLgMaster, newRs[i][0], iPt0->xRad, iPt0->yRad, deltaXHeight);
+	    oPt1[2] = ZfromR(pLgMaster, newRs[i][1], iPt1->xRad, iPt1->yRad, deltaXHeight);
+	    oPt2[2] = ZfromR(pLgMaster, newRs[i][2], iPt2->xRad, iPt2->yRad, deltaXHeight );
+	    oPt0[0] = oPt0[2] * tan(iPt0->xRad) *
+	      (1.L / fabs(cos(iPt0->yRad)) + fabs((deltaXHeight -
+						   pLgMaster->gHalfMirror * MirrorOffset_(iPt0->yRad)) /
+						  oPt0[2]))
+	      + pLgMaster->gHalfMirror * MirrorFactor_(iPt0->xRad);
+	    oPt0[1] = oPt0[2] * tan(iPt0->yRad) +
+	      pLgMaster->gHalfMirror * MirrorFactor_(iPt0->yRad);
 									
-		oPt1[0] = oPt1[2] * tan ( iPt1->xRad ) *
-			( 1.L / fabs ( cos ( iPt1->yRad ) ) +
-			fabs ( ( deltaXHeight -
-			gHalfMirror * MirrorOffset_ ( iPt1->yRad ) ) / oPt1[2] ) )
-			+ gHalfMirror * MirrorFactor_ ( iPt1->xRad );
-		oPt1[1] = oPt1[2] * tan ( iPt1->yRad ) +
-			gHalfMirror * MirrorFactor_ ( iPt1->yRad );
-									
-		oPt2[0] = oPt2[2] * tan ( iPt2->xRad ) *
-			( 1.L / fabs ( cos ( iPt2->yRad ) ) +
-			fabs ( ( deltaXHeight -
-			gHalfMirror * MirrorOffset_ ( iPt2->yRad ) ) / oPt2[2] ) )
-			+ gHalfMirror * MirrorFactor_ ( iPt2->xRad );
-		oPt2[1] = oPt2[2] * tan ( iPt2->yRad ) +
-			gHalfMirror * MirrorFactor_ ( iPt2->yRad );
+	    oPt1[0] = oPt1[2] * tan(iPt1->xRad)
+	      * (1.L / fabs(cos(iPt1->yRad))
+		 + fabs((deltaXHeight - pLgMaster->gHalfMirror * MirrorOffset_(iPt1->yRad)) / oPt1[2]))
+	      + pLgMaster->gHalfMirror * MirrorFactor_(iPt1->xRad);
+	    oPt1[1] = oPt1[2] * tan(iPt1->yRad) +
+	      pLgMaster->gHalfMirror * MirrorFactor_(iPt1->yRad);
+	    oPt2[0] = oPt2[2] * tan(iPt2->xRad) *
+	      (1.L / fabs(cos(iPt2->yRad)) +
+	       fabs((deltaXHeight -
+		     pLgMaster->gHalfMirror * MirrorOffset_(iPt2->yRad)) / oPt2[2]))
+	      + pLgMaster->gHalfMirror * MirrorFactor_(iPt2->xRad);
+	    oPt2[1] = oPt2[2] * tan(iPt2->yRad) +
+	      pLgMaster->gHalfMirror * MirrorFactor_(iPt2->yRad);
 		
 		oPtD01[0] = ( oPt1[0] - oPt0[0] );
 		oPtD01[1] = ( oPt1[1] - oPt0[1] );
@@ -1943,15 +1772,8 @@ pDist ( inputPoint *iPt0, inputPoint *iPt1, inputPoint *iPt2 )
         delx = xp - ax3;
         dely = yp - ay3;
         delz = zp - az3;
-        mag3p = sqrt( delx*delx + dely*dely + delz*delz );
-#ifdef Z3DEBUG
-fprintf( stderr, "pDist   pt1 %lf %lf %lf\n", ax1, ay1, az1 );
-fprintf( stderr, "pDist   pt2 %lf %lf %lf\n", ax2, ay2, az2 );
-fprintf( stderr, "pDist   pt3 %lf %lf %lf\n", ax3, ay3, az3 );
-fprintf( stderr, "pDist   mag3p %lf\n", mag3p );
-#endif
-
-        return( mag3p );
+        mag3p = sqrt(delx*delx + dely*dely + delz*delz);
+        return(mag3p);
 }
 
 
@@ -1991,14 +1813,7 @@ aDist ( inputPoint *iPt0, inputPoint *iPt1, inputPoint *iPt2 )
         delx = xp - ax3;
         dely = yp - ay3;
         delz = zp - az3;
-        amag3p = sqrt( delx*delx + dely*dely + delz*delz );
-#ifdef Z3DEBUG
-fprintf( stderr, "aDist   pt1 %lf %lf %lf\n", ax1, ay1, az1 );
-fprintf( stderr, "aDist   pt2 %lf %lf %lf\n", ax2, ay2, az2 );
-fprintf( stderr, "aDist   pt3 %lf %lf %lf\n", ax3, ay3, az3 );
-fprintf( stderr, "aDist   amag3p %lf\n", amag3p );
-#endif
-
-        return( amag3p );
+        amag3p = sqrt((delx*delx) + (dely*dely) + (delz*delz));
+        return(amag3p);
 }
 

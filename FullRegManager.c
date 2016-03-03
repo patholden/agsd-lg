@@ -111,12 +111,8 @@ void PerformAndSendFullReg (struct lg_master *pLgMaster,
 
   if ( numberOfFoundTargets >= 4 )
     {
-      theResult = FindTransformMatrix ( kNumberOfRegPoints
-					, gDeltaMirror
-					, theTransformTolerance
-					, foundAngles
-					, (double *)&foundTransform
-					);
+      theResult = FindTransformMatrix(pLgMaster, kNumberOfRegPoints, gDeltaMirror, theTransformTolerance,
+				      foundAngles, (double *)&foundTransform);
     }
   else
     theResult = 0;

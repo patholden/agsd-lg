@@ -22,7 +22,7 @@
 #include "angles.h"
 
 
-double chisqr(double params[])
+double chisqr(struct lg_master *pLgMaster, double params[])
 {
     double roll, pitch, yaw;
     double xtrans, ytrans, ztrans;
@@ -40,8 +40,6 @@ double chisqr(double params[])
     double chisum;
     double angSQR;
     
-
-
     roll   = params[1];
     pitch  = params[2];
     yaw    = params[3];
@@ -61,7 +59,7 @@ double chisqr(double params[])
         newY = newLoc[1];
         newZ = newLoc[2];
         
-        GeometricAnglesFrom3D(newX,newY,newZ,&angX,&angY);
+        GeometricAnglesFrom3D(pLgMaster,newX,newY,newZ,&angX,&angY);
         delAngX = fabs( angX - chiXfoundAngle[i] );
         delAngY = fabs( angY - chiYfoundAngle[i] );
         angSQR  = delAngX*delAngX + delAngY*delAngY;

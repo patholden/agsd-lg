@@ -1,22 +1,24 @@
 #include <stdint.h>
-
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <string.h>
+#include <syslog.h>
+#include <math.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/tcp.h>
+#include <linux/laser_api.h>
+#include "BoardComm.h"
 #include "allace4.h"
 #include "permutes.h"
 #include "L3DTransform.h"
 #include "area_order.h"
 #include "heap.h"
 
-void
-area_order( int  numin
-          , doubleInputPoint *inPt
-          , int *num_out
-          , permutes *Combos
-          , int32_t * reversedex
-          , int * found
-          )
+void area_order(int  numin, doubleInputPoint *inPt, int *num_out, permutes *Combos,
+		int32_t * reversedex, int * found)
 {
     double x[4], y[4];
     int count, i, j, k, l;
@@ -64,19 +66,5 @@ area_order( int  numin
          reversedex[1+ncombo-i] = area_index[i];
     }
     *num_out = ncombo;
-
-#ifdef YDEBUG
-    for ( i=1; i <= ncombo; i++ ) {
-       printf( "%5d %12.4lf %12.4lf %2d %2d %2d %2d\n"
-             , i
-             , area_array[reversedex[i]]
-             , Combos[reversedex[i]].area
-             , Combos[reversedex[i]].index1
-             , Combos[reversedex[i]].index2
-             , Combos[reversedex[i]].index3
-             , Combos[reversedex[i]].index4
-             );
-    }
-#endif
-
+    return;
 }

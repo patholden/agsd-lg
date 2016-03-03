@@ -1,20 +1,13 @@
-#include <stdint.h>
 /*   $Id: AutoCert.h,v 1.6 1999/07/29 19:49:42 ags-sw Exp $  */
-
-#ifndef __unix__
-#pragma once
-#endif
+#ifndef AUTOCERT_H
+#define AUTOCERT_H
 
 #define	kMaxNumberOfSensorsInBGD	100
 
-extern int DoAutoCert ( double Xin, double Yin, double Zin,
-                  double *Xexpect, double *Yexpect,
-                  double *Xfound,  double *Yfound );
-
-extern      void    HandleAutoCert ( int int32_tDoubleFlag,
-				char * parameters,
-                                uint32_t respondToWhom );
-
+int DoAutoCert(double Xin, double Yin, double Zin,
+	       double *Xexpect, double *Yexpect,
+	       double *Xfound,  double *Yfound);
+void HandleAutoCert(int int32_tDoubleFlag, char *parameters,  uint32_t respondToWhom);
 
 extern	double			gTolerance;
 extern	double			gExtraTolerance;
@@ -54,3 +47,4 @@ typedef struct
 } BGDSensor;
 
 extern	BGDSensor *gSensors;
+#endif

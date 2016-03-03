@@ -10,8 +10,8 @@
 #include "AppResponses.h"
 
 
-void
-DoSuperLevelScan( double dX, double dY )
+// FIXME---PAH---NEEDS CMD/RESP FIXES
+void DoSuperLevelScan(double dX, double dY )
 {
       uint32_t xoff, yoff;
       uint32_t xout, yout;
@@ -24,17 +24,8 @@ DoSuperLevelScan( double dX, double dY )
       uint32_t ymid;
       char theResponseBuffer[sizeof ( uint32_t ) + kCRCSize];     
 
-#ifdef ZZZDEBUG
-fprintf( stderr, "entering DoLevelScan\n" );
-fprintf( stderr, "DoLevelScan x,y double %10.6lf %10.6lf\n", dX, dY );
-#endif
-
       *(uint32_t *)theResponseBuffer =
            ConvertExternalAnglesToBinary( dX, dY, &xmid, &ymid );
-
-#ifdef ZZZDEBUG
-fprintf( stderr, "DoLevelScan x,y mid %8x %8x\n", xmid, ymid );
-#endif
 
       memset( (void *)&(scandata[0]), 0, 66*66*sizeof(uint32_t) );
       
@@ -51,10 +42,6 @@ fprintf( stderr, "DoLevelScan x,y mid %8x %8x\n", xmid, ymid );
       xoff = xmid - ((LSCNTSTEP * LSSTEPSIZE) / 2 );
       yoff = ymid - ((LSCNTSTEP * LSSTEPSIZE) / 2 );
    
-#ifdef ZZZDEBUG
-fprintf( stderr, "DoLevelScan x,y off %8x %8x\n", xoff, yoff );
-#endif
-
       for ( y = 0x1U; y <= LSCNTSTEP; y += 0x2U ) {
           xout   =     LSSTEPSIZE + xoff;
           yout   = y * LSSTEPSIZE + yoff;
@@ -85,10 +72,6 @@ fprintf( stderr, "DoLevelScan x,y off %8x %8x\n", xoff, yoff );
       }
 
       SlowDownAndStop( );
-
-#ifdef ZZZDEBUG
-fprintf( stderr, "DoLevelScan about to HandleResponse\n" );
-#endif
       *(uint32_t *)theResponseBuffer = kOK;
       HandleResponse ( (char *)theResponseBuffer,
                         sizeof ( uint32_t ), kRespondExtern );

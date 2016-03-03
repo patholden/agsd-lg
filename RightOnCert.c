@@ -6,6 +6,7 @@ static char rcsid[] = "$Id: RightOnCert.c,v 1.2 2000/05/05 23:54:44 ags-sw Exp p
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -21,7 +22,6 @@ static char rcsid[] = "$Id: RightOnCert.c,v 1.2 2000/05/05 23:54:44 ags-sw Exp p
 #include "comm_loop.h"
 #include "AppCommon.h"
 #include "parse_data.h"
-#include "AppResponses.h"
 #include "3DTransform.h"
 #include "AngleCorrections.h"
 #include "SensorSearch.h"
@@ -75,9 +75,6 @@ void RightOnCert(struct lg_master *pLgMaster,
    Xin = pInp->inp_Xin;
    Yin = pInp->inp_Yin;
    Zin = pInp->inp_Zin;
-#ifdef ZDEBUG
-   fprintf(stderr, "ROC79 XYZin %lf %lf %lf\n", Xin, Yin, Zin );
-#endif
    inPt[0] = Xin; inPt[1] = Yin; inPt[2] = Zin; 
    TransformPoint( &theTransform, inPt, outPt );
    Xtr = (double)outPt[0];
@@ -87,7 +84,7 @@ void RightOnCert(struct lg_master *pLgMaster,
    YrawAngle = pInp->inp_YrawAngle;
    XgeomAngle = pInp->inp_XgeomAngle;
    YgeomAngle = pInp->inp_YgeomAngle;
-   GeometricAnglesFrom3D( Xtr, Ytr, Ztr, &aXd, &aYd );
+   GeometricAnglesFrom3D(pLgMaster, Xtr, Ytr, Ztr, &aXd, &aYd );
    ConvertGeometricAnglesToMirror( &aXd, &aYd );
    if (pLgMaster->gCALIBFileOK)
      {
@@ -103,111 +100,87 @@ void RightOnCert(struct lg_master *pLgMaster,
    aXg = aXe;
    aYg = aYe;
    ConvertMirrorToGeometricAngles( &aXg, &aYg );
-   XYFromGeometricAnglesAndZ( aXg, aYg, Ztr, &Xe, &Ye );
- 
+   XYFromGeometricAnglesAndZ(pLgMaster, aXg, aYg, Ztr, &Xe, &Ye );
    ConvertMirrorAnglesToBinary( aXe, aYe, &bXe, &bYe );
-
-#ifdef ZDEBUG
-   fprintf( stderr, "ROC115 RawGeomFlag %d\n", RawGeomFlag );
-   fprintf( stderr, "ROC116 rawA %x %x\n", XrawAngle, YrawAngle );
-#endif
-
-   if ( RawGeomFlag == 1 ) {
+   if (RawGeomFlag == 1)
+     {
        bXe = XrawAngle;
        bYe = YrawAngle;
-   } else if ( RawGeomFlag == 2 ) {
-
+   }
+   else if (RawGeomFlag == 2)
      ConvertExternalAnglesToBinary(pLgMaster, XgeomAngle, YgeomAngle, &bXe, &bYe );
-   }
-#ifdef ZDEBUG
-fprintf( stderr, "ROC125 geom %lf %lf\n", XgeomAngle, YgeomAngle );
-fprintf( stderr, "ROC127 rawA %x %x\n", bXe, bYe );
-#endif
-
-   switch( pLgMaster->gHeaderSpecialByte ) {
-         case 0:
-              gCoarse2Factor     = gCoarseFactor;
-              pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-              break;
-         case 1:
-              gCoarse2Factor     = 1;
-              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-              break;
-         case 2:
-              gCoarse2Factor     = 2;
-              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-              break;
-         case 3:
-              gCoarse2Factor     = 4;
-              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-              break;
-         case 4:
-              gCoarse2Factor     = 8;
-              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-              break;
-         default:
-              gCoarse2Factor     = 1;
-              pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-              break;
-   }
-
-   status = SearchForASensor ( pLgMaster, bXe, bYe, &bXf, &bYf );
-   
-   if ( status == kStopWasDone ) {
-     SearchBeamOff(pLgMaster);
-     pRespErr->hdr.status = RESPGOOD;
-     HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-     return;
-   }
-
+   switch(pLgMaster->gHeaderSpecialByte)
+     {
+     case 0:
+       gCoarse2Factor     = gCoarseFactor;
+       pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+       break;
+     case 1:
+       gCoarse2Factor     = 1;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       break;
+     case 2:
+       gCoarse2Factor     = 2;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       break;
+     case 3:
+       gCoarse2Factor     = 4;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       break;
+     case 4:
+       gCoarse2Factor     = 8;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       break;
+     default:
+       gCoarse2Factor     = 1;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       break;
+     }
+   status = SearchForASensor(pLgMaster, bXe, bYe, &bXf, &bYf);
+   if (status == kStopWasDone)
+     {
+       SearchBeamOff(pLgMaster);
+       pRespErr->hdr.status = RESPGOOD;
+       HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+       return;
+     }
    ConvertBinaryToMirrorAngles( bXf, bYf, &aXf, &aYf );
    ConvertMirrorToGeometricAngles( &aXf, &aYf );
-
-   XYFromGeometricAnglesAndZ( aXf, aYf, Ztr, &Xf, &Yf );
-
+   XYFromGeometricAnglesAndZ(pLgMaster, aXf, aYf, Ztr, &Xf, &Yf );
    Xexpect = Xe;
    Yexpect = Ye;
    Xfound  = Xf;
    Yfound  = Yf;
-
    time_now = uptime( );
    time_diff = time_now - time_start;
+   syslog(LOG_NOTICE, "RightOnCert time diff %lf  end/start %lf %lf",
+	  time_diff, time_now, time_start);
 
-   fprintf( stderr, "RightOnCert time diff %lf  end/start %lf %lf\n",
-         time_diff, time_now, time_start );
-
-   if( status ) {
-     pRespErr->hdr.status = RESPFAIL;
-     HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-     return;
-   } else {
-     pResp->hdr.status = RESPGOOD;
-     pResp->Xtr = Xtr; 
-     pResp->Ytr = Ytr; 
-     pResp->Ztr = Ztr; 
-     pResp->Xfound = Xfound; 
-     pResp->Yfound = Yfound; 
-     pResp->Xexpect = Xexpect; 
-     pResp->Yexpect = Yexpect; 
-#ifdef ZDEBUG
-     fprintf(stderr, "%lf ", (double)Xtr );
-     fprintf(stderr, "%lf ", (double)Ytr );
-     fprintf(stderr, "%lf ", Xfound );
-     fprintf(stderr, "%lf ", Yfound );
-     fprintf(stderr, "%lf ", Xexpect );
-     fprintf(stderr, "%lf ", Yexpect );
-     fprintf(stderr, "XY tef " );
-     fprintf(stderr, "\n");
-#endif
-     pResp->bXf = bXf;
-     pResp->bYf = bYf;
-     ConvertBinaryToExternalAngles(pLgMaster, bXf, bYf, &Xexternal, &Yexternal);
-     pResp->Xexternal = Xexternal;
-     pResp->Yexternal = Yexternal;
-     HandleResponse (pLgMaster, (sizeof(struct parse_rtoncert_resp)-kCRCSize), respondToWhom);
-     return;
-   }
-
+   if (status)
+     {
+       pRespErr->hdr.status = RESPFAIL;
+       HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+       return;
+     }
+   else
+     {
+       pResp->hdr.status = RESPGOOD;
+       pResp->Xtr = Xtr; 
+       pResp->Ytr = Ytr; 
+       pResp->Ztr = Ztr; 
+       pResp->Xfound = Xfound; 
+       pResp->Yfound = Yfound; 
+       pResp->Xexpect = Xexpect; 
+       pResp->Yexpect = Yexpect; 
+       pResp->bXf = bXf;
+       pResp->bYf = bYf;
+       ConvertBinaryToExternalAngles(pLgMaster, bXf, bYf, &Xexternal, &Yexternal);
+       pResp->Xexternal = Xexternal;
+       pResp->Yexternal = Yexternal;
+       HandleResponse (pLgMaster, (sizeof(struct parse_rtoncert_resp)-kCRCSize), respondToWhom);
+       return;
+     }
+   return;
 }
 
 static double uptime(void)

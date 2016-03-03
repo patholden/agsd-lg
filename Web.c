@@ -2,6 +2,7 @@
  * static char rcsid[]="$Id: Web.c,v 1.1 1997/06/06 18:09:22 ags-sw Exp $";
  */
 #include <stdint.h>
+#include <syslog.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -40,13 +41,13 @@ int GetWebVideo(struct lg_master *pLgMaster, char *inbuff, int incount, char *ou
       tcp_host_info.h_name = NULL;
   }
   if( (fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      fprintf( stderr, "can't create TCP socket\n");
+      syslog(LOG_ERR, "can't create TCP socket");
       close (fd);
       return(-1);
   }
    
   if( connect(fd,(struct sockaddr *)&tcp_srv_addr,sizeof(tcp_srv_addr)) < 0 ) {
-      fprintf( stderr, "can't connect to server\n");
+      syslog(LOG_ERR, "can't connect to server");
       close (fd);
       return(-1);
   }

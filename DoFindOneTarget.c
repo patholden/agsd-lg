@@ -17,7 +17,6 @@ static char rcsid[] = "$Id: DoFindOneTarget.c,v 1.1 2001/01/22 19:51:54 ags-sw E
 #include "comm_loop.h"
 #include "parse_data.h"
 #include "AppCommon.h"
-#include "AppResponses.h"
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"

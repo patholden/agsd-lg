@@ -1,22 +1,12 @@
 #include <stdint.h>
 #include <math.h>
 #include <stdio.h>
-
+#include <syslog.h>
 #include "segpoly.h"
 #include "segtest.h"
 
-int
-segpoly( int npol
-       , double *xp
-       , double *yp
-       , double xin
-       , double yin
-       , double xout
-       , double yout
-       , double *xseg
-       , double *yseg
-       , double *B_u
-       )
+int segpoly(int npol, double *xp, double *yp, double xin, double yin, double xout,
+	    double yout, double *xseg, double *yseg, double *B_u)
 {
       int i, j, c;
       double x1,y1,x2,y2,x3,y3,x4,y4;
@@ -44,7 +34,8 @@ segpoly( int npol
                y_del = y_inter - yin;
                sqr = x_del*x_del + y_del*y_del;
                dist = sqrt( sqr );
-printf( "dist %lf xy %lf %lf  ij %d %d\n", dist, x_inter, y_inter, i, j );
+	       syslog(LOG_NOTICE, "dist %lf xy %lf %lf  ij %d %d",
+		      dist, x_inter, y_inter, i, j);
                if ( dist < min_dist ) {
                    min_dist = dist;
                    *xseg = x_inter;
@@ -54,5 +45,5 @@ printf( "dist %lf xy %lf %lf  ij %d %d\n", dist, x_inter, y_inter, i, j );
                }
           }
       }
-      return c;
+      return(c);
 }

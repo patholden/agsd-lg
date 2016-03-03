@@ -48,7 +48,7 @@ const char *ags_banner =
 
 
 static	int	InitUserStuff (struct lg_master *pLgMaster);
-static	int32_t	UserGoAhead ( void );
+static	int32_t	exit_check( void );
 static void	CloseUserStuff(struct lg_master *pLgMaster);
 
 char * gQCsaveData=0;
@@ -79,8 +79,6 @@ int gVideoCheck = 0;
 int32_t gQuickCheck = 0;
 
 uint32_t gVideoPreDwell = 0;
-
-extern	int32_t	SystemGoAhead ( void );
 
 int gForceTransform = 0;
 int termination_flag=0;
@@ -154,6 +152,7 @@ int main ( int argc, char **argv )
   pthread_t     thread[MAX_NUM_THREADS];
   int32_t i = 0;
   int     error=0;
+  unsigned long    loop_count;
 
   openlog("agsd", 0, LOG_USER);
   syslog(LOG_NOTICE, "%s", ags_banner);
@@ -169,7 +168,6 @@ int main ( int argc, char **argv )
   gFOM        = -1;
   gCentroid   = 1;
   gMaxPiledPts= 9;
-  gSearchFlag = 0;
   gBestTargetNumber = 0;
   for ( i=0; i<128; i++ ) {
     gBestTargetArray[i] = 0;
@@ -211,11 +209,13 @@ int main ( int argc, char **argv )
     }
 
   // start background thread for doing updates
+#if 0
   if ((pthread_mutex_init(&lock, NULL)) != 0)
     {
       closelog();
       exit(EXIT_FAILURE);
     }
+#endif
   // Init thread variables
   memset((char *)&thread_data[0], 0, sizeof(thread_data));
   memset((char *)&thread, 0, sizeof(thread));
@@ -302,42 +302,33 @@ int main ( int argc, char **argv )
       closelog();
       exit(EXIT_FAILURE);
     }
-
-  while (SystemGoAhead() && UserGoAhead())
+  loop_count = 0;
+  while (exit_check())
     {
       if (pConfigMaster->serial_ether_flag == 2)
 	{
 	  error = DoProcEnetPackets(pConfigMaster);
-	  if (error >= 0)
-	    continue;
 	  if (error == -1)
 	    {
-	      if (pConfigMaster->enet_retry_count != COMM_MAX_ENET_RETRIES)
+	      syslog(LOG_ERR, "COMMLOOP: Read  data failure, err = %x, try to re-open", error);
+	      // Try to open Comms interface to PC host
+	      if ((CommConfigSockfd(pConfigMaster)) < 0)
 		{
-		  syslog(LOG_ERR, "\nCOMMLOOP: Read data failure, err = %x, try to re-open", error);
-		  // Try to open Comms interface to PC host
-		  if ((CommConfigSockfd(pConfigMaster)) < 0)
-		    {
-		      syslog(LOG_ERR, "\nCOMMLOOP: Unable to restart Comms, shutting down\n");
-		      ags_cleanup(pConfigMaster);
-		      closelog();
-		      exit(EXIT_FAILURE);
-		    }
-		}
-	      else
-		{
-		  syslog(LOG_ERR, "\nCOMMLOOP: Exceeded Comm restart retry count, shutting down\n");
+		  syslog(LOG_ERR, "COMMLOOP: Unable to restart Comms, shutting down\n");
 		  ags_cleanup(pConfigMaster);
 		  closelog();
 		  exit(EXIT_FAILURE);
 		}
 	    }
 	}
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"Comm Loop Continues, loop count %ld", loop_count++);
+#endif
     }
 
   FlashLed(pConfigMaster, 7);
   // Clean up AGS specific stuff before exiting
-  syslog(LOG_NOTICE, "\nShutting down do to System or User interrupt\n");
+  syslog(LOG_NOTICE, "Shutting down do to System or User interrupt");
   ags_cleanup(pConfigMaster);
   closelog();
   exit(EXIT_SUCCESS);
@@ -370,7 +361,7 @@ int InitUserStuff (struct lg_master *pLgMaster)
   return(0);
 }
 
-int32_t UserGoAhead ( void )
+int32_t exit_check( void )
 {
   // Check for user-input trying to kill this program
   if (termination_flag)   // Check for Ctrl-C, do proper shut down

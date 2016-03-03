@@ -93,9 +93,6 @@ void FlexCalWithFeedback ( struct lg_master *pLgMaster,
             foundTarget[i] = 1;
             angX = pExternalAngles[2*i  ];
             angY = pExternalAngles[2*i+1];
-#ifdef SDEBUG    
-fprintf( stderr, "CalcTrans ext ang %lf %lf\n", angX, angY );
-#endif
             ConvertExternalAnglesToMirror ( angX, angY, &xMirror, &yMirror );
             Xgeo = xMirror;
             Ygeo = yMirror;
@@ -105,9 +102,6 @@ fprintf( stderr, "CalcTrans ext ang %lf %lf\n", angX, angY );
             ConvertExternalAnglesToBinary(pLgMaster, angX, angY, &Xbin, &Ybin);
             Xarr[i] = Xbin;
             Yarr[i] = Ybin;
-#ifdef SDEBUG    
-fprintf( stderr, "CalcTrans %2d ext ang %08x %08x\n", i, Xbin, Ybin );
-#endif
             i++;
         } 
 
@@ -131,73 +125,51 @@ fprintf( stderr, "CalcTrans %2d ext ang %08x %08x\n", i, Xbin, Ybin );
            // if gHeaderSpecialByte is NOT 0x40,
            // then reject duplicate targets
            //
-        if ( !(pLgMaster->gHeaderSpecialByte & 0x40)  ) {
-          for ( i = 0; i < nTargets; i++ ) {
-            for ( j = i; j < nTargets; j++ ) {
-                if ( i != j ) {
-                    if ( (gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]) ) {
-                         foundTarget[j] = 0;
-#ifdef ZDEBUG
-                         fprintf( stderr, "target %d rejected %d\n", j, i );
-                         fprintf( stderr, "  gX %lf %lf\n", gX[i], gX[j] );
-                         fprintf( stderr, "  gY %lf %lf\n", gY[i], gY[j] );
-                         fprintf( stderr, "  gZ %lf %lf\n", gZ[i], gZ[j] );
-#endif
-                    }
-                }
-            }
-          }
-        }
-
-
-        theResult = FindTransformMatrix ( nTargets
-                                        , gDeltaMirror
-                                        , theTransformTolerance
-                                        , foundAngles
-                                        , (double *)&foundTransform
-                                         );
-
-          /* desperate attempt to get something */
-        if ( gSaved == 0 && gForceTransform ) {
+        if (!(pLgMaster->gHeaderSpecialByte & 0x40))
+	  {
+	    for (i = 0; i < nTargets; i++)
+	      {
+		for (j = i; j < nTargets; j++)
+		  {
+		    if (i != j)
+		      {
+			if ((gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
+			  foundTarget[j] = 0;
+		      }
+		  }
+	      }
+	  }
+	theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror,
+                                        theTransformTolerance, foundAngles,
+                                        (double *)&foundTransform);
+	/* desperate attempt to get something */
+        if ((gSaved == 0) && gForceTransform)
+	  {
  	    *(uint32_t *)pLgMaster->theResponseBuffer = kFlexFail;
-            theResult = FindTransformMatrix ( nTargets
-                                            , gDeltaMirror
-                                            , 0.001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                             );
-               // redo with the suggested tolerance
-               // now in variable gWorstTolReg
-            if ( theResult == true ) {
+            theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
+                                            foundAngles, (double *)&foundTransform);
+	    // redo with the suggested tolerance
+	    // now in variable gWorstTolReg
+            if (theResult == true)
+	      {
                 useTol = gWorstTolReg;
-                theResult = FindTransformMatrix ( nTargets
-                                            , gDeltaMirror
-                                            , useTol
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
+                theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, useTol,
+						foundAngles, (double *)&foundTransform);
             }
             GnOfTrans = 0;
             theResult = 0;
         }
         if ( (pLgMaster->gHeaderSpecialByte & 0x20) && gSaved == 0  ) {
  	    *(uint32_t *)pLgMaster->theResponseBuffer = kFlexFail;
-            theResult = FindTransformMatrix ( nTargets
-                                            , gDeltaMirror
-                                            , 0.001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                             );
-               // redo with the suggested tolerance
-               // now in variable gWorstTolReg
-            if ( theResult == true ) {
+            theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
+                                            foundAngles, (double *)&foundTransform);
+	    // redo with the suggested tolerance
+	    // now in variable gWorstTolReg
+            if (theResult == true)
+	      {
                 useTol = gWorstTolReg;
-                theResult = FindTransformMatrix ( nTargets
-                                            , gDeltaMirror
-                                            , useTol
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
+                theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror,
+						useTol, foundAngles, (double *)&foundTransform);
             }
             theResult = 0;
         }
@@ -208,19 +180,11 @@ fprintf( stderr, "CalcTrans %2d ext ang %08x %08x\n", i, Xbin, Ybin );
             }
         }
 
-#ifdef ZDEBUG
-fprintf( stderr, "FCWF183 result %x saved %d\n", theResult, gSaved );
-#endif
-
 	if ( theResult ) {
 	        *(uint32_t *)pLgMaster->theResponseBuffer = kOK;
 	} else {
 		*(uint32_t *)pLgMaster->theResponseBuffer = kFlexFail;
         }
-#ifdef ZDEBUG
-fprintf( stderr, "FCWF192 response %x \n", *(uint32_t *)pLgMaster->theResponseBuffer );
-#endif
-
 	index = sizeof(uint32_t);
 	ucPtr = (unsigned char *)&(pLgMaster->theResponseBuffer[index]);
 
@@ -236,9 +200,6 @@ fprintf( stderr, "FCWF192 response %x \n", *(uint32_t *)pLgMaster->theResponseBu
 	for( i=0; i < nTargets; i++ ) {
                         ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
                         ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-#ifdef ZDEBUG
-fprintf( stderr, "FCT dac xy %08x %08x  i %d\n", Xarr[i], Yarr[i], i );
-#endif
         }
 	index = sizeof(uint32_t)
                   + 12 * ( kSizeOldLongDouble )
@@ -261,9 +222,6 @@ fprintf( stderr, "FCT dac xy %08x %08x  i %d\n", Xarr[i], Yarr[i], i );
                                target_status[i] = 2;
                         }
                         ((int32_t *)ucPtr)[i] = target_status[i];
-#ifdef ZDEBUG
-printf( "FCWF239 save %d point %d   status %d\n",i, savePoint[i],target_status[i]);
-#endif
         }
 
         if (  gSaved > 0  ) {
@@ -289,13 +247,6 @@ printf( "FCWF239 save %d point %d   status %d\n",i, savePoint[i],target_status[i
             ((double *)ucPtr)[1] = 0.0;
             ((double *)ucPtr)[2] = 0.0;
         }
-
-#ifdef ZDEBUG
-fprintf( stderr, "FCWF244 BestTol %lf\n", gBestTolAll );
-fprintf( stderr, "FCWF244 WorstTolAll %lf\n", gWorstTolAll );
-fprintf( stderr, "FCWF244 WorstTolReg %lf\n", gWorstTolReg );
-fprintf( stderr, "FCWF245 special %x  saved %d\n", pLgMaster->gHeaderSpecialByte, gSaved );
-#endif
 
         if ( pLgMaster->gHeaderSpecialByte & 0x20 ) {
 	    HandleResponse ( pLgMaster

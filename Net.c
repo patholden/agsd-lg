@@ -7,6 +7,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <syslog.h>
 #include <linux/laser_api.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -49,19 +50,18 @@ int OpenNet (struct lg_master *pLgMaster)
       bcopy((char *) &inaddr, (char *) &tcp_srv_addr.sin_addr, sizeof(inaddr));
       tcp_host_info.h_name = NULL;
   }
-  if( (net_fd = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
-      fprintf( stderr, "can't create TCP socket\n");
+  if ((net_fd = socket(AF_INET, SOCK_STREAM, 0)) <= 0)
+    {
+      syslog(LOG_ERR, "can't create TCP socket\n");
       close (net_fd);
       return(-1);
-  }
-   
-  if( connect(net_fd,(struct sockaddr *)&tcp_srv_addr,sizeof(tcp_srv_addr))
-            < 0 )
-  {
-      fprintf( stderr, "can't connect to server\n");
+    }
+  if (connect(net_fd,(struct sockaddr *)&tcp_srv_addr,sizeof(tcp_srv_addr)) < 0)
+    {
+      syslog(LOG_ERR, "can't connect to server\n");
       close (net_fd);
       return(-1);
-  }
+    }
   return(0);
 }
 

@@ -7,6 +7,7 @@ static char rcsid[] = "$Id$";
 #include <string.h>
 #include <unistd.h>
 #include <stddef.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -144,7 +145,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
       }
     gCoarse3SearchStep = 0x0008;
 #ifdef PATDEBUG
-    fprintf(stderr,"\nSHOWTGT: num_pairs %d",nTargets);
+    syslog(LOG_DEBUG,"\nSHOWTGT: num_pairs %d",nTargets);
 #endif
     for (i = 0; i < nTargets; i++) {
         Xtemp = Parameters->inp_targetpairs[i].Xangle;
@@ -154,7 +155,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
         Yarr[i] = Yi;
         flag[i] = Parameters->inp_targetpairs[i].flag;
 #ifdef PATDEBUG
-	fprintf(stderr,"\nSHOWTGT: Xangle %fx,Yangle %fx",Xtemp,Ytemp);
+	syslog(LOG_DEBUG,"\nSHOWTGT: Xangle %fx,Yangle %fx",Xtemp,Ytemp);
 #endif
     }
 

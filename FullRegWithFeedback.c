@@ -124,256 +124,170 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
                   + sizeof(double) * kFeedbackNumber * 2;
         pRawAngles = (uint32_t *)(&(parameters)[offset]);
 
-#ifdef ZDEBUG
-fprintf( stderr, "RawGeomFlag %d\n", RawGeomFlag );
-#endif
-        if ( RawGeomFlag == 1 ) {
-           for ( i = 0; i <  kFeedbackNumber ; i++ ) {
-               theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
-               theAngleBuffer[2*i+1] = pRawAngles[2*i+1];
-#ifdef ZDEBUG
-fprintf( stderr
-       , "raw angle %x %x\n"
-       , theAngleBuffer[2*i  ]
-       , theAngleBuffer[2*i+1]
-       );
-#endif
-           }
-        } else if ( RawGeomFlag == 2 ) {
-           for ( i = 0; i <  kFeedbackNumber ; i++ ) {
-	     return_code = ConvertExternalAnglesToBinary (pLgMaster,
-							  pGeometricAngles[2*i],
-							  pGeometricAngles[2*i+1],
-							  &(theAngleBuffer[2*i]),
-							  &(theAngleBuffer[2*i+1]));
+        if ( RawGeomFlag == 1)
+	  {
+	    for ( i = 0; i <  kFeedbackNumber ; i++)
+	      {
+		theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
+		theAngleBuffer[2*i+1] = pRawAngles[2*i+1];
+	      }
+	  }
+	else if (RawGeomFlag == 2)
+	  {
+	    for ( i = 0; i <  kFeedbackNumber ; i++)
+	      {
+		return_code = ConvertExternalAnglesToBinary (pLgMaster,
+							     pGeometricAngles[2*i],
+							     pGeometricAngles[2*i+1],
+							     &(theAngleBuffer[2*i]),
+							     &(theAngleBuffer[2*i+1]));
 		memcpy(RespBuff, &return_code, sizeof(uint32_t));
-#ifdef ZDEBUG
-		fprintf( stderr
-			 , "geometric %lf %lf "
-			 , pGeometricAngles[2*i]
-			 , pGeometricAngles[2*i+1] 
-			 );
-		fprintf( stderr
-			 , "raw angle %x %x\n"
-			 , theAngleBuffer[2*i  ]
-			 , theAngleBuffer[2*i+1]
-			 );
-#endif
-           }
-        } else {
+	      }
         }
         i = 0;
         index = sizeof(int32_t) + sizeof(int32_t);
         currentData = (double *)(&parameters[index]);
-        while ( i < ( kFeedbackNumber * 3 ) )
-        {
-          theCoordinateBuffer[i] = currentData[i];
-          i++;
-        }
+        while (i < (kFeedbackNumber * 3))
+	  {
+	    theCoordinateBuffer[i] = currentData[i];
+	    i++;
+	  }
         SaveFullRegCoordinates ( numberOfTargets, theCoordinateBuffer );
 
-        for ( i = 0; i < numberOfTargets; i++ ) {
-            for ( j = i; j < numberOfTargets; j++ ) {
-                if ( i != j ) {
-                    if ( (gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]) ) {
-                         useTarget[j] = 0;
-#ifdef ZDEBUG
-                         fprintf( stderr, "target %d rejected %d\n", j, i );
-                         fprintf( stderr, "  gX %lf %lf\n", gX[i], gX[j] );
-                         fprintf( stderr, "  gY %lf %lf\n", gY[i], gY[j] );
-                         fprintf( stderr, "  gZ %lf %lf\n", gZ[i], gZ[j] );
-#endif
-                    }
-                }
-            }
-        }
-	
-	lostSensors = 0U;
+        for ( i = 0; i < numberOfTargets; i++ )
+	  {
+            for ( j = i; j < numberOfTargets; j++)
+	      {
+                if ( i != j )
+		  {
+                    if ( (gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
+		      useTarget[j] = 0;
+		  }
+	      }
+	  }
+	lostSensors = 0;
 	i = 0;
-        if (return_code == 0 ) {
-	  while ( i < numberOfTargets ) {
+        if (return_code == 0)
+	  {
+	    while (i < numberOfTargets)
+	      {
 		j = gNumberOfSensorSearchAttempts;
 		gSearchCurrentSensor = i;
 
-		  /*
-		   *  allow for a variable speed search, in needed
-		   */
+		/*
+		 *  allow for a variable speed search, in needed
+		 */
 		gCoarse2Factor     = gCoarseFactor;
 		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-#ifdef ZDEBUG
-fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
-#endif
-		while ( j-- ) {
+		while (j--)
+		  {
                         ptX = theAngleBuffer[2*i  ];
                         ptY = theAngleBuffer[2*i+1];
-#ifdef ZDEBUG
-fprintf( stderr, "197 about to search i %d j %d\n", i, j );
-#endif
-#ifdef ZPAUSE
-printf( "PAUSE: ");
-itemp = getchar();
-#endif
-                        if ( useTarget[i] == 1 ) {
-#ifdef ZDEBUG
-			  fprintf( stderr, "201 about to search i %d j %d\n", i, j );
-#endif
-			  searchResult = SearchForASensor ( pLgMaster, ptX, ptY,
+                        if (useTarget[i] == 1)
+			  {
+			    searchResult = SearchForASensor ( pLgMaster, ptX, ptY,
 							    &fndX, &fndY );
-			    if ( searchResult == kStopWasDone ) {
+			    if ( searchResult == kStopWasDone )
+			      {
                                 fndX = 0;
                                 fndY = 0;
-                            }
-                        } else {
+			      }
+                        }
+			else
+			  {
                             searchResult = 99;
                             fndX = 0;
                             fndY = 0;
-                        }
+			  }
                         Xarr[i] = fndX;
                         Yarr[i] = fndY;
-			if ( searchResult == kStopWasDone ) {
-  		              // *(uint32_t *)theResponseBuffer = kFail;
-                              // HandleResponse ( (char *)theResponseBuffer,
-                              //         sizeof ( uint32_t ),
-                              //         respondToWhom );
-#ifdef ZDEBUG
-fprintf( stderr, "kStopWasDone %d %d\n", gSearchFlag, gStopFlag );
-#endif
-                              return;
-                        }
-			if ( !searchResult ) break;
+			if (searchResult == kStopWasDone)
+			  return;
+			if (!searchResult)
+			  break;
 		        pLgMaster->gCoarse2SearchStep /= 2;
 		        gCoarse2Factor     /= 2; 
-			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
-		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
-		        	gCoarse2Factor     = 1;
-			}
-		}
+			if (pLgMaster->gCoarse2SearchStep <= 0x00010000)
+			  {
+			    pLgMaster->gCoarse2SearchStep = 0x00010000;
+			    gCoarse2Factor     = 1;
+			  }
+		  }
 		gCoarse2Factor     = gCoarseFactor;
 		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 		
-		if ( searchResult ) {
-			lostSensors += 1U << i;
-                        XfoundAngles[i] = 0;
-                        YfoundAngles[i] = 0;
-		} else {
-                        target_status[i] = 1;
-                        foundTarget[i]   = 1;
-			ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
-						       &(XfoundAngles[i]),
-						       &(YfoundAngles[i]) );
-			ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,
-						      &(XExternalAngles[i]),
-						      &(YExternalAngles[i]) );
-#ifdef ZDEBUG
-fprintf( stderr, "fndX %x ", fndX );
-fprintf( stderr, "fndY %x ", fndY );
-fprintf( stderr, "\n" );
-fprintf( stderr, "curX %lf", XfoundAngles[i] );
-fprintf( stderr, "curY %lf", YfoundAngles[i] );
-fprintf( stderr, "\n" );
-fprintf( stderr, "curX %lf", XExternalAngles[i] );
-fprintf( stderr, "curY %lf", YExternalAngles[i] );
-fprintf( stderr, "\n" );
-fprintf( stderr, "reg  %d  "
-                 " %.3lf %.3lf %.3lf "
-                 " %.6lf %.6lf  "
-                 "\n"
-               , i
-               , gX[i]
-               , gY[i]
-               , gZ[i]
-               , XExternalAngles[i]
-               , YExternalAngles[i]
-               );
-#endif
-                }
-		
+		if (searchResult)
+		  {
+		    lostSensors += 1U << i;
+		    XfoundAngles[i] = 0;
+		    YfoundAngles[i] = 0;
+		  }
+		else
+		  {
+		    target_status[i] = 1;
+		    foundTarget[i]   = 1;
+		    ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
+						   &(XfoundAngles[i]),
+						   &(YfoundAngles[i]) );
+		    ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,
+						  &(XExternalAngles[i]),
+						  &(YExternalAngles[i]) );
+		  }
 		i++;
+	      }
+	    numberOfFoundTargets = 0;
+	    for (i = 0; i < numberOfTargets ; i++)
+	      {
+		foundAngles[2*i  ] = XfoundAngles[i];
+		foundAngles[2*i+1] = YfoundAngles[i];
+		if (foundTarget[i] == 1)
+		  numberOfFoundTargets ++;
+	      }
+          if (numberOfFoundTargets >= 4)
+	    {
+	      theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror,
+					      theTransformTolerance, foundAngles,
+					      (double *)&foundTransform);
+	    }
+          for (i = 0; i < numberOfTargets ; i++)
+	    {
+              if (savePoint[i] > 0)
+		target_status[i] = 2;
+	    }
 	  }
-	
-       
-          numberOfFoundTargets = 0;
-          for ( i = 0; i < numberOfTargets ; i++ ) {
-             foundAngles[2*i  ] = XfoundAngles[i];
-             foundAngles[2*i+1] = YfoundAngles[i];
-             if ( foundTarget[i] == 1 )  numberOfFoundTargets ++;
-          }
-          if ( numberOfFoundTargets >= 4 ) {
-	     theResult = FindTransformMatrix ( numberOfTargets
-                                          , gDeltaMirror
-                                          , theTransformTolerance
-                                          , foundAngles
-                                          , (double *)&foundTransform
-                                          );
-          }
-          for ( i = 0; i < numberOfTargets ; i++ ) {
-              if ( savePoint[i] > 0 ) {
-                   target_status[i] = 2;
-              }
-          }
-        } else {
+	else
           theResult = false;
-        }
 
-#ifdef SDEBUG
- for ( i = 0; i < numberOfTargets ; i++ ) {
-    printf( "save %d point %d   status %d\n",i, savePoint[i],target_status[i]);
- }
-#endif
-
-        if( gTargetDrift ) {
-                  InitDrift( Xarr, Yarr );
-        }
-
+        if (gTargetDrift)
+	  InitDrift(Xarr, Yarr);
         /* 
          *  last desperate attempt to find transform
          *  provided that at least four targets have been found
          */
-        if ( gSaved == 0 && numberOfFoundTargets >= 4 && gForceTransform ) {
-            theResult = FindTransformMatrix ( numberOfTargets
-                                            , gDeltaMirror
-                                            , 0.001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                            );
-#ifdef ZDEBUG
-fprintf( stderr, "FullRegWithFeedback last desperate attempt %d\n", theResult );
-#endif
-        }
+        if ((gSaved == 0) && (numberOfFoundTargets >= 4) && gForceTransform)
+	  {
+	    theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror, 0.001,
+					    foundAngles, (double *)&foundTransform);
+	  }
 
-/*
- *   finally prepare and send response
- */
+	/*
+	 *   finally prepare and send response
+	 */
 	ucPtr = (unsigned char *)(RespBuff);
         memset( ucPtr, 0, resp_len);
 
-/*
- *	if ( !lostSensors && theResult ) {
- *	    *(uint32_t *)theResponseBuffer = kOK | 
- *                      ((0xFF & (uint32_t)GnOfTrans) << 8);
- *	} else {
- *		*(uint32_t *)theResponseBuffer = kFail | lostSensors;
- *        }
- *	if ( numberOfFoundTargets >= 4 && gWorstTolReg < 0.5 ) {
- *	} else {
- *		*(uint32_t *)theResponseBuffer = kFail | lostSensors;
- *                HandleResponse ( (char *)theResponseBuffer,
- *                        sizeof ( uint32_t ),
- *                        respondToWhom );
- *                return;
- *        }
- *
- */
-        if ( theResult == true ) {
+        if (theResult == true)
+	  {
 	    return_code = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
 	    memcpy(RespBuff, &return_code, sizeof(uint32_t));
-        } else {
+	  }
+	else
+	  {
             return_code = kFail;
 	    memcpy(RespBuff, &return_code, sizeof(uint32_t));
             HandleResponse ( pLgMaster, sizeof(uint32_t), respondToWhom );
             return;
-
-        }
+	  }
 
 	index = sizeof(uint32_t);
 	ucPtr = (unsigned char *)(RespBuff + index);

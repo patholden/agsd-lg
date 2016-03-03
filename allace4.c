@@ -58,12 +58,7 @@ allace4( double *xin, double *yin )
         if ( area > maxarea ) {
             maxarea = area;
         }
-#ifdef XDEBUG
-printf( "area  %lf  max %lf\n", area, maxarea );
-#endif
-
     }
     return( maxarea );
-
 }
 

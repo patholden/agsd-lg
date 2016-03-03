@@ -57,7 +57,6 @@ AGS_OBJECTS = L3DTransform.o \
               SensorRegistration.o \
               3DTransform.o \
 	      FullRegManager.o \
-	      SearchStopHandler.o \
               QuickCheckManager.o \
 	      SystemSpecifics.o Video.o Web.o \
 	      Init.o Net.o FOM.o \
@@ -122,3 +121,4 @@ install:
 	cp agsd /home/patti/buildroot/board/agslaser/rootfs_overlay
 	cp *.o /home/patti/buildroot/board/agslaser/rootfs_overlay
 	cp /home/patti/.gdbinit /home/patti/buildroot/board/agslaser/rootfs_overlay
+	cp /home/patti/ags/ags-config-files/etc_files/* /home/patti/buildroot/board/agslaser/rootfs_overlay/etc/ags/conf

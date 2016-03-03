@@ -1,10 +1,4 @@
-#include <stdint.h>
 /*   $Id: Protocol.h,v 1.25 2003/04/25 10:32:11 ags-sw Exp ags-sw $ */
-
-#ifndef __unix__
-#pragma once
-#endif
-
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
@@ -116,46 +110,33 @@ properly interpret them can easily be added */
 #define	kAEMissingCommandMsg			0xA3000000U
 #define kHandlingAnotherAEMsg			0xA4000000U
 #define	kBadSourseAEMsg				0xA5000000U
-
 #define	kOK					0xE0000000U
 #define	kQuickCheckOK				0xE1000000U
 #define	kStopOK					0xE2000000U
 #define	kQuickCheckPlyOK			0xE3000000U
 #define	kItsGone				0xE4000000U
 #define kItsHere                                0xE5000000U
-
 #define kFlexFail                               0xE7000000U
-
 #define	kFail					0xE8000000U
 #define	kQuickCheckFail				0xE9000000U
 #define	kStopFail				0xEA000000U
 #define	kQuickCheckPlyFail			0xEB000000U
 #define	kItsGoneNOT				0xEC000000U
-
-
 #define	kSensorNotFound			0x00010000U
-
 #define	kInputAngleOutOfRange		0x00020000U
-
 #define	kPatternAngleOutOfRange		0x00030000U
-
 #define	kFirstSensor				( 0x00000001U << 0 )
 #define	kSecondSensor				( 0x00000001U << 1 )
 #define	kThirdSensor				( 0x00000001U << 2 )
 #define	kFourthSensor				( 0x00000001U << 3 )
 #define	kFifthSensor				( 0x00000001U << 4 )
 #define	kSixthSensor				( 0x00000001U << 5 )
-
 #define	kXTooSmall					( 0x00000001U << 8 )
 #define	kXTooLarge					( 0x00000001U << 9 )
 #define	kYTooSmall					( 0x00000001U << 10 )
 #define	kYTooLarge					( 0x00000001U << 11 )
-
-
 #define	kAPTError				0x00040000U
-
 #define	kBoardError				0x00050000U
-
 #define	kBoardInitializing			0x00000001U
 #define	kBoardTimeout				0x00000002U
 #define	kUnacceptableCommand		 	0x00000003U
@@ -170,25 +151,16 @@ properly interpret them can easily be added */
 #define	kNoIntersection				0x0000000CU
 #define	kNoVideo				0x0000000DU
 #define	kOtherError				0x0000FFFFU
-
-
-#define	kMaxDataLength				0x100000
+#define	kMaxDataLength				1000000
 #define	kMaxNumberOfAPTVectors			32000
-
 #define kMaxTargets				50
-
 #define	kParameterTimeoutLength			300 /* In ticks */
 #define	kDataTimeoutLength			300 /* In ticks */
 #define	kWriteTimeoutLength			300 /* In ticks */
-
 #define	kNumberOfRegPoints			6
-
 #define kNumberOfFlexPoints                     24
-
 #define kFeedbackNumber                         8
-
 #define	kCRCSize				2
-
 #define	kMaxNumberOfPlies			12
 
 /*	k###Sensors are added in any combination to kFail or kQuickCheckFail 

@@ -15,6 +15,7 @@ static char rcsid[] = "$Id: FlexRightOnReg $";
 #define	kNumberOfSensorSearchAttempts				2
 
 
+// FIXME---PAH---NEEDS CMD/RESP FIXES
 void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
 {
 	uint32_t ptX, ptY;
@@ -108,131 +109,101 @@ void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
           i++;
         }
         SaveFullRegCoordinates ( kNumberOfFlexPoints, theCoordinateBuffer );
-        for ( i = 0; i < kNumberOfFlexPoints; i++ ) {
-            for ( j = i; j < kNumberOfFlexPoints; j++ ) {
-                if ( i != j ) {
-                    if ( (gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]) ) {
+        for ( i = 0; i < kNumberOfFlexPoints; i++)
+	  {
+            for (j = i; j < kNumberOfFlexPoints; j++)
+	      {
+                if (i != j)
+		  {
+                    if ((gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
                          useTarget[j] = 0;
-#ifdef ZDEBUG
-                         fprintf( stderr, "target %d rejected %d\n", j, i );
-                         fprintf( stderr, "  gX %lf %lf\n", gX[i], gX[j] );
-                         fprintf( stderr, "  gY %lf %lf\n", gY[i], gY[j] );
-                         fprintf( stderr, "  gZ %lf %lf\n", gZ[i], gZ[j] );
-#endif
-                    }
-                }
-            }
-        }
-
-	
-	lostSensors = 0U;
-	
+		  }
+	      }
+	  }
+	lostSensors = 0;
         i = 0;
         if ( *(uint32_t *)theResponseBuffer == 0 ) {
-	  while ( i < kNumberOfFlexPoints ) {
-		j = gNumberOfSensorSearchAttempts;
-		gSearchCurrentSensor = i;
+	  while ( i < kNumberOfFlexPoints)
+	    {
+	      j = gNumberOfSensorSearchAttempts;
+	      gSearchCurrentSensor = i;
 
-		  /*
-		   *  allow for a variable speed search, in needed
-		   */
-		gCoarse2Factor     = gCoarseFactor;
-		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-#ifdef ZDEBUG
-fprintf( stderr, "i %d useTarget %d\n", i, useTarget[i] );
-#endif
-		while ( j-- ) {
-                        ptX = theAngleBuffer[2*i  ];
-                        ptY = theAngleBuffer[2*i+1];
-                        if ( useTarget[i] == 1 ) {
-                            searchResult = SearchForASensor ( ptX, ptY,
-                                                              &fndX, &fndY );
-#ifdef ZDEBUG
-fprintf( stderr, "finish search for sensor %d\n", i );
-#endif
-                        } else {
-                            searchResult = 99;
-                            fndX = 0;
-                            fndY = 0;
-                        }
-                        Xarr[i] = fndX;
-                        Yarr[i] = fndY;
-			if ( searchResult == kStopWasDone ) {
-                              return;
-                        }
-			if ( !searchResult ) break;
-		        pLgMaster->gCoarse2SearchStep /= 2;
-		        gCoarse2Factor     /= 2; 
-			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
-		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
-		        	gCoarse2Factor     = 1;
-			}
+	      /*
+	       *  allow for a variable speed search, in needed
+	       */
+	      gCoarse2Factor     = gCoarseFactor;
+	      pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+	      while (j--)
+		{
+		  ptX = theAngleBuffer[2*i  ];
+		  ptY = theAngleBuffer[2*i+1];
+		  if (useTarget[i] == 1)
+		    searchResult = SearchForASensor(ptX, ptY, &fndX, &fndY);
+		  else
+		    {
+		      searchResult = 99;
+		      fndX = 0;
+		      fndY = 0;
+		    }
+		  Xarr[i] = fndX;
+		  Yarr[i] = fndY;
+		  if (searchResult == kStopWasDone)
+		    return;
+		  if (!searchResult)
+		    break;
+		  pLgMaster->gCoarse2SearchStep /= 2;
+		  gCoarse2Factor     /= 2; 
+		  if (pLgMaster->gCoarse2SearchStep <= 0x00010000)
+		    {
+		      pLgMaster->gCoarse2SearchStep = 0x00010000;
+		      gCoarse2Factor     = 1;
+		    }
 		}
-		gCoarse2Factor     = gCoarseFactor;
-		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-		
-		if ( searchResult ) {
-			lostSensors += 1U << i;
-		} else {
-                        foundTarget[i] = 1;
-			ConvertBinaryToGeometricAngles(
-                           fndX,
-                           fndY,
-                           &(XfoundAngles[i]),
-                           &(YfoundAngles[i]) );
-			ConvertBinaryToExternalAngles(
-                           fndX,
-                           fndY,
-                           &(XExternalAngles[i]),
-                           &(YExternalAngles[i]) );
-#ifdef ZDEBUG
-fprintf( stderr, "fndX %x ", fndX );
-fprintf( stderr, "fndY %x ", fndY );
-fprintf( stderr, "\n" );
-fprintf( stderr, "curX %lf ", XfoundAngles[i] );
-fprintf( stderr, "curY %lf ", YfoundAngles[i] );
-fprintf( stderr, "\n" );
-fprintf( stderr, "curX %lf ", XExternalAngles[i] );
-fprintf( stderr, "curY %lf ", YExternalAngles[i] );
-fprintf( stderr, "\n" );
-fprintf( stderr, "reg  %d  "
-                 " %.3lf %.3lf %.3lf "
-                 " %.6lf %.6lf  "
-                 "\n"
-               , i
-               , gX[i]
-               , gY[i]
-               , gZ[i]
-               , XExternalAngles[i]
-               , YExternalAngles[i]
-               );
-#endif
+	      gCoarse2Factor     = gCoarseFactor;
+	      pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+	      if (searchResult)
+		lostSensors += 1U << i;
+	      else
+		{
+		  foundTarget[i] = 1;
+		  ConvertBinaryToGeometricAngles(
+						 fndX,
+						 fndY,
+						 &(XfoundAngles[i]),
+						 &(YfoundAngles[i]) );
+		  ConvertBinaryToExternalAngles(
+						fndX,
+						fndY,
+						&(XExternalAngles[i]),
+						&(YExternalAngles[i]) );
                 }
-		
-		i++;
-	  }
+	      i++;
+	    }
 	
-          for ( i = 0; i < kNumberOfFlexPoints ; i++ ) {
-             foundAngles[2*i  ] = XfoundAngles[i];
-             foundAngles[2*i+1] = YfoundAngles[i];
-             if ( foundTarget[i] == 1 )  numberOfFoundTargets ++;
-          }
-          if ( numberOfFoundTargets >= 4 ) {
-	      theResult = FindTransformMatrix ( kNumberOfFlexPoints,
-                  gDeltaMirror, theTransformTolerance, foundAngles,
-                  (double *)&foundTransform );
-          }
-        } else {
-          theResult = 0;
+          for ( i = 0; i < kNumberOfFlexPoints ; i++)
+	    {
+	      foundAngles[2*i  ] = XfoundAngles[i];
+	      foundAngles[2*i+1] = YfoundAngles[i];
+	      if (foundTarget[i] == 1)
+		numberOfFoundTargets ++;
+	    }
+          if ( numberOfFoundTargets >= 4)
+	    {
+	      theResult = FindTransformMatrix(pLgMaster, kNumberOfFlexPoints,
+					      gDeltaMirror, theTransformTolerance, foundAngles,
+					      (double *)&foundTransform );
+	    }
         }
+	else
+          theResult = 0;
 
-	if ( theResult ) {
+	if (theResult)
+	  {
 	    *(uint32_t *)theResponseBuffer = kOK | 
-                      ((0xFF & (uint32_t)GnOfTrans) << 8);
-            if( gTargetDrift ) {
-                  InitDrift( Xarr, Yarr );
-            }
-
+	      ((0xFF & (uint32_t)GnOfTrans) << 8);
+            if( gTargetDrift)
+	      InitDrift( Xarr, Yarr );
+	    
 	    index = sizeof(uint32_t);
 	    ucPtr = (unsigned char *)&( theResponseBuffer[index]);
 
@@ -241,29 +212,34 @@ fprintf( stderr, "reg  %d  "
 
 	    index = sizeof(uint32_t) + 12 * ( kSizeOldLongDouble );
 	    ucPtr = (unsigned char *)&( theResponseBuffer[index]);
-	    for( i=0; i < kNumberOfFlexPoints; i++ ) {
-                        ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
-                        ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-            }
+	    for ( i=0; i < kNumberOfFlexPoints; i++ )
+	      {
+		((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
+		((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
+	      }
 	    index = sizeof(uint32_t)
-                     + 12 * ( kSizeOldLongDouble )
-		     +  2 * kNumberOfFlexPoints * ( sizeof ( uint32_t ) ) ;
+	      + 12 * ( kSizeOldLongDouble )
+	      +  2 * kNumberOfFlexPoints * ( sizeof ( uint32_t ) ) ;
 	    ucPtr = (unsigned char *)&( theResponseBuffer[index]);
-	    for( i=0; i < kNumberOfFlexPoints; i++ ) {
-                        ((double *)ucPtr)[2*i  ] = XExternalAngles[i];
-                        ((double *)ucPtr)[2*i+1] = YExternalAngles[i];
-            }
+	    for( i=0; i < kNumberOfFlexPoints; i++ )
+	      {
+		((double *)ucPtr)[2*i  ] = XExternalAngles[i];
+		((double *)ucPtr)[2*i+1] = YExternalAngles[i];
+	      }
 	    HandleResponse ( (char *)theResponseBuffer,
-			( sizeof ( uint32_t )
-                        + 12 * ( kSizeOldLongDouble  )
-			+  2 * kNumberOfFlexPoints * sizeof ( uint32_t ) 
-			+  2 * kNumberOfFlexPoints * sizeof ( double ) ),
-			respondToWhom );
-	} else {
-		*(uint32_t *)theResponseBuffer = kFail | lostSensors;
-		HandleResponse ( (char *)theResponseBuffer,
-                        sizeof ( uint32_t ),
-			respondToWhom );
-		return;
-	}
+			     ( sizeof ( uint32_t )
+			       + 12 * ( kSizeOldLongDouble  )
+			       +  2 * kNumberOfFlexPoints * sizeof ( uint32_t ) 
+			       +  2 * kNumberOfFlexPoints * sizeof ( double ) ),
+			     respondToWhom );
+	  }
+	else
+	  {
+	    *(uint32_t *)theResponseBuffer = kFail | lostSensors;
+	    HandleResponse ( (char *)theResponseBuffer,
+			     sizeof ( uint32_t ),
+			     respondToWhom );
+	    return;
+	  }
+	return;
 }

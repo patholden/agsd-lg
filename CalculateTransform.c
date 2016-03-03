@@ -17,7 +17,6 @@ static char rcsid[] = "$Id$";
 #include "AppCommon.h"
 #include "comm_loop.h"
 #include "parse_data.h"
-#include "AppResponses.h"
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"
@@ -71,24 +70,17 @@ void CalculateTransform ( struct lg_master *pLgMaster,
 	  }
         SaveFullRegCoordinates ( kNumberOfRegPoints, theCoordinateBuffer );
 
-        theResult = FindTransformMatrix ( kNumberOfRegPoints
-                                        , gDeltaMirror
-                                        , theTransformTolerance
-                                        , foundAngles
-                                        , (double *)&foundTransform
-                                         );
+        theResult = FindTransformMatrix(pLgMaster, kNumberOfRegPoints, gDeltaMirror,
+                                        theTransformTolerance, foundAngles,
+                                        (double *)&foundTransform);
 
           /* desperate attempt to get something */
-        if ( gSaved == 0 ) {
-            theResult = FindTransformMatrix ( kNumberOfRegPoints
-                                            , gDeltaMirror
-                                            , 0.00001
-                                            , foundAngles
-                                            , (double *)&foundTransform
-                                             );
+        if (gSaved == 0)
+	  {
+	    theResult = FindTransformMatrix(pLgMaster, kNumberOfRegPoints, gDeltaMirror,
+                                            0.00001, foundAngles, (double *)&foundTransform);
             GnOfTrans = 0;
-        }
-
+	  }
 	if (theResult)
 	  {
 	    pResp->hdr.status = RESPGOOD;

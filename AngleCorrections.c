@@ -4,6 +4,7 @@
 #include <float.h>
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <math.h>
 #include <fcntl.h>
 #include <ctype.h>
@@ -185,11 +186,6 @@ static void DoCorrection(struct lg_master *pLgMaster, double *x, double *y,
 	if (!pLgMaster->gCALIBFileOK)
 	  return;
 
-	/* setround ( DOWNWARD ); */
-#ifdef ANGDEBUG
-fprintf( stderr, "DoCorr187 xy  %lf %lf\n", *x, *y );
-#endif
-	
 	if ( *x < kGridOriginX )
 	{
 		xIndex = 0;
@@ -255,38 +251,6 @@ fprintf( stderr, "DoCorr187 xy  %lf %lf\n", *x, *y );
 	xIndex1 = xIndex + 1;
 	yIndex1 = yIndex + 1;
 
-#ifdef ANGDEBUG
-fprintf( stderr, "DoCorr256 wDwL %lf\n", wDwL );
-fprintf( stderr, "DoCorr256 wDwR %lf\n", wDwR );
-fprintf( stderr, "DoCorr256 wUwL %lf\n", wUwL );
-fprintf( stderr, "DoCorr256 wUwR %lf\n", wUwR );
-fprintf( stderr, "DoCorr258 xyIndex1  %d %d\n", xIndex1, yIndex1 );
-fprintf( stderr, "xCoeffs %d %d 0 %lf\n", xIndex,  yIndex , xCoeffs[xIndex ][yIndex ][0] );
-fprintf( stderr, "xCoeffs %d %d 0 %lf\n", xIndex1, yIndex , xCoeffs[xIndex1][yIndex ][0] );
-fprintf( stderr, "xCoeffs %d %d 0 %lf\n", xIndex,  yIndex1, xCoeffs[xIndex ][yIndex1][0] );
-fprintf( stderr, "xCoeffs %d %d 0 %lf\n", xIndex1, yIndex1, xCoeffs[xIndex1][yIndex1][0] );
-fprintf( stderr, "xCoeffs %d %d 1 %lf\n", xIndex,  yIndex , xCoeffs[xIndex ][yIndex ][1] );
-fprintf( stderr, "xCoeffs %d %d 1 %lf\n", xIndex1, yIndex , xCoeffs[xIndex1][yIndex ][1] );
-fprintf( stderr, "xCoeffs %d %d 1 %lf\n", xIndex,  yIndex1, xCoeffs[xIndex ][yIndex1][1] );
-fprintf( stderr, "xCoeffs %d %d 1 %lf\n", xIndex1, yIndex1, xCoeffs[xIndex1][yIndex1][1] );
-fprintf( stderr, "xCoeffs %d %d 2 %lf\n", xIndex,  yIndex , xCoeffs[xIndex ][yIndex ][2] );
-fprintf( stderr, "xCoeffs %d %d 2 %lf\n", xIndex1, yIndex , xCoeffs[xIndex1][yIndex ][2] );
-fprintf( stderr, "xCoeffs %d %d 2 %lf\n", xIndex,  yIndex1, xCoeffs[xIndex ][yIndex1][2] );
-fprintf( stderr, "xCoeffs %d %d 2 %lf\n", xIndex1, yIndex1, xCoeffs[xIndex1][yIndex1][2] );
-fprintf( stderr, "yCoeffs %d %d 0 %lf\n", xIndex,  yIndex , yCoeffs[xIndex ][yIndex ][0] );
-fprintf( stderr, "yCoeffs %d %d 0 %lf\n", xIndex1, yIndex , yCoeffs[xIndex1][yIndex ][0] );
-fprintf( stderr, "yCoeffs %d %d 0 %lf\n", xIndex,  yIndex1, yCoeffs[xIndex ][yIndex1][0] );
-fprintf( stderr, "yCoeffs %d %d 0 %lf\n", xIndex1, yIndex1, yCoeffs[xIndex1][yIndex1][0] );
-fprintf( stderr, "yCoeffs %d %d 1 %lf\n", xIndex,  yIndex , yCoeffs[xIndex ][yIndex ][1] );
-fprintf( stderr, "yCoeffs %d %d 1 %lf\n", xIndex1, yIndex , yCoeffs[xIndex1][yIndex ][1] );
-fprintf( stderr, "yCoeffs %d %d 1 %lf\n", xIndex,  yIndex1, yCoeffs[xIndex ][yIndex1][1] );
-fprintf( stderr, "yCoeffs %d %d 1 %lf\n", xIndex1, yIndex1, yCoeffs[xIndex1][yIndex1][1] );
-fprintf( stderr, "yCoeffs %d %d 2 %lf\n", xIndex,  yIndex , yCoeffs[xIndex ][yIndex ][2] );
-fprintf( stderr, "yCoeffs %d %d 2 %lf\n", xIndex1, yIndex , yCoeffs[xIndex1][yIndex ][2] );
-fprintf( stderr, "yCoeffs %d %d 2 %lf\n", xIndex,  yIndex1, yCoeffs[xIndex ][yIndex1][2] );
-fprintf( stderr, "yCoeffs %d %d 2 %lf\n", xIndex1, yIndex1, yCoeffs[xIndex1][yIndex1][2] );
-#endif
-	
 	temp =
 		wDwL * xCoeffs[xIndex ][yIndex ][0] +
 		wDwR * xCoeffs[xIndex1][yIndex ][0] +
@@ -356,11 +320,6 @@ fprintf( stderr, "yCoeffs %d %d 2 %lf\n", xIndex1, yIndex1, yCoeffs[xIndex1][yIn
 		;
 	
 	*x = temp;	
-
-#if defined( ANGDEBUG )
-fprintf( stderr, "DoCorr326 xy  %lf %lf\n", *x, *y );
-#endif
-	
 	return;
 }
 
@@ -422,12 +381,12 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
         
 	filenum = open( "/etc/ags/conf/calib", O_RDONLY );
 	if ( filenum <= 0 ) { 
-             printf( "calibration file missing\n" );
+	  syslog(LOG_ERR, "calibration file missing");
              return(false);
         }
         gTempBuff = (char *)malloc( (size_t)CALIB_SIZE );
         length = read( filenum, gTempBuff, CALIB_SIZE );
-        printf( "calibration file size %d\n", length );
+        syslog(LOG_NOTICE, "calibration file size %d", length);
         close( filenum );
         
         j = 0L;
@@ -455,9 +414,9 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
 	if ( !AllocateAngleBuffers (  ) ) return false;
 	if ( !ProcessFile (pLgMaster) ) return false;
 
-        fprintf( stderr, "gDeltaMirror %lf\n", gDeltaMirror );
-        fprintf( stderr, "gMirrorThickness %lf\n", gMirrorThickness );
-        fprintf( stderr, "gHalfMirror %lf\n",  gHalfMirror );
+        syslog(LOG_NOTICE, "gDeltaMirror %lf", gDeltaMirror);
+        syslog(LOG_NOTICE, "gMirrorThickness %lf", gMirrorThickness);
+        syslog(LOG_NOTICE, "gHalfMirror %lf", pLgMaster->gHalfMirror);
 	
 	if ( gFileBuffer ) free((void *)gFileBuffer );
 	gFileBuffer = 0;
@@ -492,7 +451,7 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
 	
 	CleanupInit (  );
 	pLgMaster->gCALIBFileOK = true;
-	fprintf( stderr, "gCALIBFileOK = true\n" );
+	syslog(LOG_NOTICE, "gCALIBFileOK = true");
 	return true;
 }
 
@@ -577,11 +536,8 @@ unsigned char ProcessFile (struct lg_master *pLgMaster)
                                                     ) == 1 )
 					{
 					    gMirrorThickness =       dtemp1;
-                                            gHalfMirror      = 0.5 * dtemp1;
+                                            pLgMaster->gHalfMirror = 0.5 * dtemp1;
 					}
-#ifdef ANGDEBUG
-fprintf( stderr, "gMirrorThickness %lf\n", gMirrorThickness );
-#endif
                                         break;
 				case 7:
 					currentDeltaMirror = gDeltaMirror;
@@ -592,9 +548,6 @@ fprintf( stderr, "gMirrorThickness %lf\n", gMirrorThickness );
 					    return false;
 					}
 					fWasDeltaMirror = true;
-#ifdef ANGDEBUG
-fprintf( stderr, "gDeltaMirror %lf\n", gDeltaMirror );
-#endif
 					break;
 				case 6:
 					currentTolerance = pLgMaster->gTolerance;
@@ -603,9 +556,6 @@ fprintf( stderr, "gDeltaMirror %lf\n", gDeltaMirror );
 					{
 						pLgMaster->gTolerance = currentTolerance;
 						return false;
-#ifdef ANGDEBUG
-fprintf( stderr, "gTolerance %lf\n", pLgMaster->gTolerance );
-#endif
 					}
 					fWasTolerance = true;
 					break;
@@ -615,9 +565,6 @@ fprintf( stderr, "gTolerance %lf\n", pLgMaster->gTolerance );
 						&pLgMaster->gProjectorSerialNumber ) != 1 )
 					{
 						pLgMaster->gProjectorSerialNumber = currentSerialNumber;
-#ifdef ANGDEBUG
-fprintf( stderr, "serial number %d\n", currentSerialNumber );
-#endif
 						return false;
 					}
 					fWasSerialNumber = true;
@@ -638,10 +585,6 @@ fprintf( stderr, "serial number %d\n", currentSerialNumber );
 		{
 			return false;
 		}
-#ifdef ANGDEBUG
-fprintf( stderr, "calibdata %lf %lf %lf %lf %lf %lf %lf\n", tX, tY, tZ,
-                                aX, aY, dX, dY);
-#endif
 
 		if ( gNumberOfPoints >= kMaxNumberOfCALIBAngles )
 		{
@@ -652,12 +595,7 @@ fprintf( stderr, "calibdata %lf %lf %lf %lf %lf %lf %lf\n", tX, tY, tZ,
 		{
 			return false;
 		}
-		
-
-#ifdef ANGDEBUG
-fprintf( stderr, "gNumberOfPoints %d\n", gNumberOfPoints);
-#endif
-		GeometricAnglesFrom3D ( tX, tY, tZ,
+		GeometricAnglesFrom3D(pLgMaster, tX, tY, tZ,
 			&(*gXTheoryHdl)[gNumberOfPoints],
 			&(*gYTheoryHdl)[gNumberOfPoints] );
 			
@@ -665,7 +603,7 @@ fprintf( stderr, "gNumberOfPoints %d\n", gNumberOfPoints);
 			&(*gXTheoryHdl)[gNumberOfPoints],
 			&(*gYTheoryHdl)[gNumberOfPoints] );
 		
-		GeometricAnglesFrom3D ( aX, aY, tZ,
+		GeometricAnglesFrom3D(pLgMaster, aX, aY, tZ,
 			&(*gXActualHdl)[gNumberOfPoints],
 			&(*gYActualHdl)[gNumberOfPoints] );
 			
@@ -686,9 +624,9 @@ fprintf( stderr, "gNumberOfPoints %d\n", gNumberOfPoints);
 		return false;
 	}
 	
-fprintf( stderr, "Points %d    ", gNumberOfPoints );
-fprintf( stderr, "Mirror %f   ", gDeltaMirror );
-fprintf( stderr, "SerialNumber %ld\n", pLgMaster->gProjectorSerialNumber );
+	syslog(LOG_NOTICE, "Points %d    ", gNumberOfPoints);
+	syslog(LOG_NOTICE, "Mirror %f   ", gDeltaMirror);
+	syslog(LOG_NOTICE, "SerialNumber %ld", pLgMaster->gProjectorSerialNumber);
 	return true;
 }
 
@@ -888,9 +826,6 @@ unsigned char BuildTwoTables ( double *x, double *y,
 								n = 6;
 								while ( n-- ) {
                                                                     coeffsX[nX][nY][n] = coeffsXcache[n];
-#ifdef ANGDEBUG
-fprintf(stderr, "coeffsX %lf %d %d %d\n",coeffsX[nX][nY][n], nX, nY, n );
-#endif
                                                                 }
 								fPlaneFoundX = true;
 							}
@@ -914,9 +849,6 @@ fprintf(stderr, "coeffsX %lf %d %d %d\n",coeffsX[nX][nY][n], nX, nY, n );
 										indexCacheX[n] = index[n];
 										coeffsXcache[n] = 
 											coeffsX[nX][nY][n];
-#ifdef ANGDEBUG
-fprintf(stderr, "coeffsX %lf %d %d %d\n",coeffsX[nX][nY][n], nX, nY, n );
-#endif
 									}
 								}
 							}
@@ -938,9 +870,6 @@ fprintf(stderr, "coeffsX %lf %d %d %d\n",coeffsX[nX][nY][n], nX, nY, n );
 								n = 6;
 								while ( n-- ) {
                                                                    coeffsY[nX][nY][n] = coeffsYcache[n];
-#ifdef ANGDEBUG
-fprintf(stderr, "coeffsY %lf %d %d %d\n",coeffsY[nX][nY][n], nX, nY, n );
-#endif
                                                                 }
 								fPlaneFoundY = true;
 							}
@@ -964,9 +893,6 @@ fprintf(stderr, "coeffsY %lf %d %d %d\n",coeffsY[nX][nY][n], nX, nY, n );
 										indexCacheY[n] = index[n];
 										coeffsYcache[n] = 
 											coeffsY[nX][nY][n];
-#ifdef ANGDEBUG
-fprintf(stderr, "coeffsY %lf %d %d %d\n",coeffsY[nX][nY][n], nX, nY, n );
-#endif
 									}
 								}
 							}

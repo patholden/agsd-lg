@@ -48,35 +48,16 @@ CalibXY(struct lg_master *pLgMaster,
     theError  = ConvertExternalAnglesToBinary(pLgMaster, xgotoang,
                                               ygotoang, &xbinary,
                                               &ybinary);
-#ifdef ZDEBUG
-fprintf( stderr, "CalibXY xy ang %lf %lf bin %08x %08x\n", xgotoang, ygotoang, xbinary, ybinary );
-#endif
-
-    if ( theError ) {
-      return_code = kFail + kInputAngleOutOfRange;
-      memcpy(RespBuff, &return_code, sizeof(uint32_t));
-      HandleResponse(pLgMaster, sizeof(uint32_t), kRespondExtern);
-      return;
-    }
-
+    if (theError)
+      {
+	return_code = kFail + kInputAngleOutOfRange;
+	memcpy(RespBuff, &return_code, sizeof(uint32_t));
+	HandleResponse(pLgMaster, sizeof(uint32_t), kRespondExtern);
+	return;
+      }
     ConvertBinaryToMirrorAngles(xbinary, ybinary, &aXf, &aYf);
-
-#ifdef ZDEBUG
-fprintf( stderr, "CalibXY xy mirror %lf %lf bin %08x %08x\n", aXf, aYf, xbinary, ybinary );
-#endif
-
     ConvertMirrorToGeometricAngles( &aXf, &aYf );
-
-#ifdef ZDEBUG
-fprintf( stderr, "CalibXY xy mirror %lf %lf bin %08x %08x\n", aXf, aYf, xbinary, ybinary );
-#endif
-
-    XYFromGeometricAnglesAndZ( aXf, aYf, Ztr, &Xf, &Yf );
-
-#ifdef ZDEBUG
-fprintf( stderr, "CalibXY xyz %lf %lf %lf\n", Xf, Yf, Ztr );
-#endif
-
+    XYFromGeometricAnglesAndZ(pLgMaster, aXf, aYf, Ztr, &Xf, &Yf );
     index    = 0;
     tmpPtr = (char *)(RespBuff + index);
     *((uint32_t *) tmpPtr) = kOK;

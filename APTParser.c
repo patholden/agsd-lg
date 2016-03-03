@@ -1,10 +1,12 @@
-#include <stdint.h>
 //static char rcsid[] = "$Id: APTParser.c,v 1.11 1999/07/29 19:58:10 ags-sw Exp pickle $";
 
 #define kNumberOfSymbolChars 20
 
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -410,149 +412,149 @@ uint32_t ProcessStatement (struct lg_master *pLgMaster, short numberOfElements )
 		return ( kAPTError + 1028 );
 	
 	switch ( FirstFourLetters ( &startingElement[0] ) )
-	{
-		case kPEND:
-			if ( LastTwoLetters ( &startingElement[0] ) == kWN )
-				return SetPenDown (  );
+	  {
+	  case kPEND:
+	    if (LastTwoLetters(&startingElement[0]) == kWN)
+	      {
+		SetPenDown();
+		return(0);
+	      }
+	    break;
+	  case kPENU:
+	    if (LastTwoLetters(&startingElement[0]) == kP_)
+	      {
+		SetPenUp();
+		return(0);
+	      }
+	    break;
+	  case kZSUR:
+	    if (LastTwoLetters(&startingElement[0]) == kF_)
+	      {
+		if ((numberOfTrueElements < 3) ||
+		    (startingElement[1].type != kSlant))
+		  return(kAPTError + 1123);
+		startingElement = &startingElement[2];
+		switch(startingElement->type)
+		  {
+		  case kSymbol:
+		    return 0;
+		  case kNumber:
+		    if (sscanf(startingElement->data, "%le", &z) != 1)
+		      return(kAPTError + 1123);
+		    break;
+		  default:
+		    return(kAPTError + 1123);
+		  }
+		FromAPTtoInch(&z);
+		SetDefaultZ(z);
+		return(0);
+	      }
+	    break;
+	  case kGOTO:
+	    if (LastTwoLetters(&startingElement[0]) == k__)
+	      {
+		if (numberOfTrueElements < 3)
+		  return(kAPTError + 1133);
+		startingElement = &startingElement[1];
+		numberOfTrueElements--;
+		if (startingElement->type == kSlant)
+		  {
+		    startingElement = &startingElement[1];
+		    numberOfTrueElements--;
+		  }
+		switch(startingElement->type)
+		  {
+		  case kSymbol:
+		    return 0;
+		  case kNumber:
+		    if (--numberOfTrueElements == 0)
+		      return(kAPTError + 1133);
+		    if (sscanf(startingElement->data, "%le", &x) != 1)
+		      return(kAPTError + 1004);
+		    startingElement++;
+		    break;
+		  default:
+		    return(kAPTError + 1133);
+		  }
+		switch(startingElement->type)
+		  {
+		  case kSymbol:
+		    return 0;
+		  case kNumber:
+		    if (sscanf(startingElement->data, "%le", &y) != 1)
+		      return(kAPTError + 1004);
+		    if (--numberOfTrueElements == 0)
+		      {
+			FromAPTtoInch ( &x );
+			FromAPTtoInch ( &y );
+			return(PutGoTo2D(pLgMaster, x, y));
+		      }
+		    startingElement++;
+		    break;
+		  case kComma:
+		    if (--numberOfTrueElements == 0)
+		      return(kAPTError + 1133);
+		    startingElement++;
+		    switch(startingElement->type)
+		      {
+		      case kSymbol:
+			return 0;
+		      case kNumber:
+			if (sscanf(startingElement->data, "%le", &y) != 1)
+			  return(kAPTError + 1004);
+			if (--numberOfTrueElements == 0)
+			  {
+			    FromAPTtoInch(&x);
+			    FromAPTtoInch(&y);
+			    return(PutGoTo2D(pLgMaster, x, y));
+			  }
+			startingElement++;
 			break;
-		case kPENU:
-			if ( LastTwoLetters ( &startingElement[0] ) == kP_ ) {
-				return SetPenUp (  );
-                        }
-			break;
-		case kZSUR:
-			if ( LastTwoLetters ( &startingElement[0] ) == kF_ )
-			{
-				if ( ( numberOfTrueElements < 3 ) ||
-					( startingElement[1].type != kSlant ) )
-						return ( kAPTError + 1123 );
-				startingElement = &startingElement[2];
-				switch ( startingElement->type )
-				{
-					case kSymbol:
-						return 0;
-					case kNumber:
-						if ( sscanf
-							( startingElement->data, "%le", &z )
-							!= 1 ) return ( kAPTError + 1123 );
-						break;
-					default:
-						return ( kAPTError + 1123 );
-				}
-				FromAPTtoInch ( &z );
-				return SetDefaultZ ( z );
-			}
-			break;
-		case kGOTO:
-			if ( LastTwoLetters ( &startingElement[0] ) == k__ )
-			{
-				if ( numberOfTrueElements < 3 )
-					return ( kAPTError + 1133 );
-				startingElement = &startingElement[1];
-				numberOfTrueElements--;
-				if 	( startingElement->type == kSlant )
-				{
-					startingElement = &startingElement[1];
-					numberOfTrueElements--;
-				}
-				switch ( startingElement->type )
-				{
-					case kSymbol:
-						return 0;
-					case kNumber:
-						if ( --numberOfTrueElements == 0 )
-							return ( kAPTError + 1133 );
-						if ( sscanf
-							( startingElement->data, "%le", &x )
-							!= 1 ) return ( kAPTError + 1004 );
-						startingElement++;
-						break;
-					default:
-						return ( kAPTError + 1133 );
-				}
-				switch ( startingElement->type )
-				{
-					case kSymbol:
-						return 0;
-					case kNumber:
-						if ( sscanf
-							( startingElement->data, "%le", &y )
-							!= 1 ) return ( kAPTError + 1004 );
-						if ( --numberOfTrueElements == 0 )
-						{
-							FromAPTtoInch ( &x );
-							FromAPTtoInch ( &y );
-							return PutGoTo2D (pLgMaster, x, y );
-						}
-						startingElement++;
-						break;
-					case kComma:
-						if ( --numberOfTrueElements == 0 )
-							return ( kAPTError + 1133 );
-						startingElement++;
-						switch ( startingElement->type )
-						{
-							case kSymbol:
-								return 0;
-							case kNumber:
-								if ( sscanf ( startingElement->data,
-									"%le", &y )
-									!= 1 ) return ( kAPTError + 1004 );
-								if ( --numberOfTrueElements == 0 )
-								{
-									FromAPTtoInch ( &x );
-									FromAPTtoInch ( &y );
-									return PutGoTo2D (pLgMaster, x, y );
-								}
-								startingElement++;
-								break;
-							default:
-								return ( kAPTError + 1133 );
-						}
-						break;
-					default:
-						return ( kAPTError + 1133 );
-				}
-				switch ( startingElement->type )
-				{
-					case kSymbol:
-						return 0;
-					case kNumber:
-						if ( sscanf
-							( startingElement->data, "%le", &z )
-							!= 1 ) return ( kAPTError + 1004 );
-						FromAPTtoInch ( &x );
-						FromAPTtoInch ( &y );
-						FromAPTtoInch ( &z );
-						return PutGoTo3D (pLgMaster, x, y, z );
-					case kComma:
-						if ( --numberOfTrueElements == 0 )
-							return ( kAPTError + 1133 );
-						startingElement++;
-						switch ( startingElement->type )
-						{
-							case kSymbol:
-								return 0;
-							case kNumber:
-								if ( sscanf
-									( startingElement->data, "%le", &z )
-									!= 1 ) return ( kAPTError + 1004 );
-								FromAPTtoInch ( &x );
-								FromAPTtoInch ( &y );
-								FromAPTtoInch ( &z );
-								return PutGoTo3D (pLgMaster, x, y, z );
-							default:
-								return ( kAPTError + 1133 );
-						}
-						break;
-					default:
-						return ( kAPTError + 1133 );
-				}
-			}
-			break;
-		default:
-			break;
-	}
+		      default:
+			return(kAPTError + 1133);
+		      }
+		    break;
+		  default:
+		    return(kAPTError + 1133);
+		  }
+		switch(startingElement->type)
+		  {
+		  case kSymbol:
+		    return 0;
+		  case kNumber:
+		    if (sscanf(startingElement->data, "%le", &z) != 1)
+		      return(kAPTError + 1004);
+		    FromAPTtoInch(&x);
+		    FromAPTtoInch(&y);
+		    FromAPTtoInch(&z);
+		    return(PutGoTo3D(pLgMaster, x, y, z));
+		  case kComma:
+		    if (--numberOfTrueElements == 0)
+		      return( kAPTError + 1133);
+		    startingElement++;
+		    switch(startingElement->type)
+		      {
+		      case kSymbol:
+			return 0;
+		      case kNumber:
+			if (sscanf(startingElement->data, "%le", &z) != 1)
+			  return(kAPTError + 1004);
+			FromAPTtoInch(&x);
+			FromAPTtoInch(&y);
+			FromAPTtoInch(&z);
+			return(PutGoTo3D(pLgMaster, x, y, z));
+		      default:
+			return(kAPTError + 1133);
+		      }
+		    break;
+		  default:
+		    return(kAPTError + 1133);
+		  }
+	      }
+	    break;
+	  default:
+	    break;
+	  }
 	return 0;
 }
 

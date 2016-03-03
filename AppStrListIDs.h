@@ -1,9 +1,6 @@
-#include <stdint.h>
 /*   $Id: AppStrListIDs.h,v 1.2 1996/12/25 18:38:04 ags-sw Exp $  */
-
-#ifndef __unix__
-#pragma once
-#endif
+#ifndef APPSTRLISTID_H
+#define APPSTRLISTID_H
 
 #define kCommCmdStrListID				256
 #define	kCommStatusStrListID			257
@@ -43,4 +40,4 @@
 #define	kAEIStartupStrListID			291
 #define	kAEInterfaceStrListID			292
 #define	kPreferenceInterfaceStrListID	293
-
+#endif

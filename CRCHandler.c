@@ -1,11 +1,14 @@
-#include <stdint.h>
 //static char rcsid[] = "$Id: CRCHandler.c,v 1.3 2001/01/03 17:49:18 ags-sw Exp pickle $";
 
 	/********************************/
 	/*	Platform independent code	*/
 	/*	Use on both computers		*/
 	/********************************/
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
 #include "CRCHandler.h"
 
 static	unsigned short		*g256Lookup16bitWords = (unsigned short *)0; 
@@ -15,31 +18,19 @@ static	void				SetupLookupTable ( void );
 
 #define BAD_CRC 0
 
-void AppendCRC ( char *theBuffer, int32_t lengthOfBufferWithoutCRC )
+void AppendCRC(unsigned char *theBuffer, uint32_t lengthOfBufferWithoutCRC)
 {
 	/* msb == most significant byte */
 	/* lsb == least significant byte */
 	unsigned char	*theCurrentByte, *msbCRC, *lsbCRC;
 	unsigned short	the16bitValueFromLookupTable;
-	int32_t			i;
+	uint32_t        i;
 	
-#ifdef ZDEBUG
-fprintf( stderr, "entering AppendCRC  len %d\n", lengthOfBufferWithoutCRC );
-#endif
 	theCurrentByte	= (unsigned char *)theBuffer;
-#ifdef ZDEBUG
-fprintf( stderr, "CRC  cur %x\n", theCurrentByte );
-#endif
 	msbCRC = (unsigned char *)&theBuffer[lengthOfBufferWithoutCRC];
 	lsbCRC = (unsigned char *)&theBuffer[lengthOfBufferWithoutCRC + 1];
-#ifdef ZDEBUG
-fprintf( stderr, "msb %x lsb %x\n", msbCRC, lsbCRC );
-#endif
 	*msbCRC = (unsigned char)'\0';
 	*lsbCRC = (unsigned char)'\0';
-#ifdef ZDEBUG
-fprintf( stderr, "values %x %x\n", *msbCRC, *lsbCRC );
-#endif
 	i = lengthOfBufferWithoutCRC;
 	while ( i-- )
 	{
@@ -49,44 +40,19 @@ fprintf( stderr, "values %x %x\n", *msbCRC, *lsbCRC );
 			(unsigned char)( the16bitValueFromLookupTable >> 8 );
 		*lsbCRC =
 			(unsigned char)( the16bitValueFromLookupTable & 0x00FF );
-#ifdef ZDEBUG
-fprintf( stderr, "values %x %x  cur %x\n", *msbCRC, *lsbCRC, *theCurrentByte );
-#endif
 	}
-#ifdef ZDEBUG
-fprintf( stderr, "leaving AppendCRC  len %d\n", lengthOfBufferWithoutCRC );
-#endif
 	return;
 }
 
 
-short CheckCRC ( char *theBuffer, int32_t lengthOfBufferWithoutCRC )
+short CheckCRC(unsigned char *theBuffer, uint32_t lengthOfBufferWithoutCRC)
 {
 	unsigned short	theCRC;
 	unsigned char	*theCurrentByte;
-	int32_t			i;
-#ifdef SDEBUG
-        unsigned char   msbCRC, lsbCRC;
-        unsigned short  the16bitValueFromLookupTable;
+	uint32_t        i;
 
-        theCurrentByte  = (unsigned char *)theBuffer;
-        msbCRC = (unsigned char)'\0';
-        lsbCRC = (unsigned char)'\0';
-        i = lengthOfBufferWithoutCRC;
-        while ( i-- )
-        {
-                the16bitValueFromLookupTable =
-                        g256Lookup16bitWords [ msbCRC ^ *(theCurrentByte++) ];
-                msbCRC = lsbCRC ^
-                        (unsigned char)( the16bitValueFromLookupTable >> 8 );
-                lsbCRC =
-                        (unsigned char)(the16bitValueFromLookupTable & 0x00FF);
-        }
-        printf(  "CRC  %02x %02x  %u %u\n", msbCRC, lsbCRC, msbCRC, lsbCRC );
-
-#endif
 	theCRC = 0;
-	theCurrentByte = (unsigned char *)theBuffer;
+	theCurrentByte = theBuffer;
 	i = lengthOfBufferWithoutCRC + 2;
 	
 	while ( i-- ) theCRC = ( theCRC << 8 ) ^

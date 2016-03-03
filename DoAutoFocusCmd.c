@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
+#include <syslog.h>
 #include <sys/io.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -26,6 +27,7 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      int read_count=0;
      int num_read=0;
      char cdata_in=0;
+     char cdata_out=0;
      
      struct parse_autofocus_parms *pInp = (struct parse_autofocus_parms *)buffer;
      struct parse_autofocus_resp *pResp = (struct parse_autofocus_resp *)pLgMaster->theResponseBuffer;
@@ -35,9 +37,9 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 
      // Get length of input buffer & validate length
      AFtoWrite = strlen((const char *)pInp->inp_data );
-     if ((AFtoWrite <= 0) || (AFtoWrite > 32))
+     if ((AFtoWrite <= 0) || (AFtoWrite > 32) || (pLgMaster->af_serial < 0))
        {
-	 fprintf(stderr, " Bad AFWriteLen %d\n", AFtoWrite);
+	 syslog(LOG_ERR, " Bad AFWriteLen %d", AFtoWrite);
 	 // Flush ttyS2 to prepare for next operation
 	 if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
 	   perror("CantFlushttyS2");
@@ -50,12 +52,13 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      // design
      for (af_index = 0; af_index < AFtoWrite; af_index++)
        {
-	 write_count = write(pLgMaster->af_serial, (void *)&pInp->inp_data[af_index], 1);
+	 cdata_out = pInp->inp_data[af_index];
+	 write_count = write(pLgMaster->af_serial, (void *)&cdata_out, 1);
 	 if (write_count != 1)
 	   {
-	     fprintf(stderr, "\nAFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
+	     syslog(LOG_ERR, "AFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
 	     if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-	       perror("AFWRITE:CantFlushttyS2");
+	       syslog(LOG_ERR, "AFWRITE:CantFlushttyS2");
 	     pResp->hdr.status = RESPFAIL;
 	     HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 	     return;
@@ -81,7 +84,7 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 		 {
 		   if ( errno != EAGAIN && errno != EWOULDBLOCK )
 		     {
-		       fprintf(stderr,"\nAFREAD: FAIL: total_bytes %x, err %x, val %2x",read_count,num_read, (int)cdata_in);
+		       syslog(LOG_ERR,"AFREAD: FAIL: total_bytes %x, err %x, val %2x",read_count,num_read, (int)cdata_in);
 		       if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
 			 perror("AFWRITE:CantFlushttyS2");
 		       pResp->hdr.status = RESPFAIL;

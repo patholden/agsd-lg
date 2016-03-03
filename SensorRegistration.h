@@ -1,24 +1,15 @@
-#include <stdint.h>
 /*   $Id: SensorRegistration.h,v 1.7 2007/04/02 08:43:56 pickle Exp pickle $  */
-
-#ifndef __unix__
-#pragma once
-#endif
-
 #ifndef SENSORREGISTRATION_H
 #define SENSORREGISTRATION_H
 
 #define  MAXTRANSNUM  11000
 
 
-extern	unsigned char	FindTransformMatrix ( short numberOfPoints, 
-					double deltaMirror, double tolerance,
-					double *foundAngles, double *theTransform );
-
-extern	void	SaveFullRegCoordinates ( short numberOfPoints,
-					double *theOriginalCoordinates );
-					
-extern	void	DontFindTransform ( unsigned char doOrDont );
+unsigned char FindTransformMatrix(struct lg_master *pLgMaster, uint16_t numberOfPoints, 
+				  double deltaMirror, double tolerance, double *foundAngles,
+				  double *theTransform);
+void SaveFullRegCoordinates(uint16_t numberOfPoints, double *theOriginalCoordinates);
+void DontFindTransform(unsigned char doOrDont);
 
 extern short GnOfTrans;
 extern int   gSaved;

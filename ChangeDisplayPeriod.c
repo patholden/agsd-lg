@@ -6,6 +6,7 @@ static char rcsid[] = "$Id$";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -29,7 +30,7 @@ void DoChangeDisplayPeriod (struct lg_master *pLgMaster, struct parse_chngdisp_p
 
   newPeriod = pInp->displayPeriod;
   pResp->hdr.status = RESPGOOD;
-  fprintf(stderr,"change display  %d\n", newPeriod );
+  syslog(LOG_NOTICE,"change display  %d\n", newPeriod );
   if ((newPeriod == -1) || ((newPeriod >= 50) && (newPeriod <= 150)))
     pLgMaster->gPeriod = newPeriod;
   else if (newPeriod == 0)

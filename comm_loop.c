@@ -4,6 +4,9 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
+#define _GNU_SOURCE   // Needed for polling conditions
+#include <signal.h>
+#include <poll.h>
 #include <sys/io.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -31,29 +34,48 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
   int                sockaddr_len = sizeof(struct sockaddr_in);
   int                error;
+  int                on = 1;
   
   // Initialize buffers to 0
   memset(&pLgMaster->webhost_addr, 0, sockaddr_len);
-  
+
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"Start socket interface");
+#endif
   // Just in case this is a re-config, check for open socketfd & close first
   if ((pLgMaster->socketfd >= 0) || (pLgMaster->datafd >= 0))
     {
-      if (pLgMaster->socketfd >= 0)
-	close(pLgMaster->socketfd);
       if (pLgMaster->datafd >= 0)
-	close(pLgMaster->datafd);
+	{
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"Closing live datafd %d",pLgMaster->datafd);
+#endif
+	  close(pLgMaster->datafd);
+	}
+      if (pLgMaster->socketfd >= 0)
+	{
+#ifdef PATDEBUG
+	  syslog(LOG_DEBUG,"Closing live socketfd %d",pLgMaster->socketfd);
+#endif
+	  close(pLgMaster->socketfd);
+	}
       pLgMaster->socketfd = -1;
       pLgMaster->datafd = -1;
     }
 
   // Set up comm interface with PC Host
-  pLgMaster->socketfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  pLgMaster->socketfd = socket(PF_INET, SOCK_STREAM, IPPROTO_IP);
   if (pLgMaster->socketfd < 0)
     {
       perror("server socket: ");
       return(-1);
     }
-
+  error = setsockopt(pLgMaster->socketfd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on));
+  if (error < 0)
+    {
+      syslog(LOG_ERR,"COMMCFGSCK: setsockopt failed for socket %d",pLgMaster->socketfd);
+      return(-2);
+    }
   pLgMaster->webhost_addr.sin_family = AF_INET;
   pLgMaster->webhost_addr.sin_port = htons(AGS_PORT);
   pLgMaster->webhost_addr.sin_addr.s_addr = INADDR_ANY;
@@ -78,7 +100,7 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
 int CommInit(struct lg_master *pLgMaster)
 {
   struct termios term;
-  int            baud;
+  speed_t        baud;
   int            error=0;
   
   // Always check integrity of master struct
@@ -94,7 +116,7 @@ int CommInit(struct lg_master *pLgMaster)
       perror("opensock");
       return(error);
     }
-  syslog(LOG_NOTICE, "\nPC host comm port initialized\n");
+  syslog(LOG_NOTICE, "PC host comm port initialized");
 
   // Try to open AutoFocus serial port
   pLgMaster->af_serial = open("/dev/ttyS2", O_RDWR | O_NONBLOCK | O_NOCTTY);
@@ -139,7 +161,7 @@ int CommInit(struct lg_master *pLgMaster)
   //Attempt to flush IO
   if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
     {
-      perror("CantFlushttyS2");
+      syslog(LOG_ERR, "Can't Flush IO for /dev/ttyS2");
       close(pLgMaster->af_serial);
       return(-7);
     }
@@ -148,12 +170,12 @@ int CommInit(struct lg_master *pLgMaster)
   cfmakeraw(&term);
   if( tcsetattr( pLgMaster->af_serial, TCSANOW, &term) < 0 )
     {
-      perror("tcsetattr2");
+      syslog(LOG_ERR, "Can't set term attributes for /dev/ttyS2");
       close(pLgMaster->af_serial);
       return(-8);
     }
 
-  syslog(LOG_NOTICE, "\nAutoFocus port initialized, baud %d\n", baud);
+  syslog(LOG_NOTICE, "AutoFocus port initialized, baud %d", baud);
   // This sets the correct data presentation on send/recv from webhost
   pLgMaster->gHEX = 1;
   return(0);
@@ -161,10 +183,11 @@ int CommInit(struct lg_master *pLgMaster)
 
 static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 {
+  struct pollfd  poll_fd;
   unsigned char *recv_data = 0;
   int       data_len = 0;
   int       error = 0;
-  int       parsed_count = 0;
+  uint32_t  parsed_count = 0;
   
   if (!pLgMaster)
     return(-1);
@@ -172,6 +195,16 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   if (pLgMaster->serial_ether_flag != 2)
     return(-2);
 
+  memset((char *)&poll_fd, 0, sizeof(struct pollfd));
+  poll_fd.fd = pLgMaster->datafd;
+  poll_fd.events = POLLIN | POLLHUP;
+
+  error = poll((struct pollfd *)&poll_fd, 1, 10000);
+  if (error < 1)
+    return(0);
+  if (poll_fd.revents == 0)
+    return(0);
+  
   recv_data = (unsigned char *)malloc(COMM_RECV_MAX_SIZE);   // We only read in up to 8k at a time.
   if (!recv_data)
     return(-3);
@@ -187,25 +220,33 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 	{
 	  if (data_len == EOF)
 	    {
-	      fprintf(stderr,".");
+	      syslog(LOG_NOTICE,".");
 	      free(recv_data);
 	      return(0);
 	    }
 	  else
 	    {
-	      syslog(LOG_ERR,"\nRecv data error:");
 	      free(recv_data);
-	      return(-5);
+	      // Check to see if we have more data or connection is busy
+	      if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		return(0);
+	      syslog(LOG_ERR,"Recv data error:");
+	      return(-4);
 	    }
 	}
       else
 	{
+	  syslog(LOG_NOTICE,"Recv data length 0, PC host closed connection");
+	  pLgMaster->datafd = -1;
 	  free(recv_data);
-	  return(0);
+	  return(-5);
 	}
     }
 
   // Process incoming data
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"Got some data, command %x, length %d", recv_data[0], data_len);
+#endif
   error = parse_data(pLgMaster, recv_data, data_len, &parsed_count );
   if (error < 0)
     {
@@ -216,145 +257,170 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   free(recv_data);
   return(data_len);
 }
-
-int SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand)
+int IsOkToSend(struct lg_master *pLgMaster)
 {
-  unsigned char    gOutputBuffer[sizeof(struct send_cnfm)];
-  unsigned char    gOutputHex[(sizeof(struct send_cnfm) * 2)];
-  int i=0, count=0;
-  int sent=0, remain=0;
-  struct send_cnfm *pOut=(struct send_cnfm *)&gOutputBuffer[0];;
+    struct pollfd  poll_fd;
 
-  sent = 0;
-  // Need to initialize buffers to be used
-  memset(gOutputBuffer, 0, sizeof(struct send_cnfm));
-  memset(gOutputHex, 0, (sizeof(struct send_cnfm) * 2));
+    memset((char *)&poll_fd, 0, sizeof(struct pollfd));
+    poll_fd.fd = pLgMaster->datafd;
+    poll_fd.events = POLLOUT;
 
-  pOut->cmd   = theCommand;
-  pOut->flags = pLgMaster->gHeaderSpecialByte;
-  pOut->seq_num = htons(pLgMaster->seqNo);
-  AppendCRC((char *)gOutputBuffer, (sizeof(struct send_cnfm)-kCRCSize));
+    if (poll_fd.revents | POLLOUT)
+      return(0);
+    return(-1);
+}
+void SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand)
+{
+    unsigned char    gOutputBuffer[sizeof(struct send_cnfm)];
+    unsigned char    gOutputHex[(sizeof(struct send_cnfm) * 2)];
+    int              i, count, sent;
+    struct           send_cnfm *pOut=(struct send_cnfm *)&gOutputBuffer[0];;
 
-  if (pLgMaster->gHEX == 1 ) {
-    count = 0; 
-    for (i=0; i<COMM_CONFIRM_LEN; i++)
-      {
-	if (gOutputBuffer[i] >= 0x80)
-	  {
-	    gOutputHex[count] = 0x80;
-	    count++;
-	    gOutputHex[count] = gOutputBuffer[i] - 0x80;
-	    count++;
-	  }
-	else
-	  {
-	    gOutputHex[count] = gOutputBuffer[i];
-	    count++;
-	  }
-      }
-    i = 0;
-    remain = count;
-    sent = 0;
-    while(count && (i < count) && (sent >= 0) && (pLgMaster->datafd >= 0))
-      {
-	sent = send(pLgMaster->datafd, gOutputHex, count, MSG_NOSIGNAL);
-	i += sent;
-	remain -= sent;
-      }
-  }
+    if (IsOkToSend(pLgMaster))
+      return;
+  
+    // Need to initialize buffers to be used
+    memset(gOutputBuffer, 0, sizeof(struct send_cnfm));
+    memset(gOutputHex, 0, (sizeof(struct send_cnfm) * 2));
 
-  if (pLgMaster->gHEX == 0)
-    {
-      if ((pLgMaster->serial_ether_flag == 2) && (pLgMaster->datafd >= 0)) 
-	sent = send(pLgMaster->datafd, gOutputBuffer, COMM_CONFIRM_LEN, MSG_NOSIGNAL);
-      if (sent == -1)
-	perror("\nBad data-send: ");
+    pOut->cmd   = theCommand;
+    pOut->flags = pLgMaster->gHeaderSpecialByte;
+    pOut->seq_num = htons(pLgMaster->seqNo);
+    AppendCRC((unsigned char *)gOutputBuffer, (sizeof(struct send_cnfm)-kCRCSize));
+
+    if (pLgMaster->gHEX == 1 ) {
+      count = 0; 
+      for (i=0; i<COMM_CONFIRM_LEN; i++)
+	{
+	  if (gOutputBuffer[i] >= 0x80)
+	    {
+	      gOutputHex[count] = 0x80;
+	      count++;
+	      gOutputHex[count] = gOutputBuffer[i] - 0x80;
+	      count++;
+	    }
+	  else
+	    {
+	      gOutputHex[count] = gOutputBuffer[i];
+	      count++;
+	    }
+	}
+      sent = send(pLgMaster->datafd, gOutputHex, count, MSG_NOSIGNAL);
+#ifdef PATDEBUG
+      syslog(LOG_ERR,"Sending GHEX1 confirm: cmd %d errno %d", theCommand, errno);
+#endif
+      if (sent <=0)
+	syslog(LOG_ERR,"bad send on confirmation: errno %d", errno);
     }
-  return(0);
+
+    if (pLgMaster->gHEX == 0)
+      {
+	if ((pLgMaster->serial_ether_flag == 2) && (pLgMaster->datafd >= 0)) 
+	  sent = send(pLgMaster->datafd, gOutputBuffer, COMM_CONFIRM_LEN, MSG_NOSIGNAL);
+#ifdef PATDEBUG
+      syslog(LOG_ERR,"Sending GHEX1 confirm: cmd %d errno %d", theCommand, errno);
+#endif
+	if (sent <=0)
+	  syslog(LOG_ERR,"Bad send on confirmation: errno %d", errno);
+      }
+    return;
 }
 
 void SendA3(struct lg_master *pLgMaster)
 {
-  struct k_header gOutputBuffer;
-  int sent=0;
+    struct k_header gOutputBuffer;
+    int sent=0;
 
-  memset ((char *)&gOutputBuffer, 0, sizeof(struct k_header));
-  gOutputBuffer.status = 0xA3;
+    if (IsOkToSend(pLgMaster))
+      return;
+  
+    memset ((char *)&gOutputBuffer, 0, sizeof(struct k_header));
+    gOutputBuffer.status = 0xA3;
 
-  if ((pLgMaster->serial_ether_flag == 2)  && (pLgMaster->datafd >= 0))
-    sent = send(pLgMaster->datafd, (char *)&gOutputBuffer, sizeof(struct k_header), MSG_NOSIGNAL );
-  if (sent <= 0)
-    syslog(LOG_ERR,"\nUnable to send data, errno %d, sent %d", errno, sent);
-  return;
+    if ((pLgMaster->serial_ether_flag == 2)  && (pLgMaster->datafd >= 0))
+      sent = send(pLgMaster->datafd, (char *)&gOutputBuffer, sizeof(struct k_header), MSG_NOSIGNAL );
+      syslog(LOG_ERR,"Sending A3: errno %d", errno);
+    if (sent <= 0)
+      syslog(LOG_ERR,"Bad send on A3: errno %d", errno);
+    return;
 }
 
 
 void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint32_t gRespondToWhom )
 {
-  char     *gOutputHEX;
-  int i, count, remain, sent;
+    unsigned char  *gOutputHEX;
+    int            i, count, remain, sent;
 
-  // FIXME--PAH--Here for compilation but should it be removed?
-  // gRespondToWhom isn't used atm.
-  gRespondToWhom = gRespondToWhom;
-  gOutputHEX = malloc((lengthOfResponse * 2));
-  if (!gOutputHEX)
-    {
-      perror("\nHANDLERESP: Bad Malloc():");
+    if (IsOkToSend(pLgMaster))
       return;
-    }
-  memset(gOutputHEX, 0, (lengthOfResponse * 2));
   
-  AppendCRC((char *) pLgMaster->theResponseBuffer, lengthOfResponse);
-  if (pLgMaster->gHEX == 1)
-    {
-      count = 0; 
-      for (i=0; i<(lengthOfResponse+kCRCSize); i++)
-	{
-	  if (pLgMaster->theResponseBuffer[i] >= 0x80)
-	    {
-	      gOutputHEX[count] = 0x80;
-	      count++;
-	      gOutputHEX[count] = pLgMaster->theResponseBuffer[i] - 0x80;
-	      count++;
-	    }
-	  else
-	    {
-	      gOutputHEX[count] = pLgMaster->theResponseBuffer[i];
-	      count++;
-	    }
-	}
-      i = 0;
-      remain = count;
-      sent = 0;
-      if (pLgMaster->serial_ether_flag == 2)
-	{
-	  while ((i < count) && (sent >= 0) && (pLgMaster->datafd >= 0))
-	    {
-	      sent = send( pLgMaster->datafd, gOutputHEX, remain, MSG_NOSIGNAL );
-	      i += sent;
-	      remain -= sent;
-	    }
-	}
-    }
+    // FIXME--PAH--Here for compilation but should it be removed?
+    // gRespondToWhom isn't used atm.
+    gRespondToWhom = gRespondToWhom;
+    gOutputHEX = malloc((lengthOfResponse * 2));
+    if (!gOutputHEX)
+      {
+	perror("\nHANDLERESP: Bad Malloc():");
+	return;
+      }
+    memset(gOutputHEX, 0, (lengthOfResponse * 2));
+  
+    AppendCRC(pLgMaster->theResponseBuffer, lengthOfResponse);
+    if (pLgMaster->gHEX == 1)
+      {
+	count = 0; 
+	for (i=0; i<(lengthOfResponse+kCRCSize); i++)
+	  {
+	    if (pLgMaster->theResponseBuffer[i] >= 0x80)
+	      {
+		gOutputHEX[count] = 0x80;
+		count++;
+		gOutputHEX[count] = pLgMaster->theResponseBuffer[i] - 0x80;
+		count++;
+	      }
+	    else
+	      {
+		gOutputHEX[count] = pLgMaster->theResponseBuffer[i];
+		count++;
+	      }
+	  }
+	remain = count;
+	if (pLgMaster->serial_ether_flag == 2)
+	  {
+	    while (remain > 0)
+	      {
+		sent = send( pLgMaster->datafd, gOutputHEX, remain, MSG_NOSIGNAL );
+		if (sent <= 0)
+		  {
+		    syslog(LOG_ERR,"Bad send on Response: errno %d", errno);
+		    if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+		      break;
+		  }
+		remain -= sent;
+	      }
+	  }
+      }
 
-  else if (pLgMaster->gHEX == 0)
-    {
-      i = 0;
-      count = lengthOfResponse+2;
-      remain = count;
-      if (pLgMaster->serial_ether_flag == 2)
-	{
-	  while((i < count) && (pLgMaster->datafd >= 0))
-	    {
-	      sent = send(pLgMaster->datafd, pLgMaster->theResponseBuffer, remain, MSG_NOSIGNAL);
-	      i += sent;
-	      remain -= sent;
-	    }
-	}
-    }
-  free(gOutputHEX);
-  return;
+    else if (pLgMaster->gHEX == 0)
+      {
+	remain = lengthOfResponse+2;
+	if (pLgMaster->serial_ether_flag == 2)
+	  {
+	    while(remain > 0)
+	      {
+		sent = send(pLgMaster->datafd, pLgMaster->theResponseBuffer, remain, MSG_NOSIGNAL);
+		if (sent <= 0)
+		  {
+		    syslog(LOG_ERR,"Bad send on Response: errno %d", errno);
+		    if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+		      break;
+		  }
+		remain -= sent;
+	      }
+	  }
+      }
+    free(gOutputHEX);
+    return;
 }
 
 int
@@ -372,32 +438,12 @@ pingClient(char* peerAddr )
     }
    
    memset(buffer, 0, sizeof(buffer));
-#if 0
-   char c[20];
-   memset(c, 0, sizeof(c));
-
-   sprintf( buffer, "/myping %s count 1 | grep loss | grep -c 100", peerAddr );
-   FILE *p = popen( buffer, "r" );
-   fgets( c,5,p );
-   pclose(p);
-   if ( strcmp( c,"0\n" ) == 0 )
-     {
-       return( 1 );
-     }
-   else
-     {
-       syslog(LOG_ERR, "NO Reply from %s", peerAddr );
-       return( 0 );
-     }
-#else
    sprintf(buffer, "ping %s -c 1 > /dev/null 2>&1", peerAddr);
    return_code = system(buffer);
    if (return_code != 0) {
      syslog(LOG_ERR, "Ping to %s FAILED", peerAddr );
      return(-1);
    }
-    
-#endif
    return(0);
 }
 
@@ -419,24 +465,47 @@ int CheckInput(struct lg_master *pLgMaster)
 	  read2socks = select(pLgMaster->socketfd+1, &socks, NULL, NULL, &timeout);
         return( read2socks );
 }
+
+int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster)
+{
+    return(0);
+    if (CheckInput(pLgMaster))
+      return(-1);
+    return(0);
+}
+
 int DoProcEnetPackets(struct lg_master *pLgMaster)
 {
   struct sockaddr_in client_addr;
   struct sockaddr_in haddr;
   socklen_t          sockaddr_len = sizeof(struct sockaddr_in);
-  long               comm_loop_count=0;
   int                error=0;
-
+  int                on=1;
+  unsigned long      loop_count;
+  
   // Initialize buffers
   memset(&client_addr, 0, sockaddr_len);
   memset(&haddr, 0, sockaddr_len);
 
   // Accept connection with host
+  if (pLgMaster->datafd >= 0)
+    {
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"Closing live datafd %d",pLgMaster->datafd);
+#endif
+      close(pLgMaster->datafd);
+    }
   pLgMaster->datafd = accept(pLgMaster->socketfd, (struct sockaddr *)&client_addr, (socklen_t *)&sockaddr_len);
   if (pLgMaster->datafd < 0)
     {
-      syslog(LOG_ERR,"\nCOMMLOOP:  unable to accept data from %s", pLgMaster->webhost);
+      syslog(LOG_ERR,"COMMLOOP:  unable to accept data from %s", pLgMaster->webhost);
       return(-1);
+    }
+  error = setsockopt(pLgMaster->datafd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on));
+  if (error < 0)
+    {
+      syslog(LOG_ERR,"COMMCFGSCK: setsockopt failed for socket %d",pLgMaster->socketfd);
+      return(-2);
     }
   // Get host's IP address
     error = getpeername(pLgMaster->datafd, (struct sockaddr *)&haddr, &sockaddr_len);
@@ -448,10 +517,11 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
   strcpy(pLgMaster->webhost, inet_ntoa(haddr.sin_addr));
 
   syslog(LOG_NOTICE, "receiving data from %s, recvfd %x", pLgMaster->webhost, pLgMaster->datafd);
+  loop_count = 0;
   while (pLgMaster->datafd >= 0)
     {
       error = ProcEnetPacketsFromHost(pLgMaster);
-      if (error<=0)
+      if (error < 0)
 	{
 	  // Honor ping-heartbeat so partner knows we're alive
 	  // FIXME--PAH.  NEED TO PUT PING INTO PTHREAD & JUST CHECK STATUS.
@@ -461,12 +531,14 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
 	    pLgMaster->ping_count++;
 	  return(0);
 	}
-      else
-	{
-	  comm_loop_count++;
-	}
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"Comm Loop Continues, loop count %ld", loop_count++);
+#endif
     }
-  
+
+  // Should never get here
+  if (pLgMaster->datafd == -1)
+    return(-1);
   return(0);
 }
 

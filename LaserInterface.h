@@ -1,10 +1,4 @@
-#include <stdint.h>
 /*   $Id: LaserInterface.h,v 1.11 1999/07/29 19:05:48 ags-sw Exp $  */
-
-#ifndef __unix__
-#pragma once
-#endif
-
 #ifndef LASERINTERFACE_H
 #define LASERINTERFACE_H
 
@@ -23,8 +17,6 @@ enum
 
 extern	double		gDeltaMirror;
 extern	double		gMirrorThickness;
-extern	double		gHalfMirror;
-
 extern	double		gQuarterPi;
 
 extern double                     gBinaryCenter;
@@ -62,8 +54,8 @@ uint32_t ConvertMirrorAnglesToBinary( double xIn, double yIn,
 void ConvertMirrorToGeometricAngles(double *x, double *y);
 void ConvertBinaryToMirrorAngles(int32_t xIn, int32_t yIn,
 				 double *xOut, double *yOut );
-void XYFromGeometricAnglesAndZ(double xa, double ya, double z,
-			       double *x, double *y);
+void XYFromGeometricAnglesAndZ(struct lg_master *pLgMaster, double xa, double ya,
+			       double z,double *x, double *y);
 uint32_t ConvertExternalAnglesToBinary(struct lg_master *pLgMaster,
 				       double xIn, double yIn,
 				       int32_t *xOut, int32_t *yOut);
@@ -78,9 +70,11 @@ uint32_t ZeroOnLine(double angleX, double angleY, double transformArray[12],
 void CloseLaserInterface(void);
 unsigned char InitLaserInterface(struct lg_master *pLgMaster);
 void ConvertExternalAnglesToMirror(double xIn, double yIn, double *xOut, double *yOut);
-void GeometricAnglesFrom3D(double x, double y, double z, double *xa, double *ya);
+void GeometricAnglesFrom3D(struct lg_master *pLgMaster, double x, double y,
+			   double z, double *xa, double *ya);
 void ConvertGeometricAnglesToMirror(double *x, double *y);
-void Convert3DToExternalAngles(double x, double y, double z, double *xOut, double *yOut);
+void Convert3DToExternalAngles(struct lg_master *pLgMaster, double x, double y, double z,
+			       double *xOut, double *yOut);
 void FromAPTtoInch(double *number);
 void FromInchtoAPT(double *number);
 uint32_t SlowDownStep(void);
