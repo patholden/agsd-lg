@@ -29,16 +29,14 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 //FIXME---PAH---needs cmd/resp cleanup
 void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t respondToWhom)
 {
-    int32_t ptX, ptY;
-    int32_t fndX;
-    int32_t fndY;
+    int16_t ptX, ptY, fndX, fndY;
     double XfoundAngles [ kNumberOfRegPoints ];
     double YfoundAngles [ kNumberOfRegPoints ];
     double XExternalAngles [ kNumberOfRegPoints ];
     double YExternalAngles [ kNumberOfRegPoints ];
     double foundAngles [ kNumberOfRegPoints * 2 ];
-    int32_t Xarr[kNumberOfRegPoints];
-    int32_t Yarr[kNumberOfRegPoints];
+    int16_t Xarr[kNumberOfRegPoints];
+    int16_t Yarr[kNumberOfRegPoints];
     int numberOfFoundTargets;
     int useTarget [ kFeedbackNumber ];
     unsigned char *RespBuff=pLgMaster->theResponseBuffer;
@@ -55,6 +53,7 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
     double theCoordinateBuffer[kNumberOfRegPoints * 3];
     int32_t theAngleBuffer[kNumberOfRegPoints * 2];
     double *currentData;
+    struct  lg_xydata *pCurXY;
     int index;
     double theTransformTolerance;
     transform foundTransform;
@@ -95,11 +94,12 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
       }
     } else if ( RawGeomFlag == 2 ) {
       for ( i = 0; i <  kNumberOfRegPoints ; i++ ) {
+	pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
 	return_code = ConvertExternalAnglesToBinary (pLgMaster,
 						     pGeometricAngles[2*i],
 						     pGeometricAngles[2*i+1],
-						     &(theAngleBuffer[2*i]),
-						     &(theAngleBuffer[2*i+1]) );
+						     &pCurXY->xdata,
+						     &pCurXY->ydata);
       }
     }
     i = 0;
@@ -137,8 +137,8 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 	    pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 	    while (j--)
 	      {
-		ptX = theAngleBuffer[2*i  ];
-		ptY = theAngleBuffer[2*i+1];
+		ptX = theAngleBuffer[2*i  ] & kMaxUnsigned;
+		ptY = theAngleBuffer[2*i+1] & kMaxUnsigned;
 		if (useTarget[i] == 1)
 		  searchResult = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
 		else

@@ -28,13 +28,12 @@ void FlexCalWithFeedback ( struct lg_master *pLgMaster,
                            uint32_t respondToWhom )
 {
 	double foundAngles [ kNumberOfFlexPoints * 2 ];
-	uint32_t Xarr [ kNumberOfFlexPoints ];
-	uint32_t Yarr [ kNumberOfFlexPoints ];
+	uint16_t Xarr [ kNumberOfFlexPoints ];
+	uint16_t Yarr [ kNumberOfFlexPoints ];
 	int32_t target_status [ kNumberOfFlexPoints ];
 	double Xgeo;
 	double Ygeo;
-        int32_t Xbin;
-        int32_t Ybin;
+        int16_t Xbin, Ybin;
         double theCoordinateBuffer[kNumberOfFlexPoints * 3];
 	uint32_t  resp_len = (sizeof(uint32_t)
 			      + (12 * kSizeOldLongDouble)
@@ -268,4 +267,5 @@ void FlexCalWithFeedback ( struct lg_master *pLgMaster,
 			+  kNumberOfFlexPoints * sizeof ( int32_t ) 
                         , respondToWhom
                         );
+             return;
 }

@@ -326,7 +326,7 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
     return;
 }
 
-void DoStop(struct lg_master *pLgMaster, uint32_t respondToWhom)
+void DoStopCmd(struct lg_master *pLgMaster, uint32_t respondToWhom)
 {
     PostCommand(pLgMaster, kStop, 0, respondToWhom);
     return;
@@ -336,22 +336,17 @@ void DoStop(struct lg_master *pLgMaster, uint32_t respondToWhom)
 void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, uint32_t respondToWhom )
 {
   struct lg_xydata xydata;
-  int32_t xPoint=0;
-  int32_t yPoint=0;
-  double   x;
-  double   y;
+  int16_t xPoint=0;
+  int16_t yPoint=0;
   int      return_val;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
 
   memset(pResp, 0, sizeof(struct parse_basic_resp));
-  if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 
   // Check input parms pointer & get x/y data
   if (!pInp)
     return;
-  x = pInp->xData;
-  y = pInp->yData;
-  return_val = ConvertExternalAnglesToBinary(pLgMaster, x, y,
+  return_val = ConvertExternalAnglesToBinary(pLgMaster, pInp->xData, pInp->yData,
 					     &xPoint, &yPoint);
   if (return_val)
     {
@@ -368,8 +363,8 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
-      xydata.xdata = (int16_t)xPoint & kMaxSigned;
-      xydata.ydata = (int16_t)yPoint & kMaxSigned;
+      xydata.xdata = xPoint & kMaxSigned;
+      xydata.ydata = yPoint & kMaxSigned;
       PostCmdGoAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom );
     }
   return;
@@ -378,21 +373,15 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
 void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom )
 {
   struct lg_xydata xydata;
-  int32_t xPoint=0;
-  int32_t yPoint=0;
-  double   x, y;
   int      return_val;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
 	
   memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
-  if ( !CheckSourceAndMode ( respondToWhom ) ) return;
 
   if (!pInp)
     return;
-  x = pInp->xData;
-  y = pInp->yData;
-  return_val =  ConvertExternalAnglesToBinary(pLgMaster, x, y, &xPoint, &yPoint);
+  return_val =  ConvertExternalAnglesToBinary(pLgMaster, pInp->xData, pInp->yData, &xydata.xdata, &xydata.ydata);
   if (return_val)
     {
       pResp->hdr.status1 = RESPFAIL;
@@ -408,8 +397,11 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
-      xydata.xdata = (int16_t)(xPoint & kMaxSigned);
-      xydata.ydata = (int16_t)(yPoint & kMaxSigned);
+      xydata.xdata &= kMaxSigned;
+      xydata.ydata &= kMaxSigned;
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG, "ETHERANGLE:  x = %x, y= %x",xydata.xdata, xydata.ydata);
+#endif
       PostCmdEtherAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom);
     }
   return;
@@ -419,7 +411,7 @@ void DoFullReg (struct lg_master *pLgMaster,
 		uint32_t respondToWhom )
 {
 	double theCoordinateBuffer[kNumberOfRegPoints * 3];
-	int32_t theAngleBuffer[kNumberOfRegPoints * 2];
+	struct lg_xydata theAngleBuffer[kNumberOfRegPoints * 2];
 	struct lg_xydata *pXYData;
 	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
 	double    *currentData;
@@ -430,16 +422,15 @@ void DoFullReg (struct lg_master *pLgMaster,
 	memset(pResp, 0, sizeof(struct parse_basic_resp));
 	memset((char *)&theAngleBuffer, 0, sizeof(theAngleBuffer));
 	
-	if ( !CheckSourceAndMode ( respondToWhom ) ) return;
-
-	currentData = (double *)&pInp->inp_tgt_angles[0];
+	currentData = (double *)pInp->inp_tgt_angles;
 	i = 0;
 	while ( i++ < kNumberOfRegPoints )
 	{
+	  pXYData = (struct lg_xydata *)&theAngleBuffer[i];
 	  return_val = ConvertExternalAnglesToBinary(pLgMaster, currentData[0],
 						     currentData[1],
-						     &theAngleBuffer[i],
-						     &theAngleBuffer[i+1]);
+						     &pXYData->xdata,
+						     &pXYData->ydata);
 	  if (return_val)
 	    {
 	      pResp->hdr.status1 = RESPFAIL;
@@ -469,8 +460,6 @@ void DoFullReg (struct lg_master *pLgMaster,
 	      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	      return;
 	    }
-	  ConvertToNumber(&theAngleBuffer[i], &theAngleBuffer[i+1]);
-	  pXYData = (struct lg_xydata *)&theAngleBuffer[i];
 	  SetHighBeam(pXYData);
 	  currentData += 2;
 	}
@@ -494,10 +483,10 @@ void DoFullReg (struct lg_master *pLgMaster,
         if ( (CDRHflag(pLgMaster) )  ) {
 	  pResp->hdr.status1 = RESPFAIL;
 	  pResp->hdr.errtype1 = RESPE1BOARDERROR;
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), gRespondToWhom);
 	  return;
         }
-        PerformAndSendFullReg( pLgMaster, (char *)theAngleBuffer, gRespondToWhom );
+        PerformAndSendFullReg( pLgMaster, (struct lg_xydata *)theAngleBuffer, gRespondToWhom );
 	return;
 }
 void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
@@ -713,9 +702,8 @@ void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number, uint32_t re
 void DoQuickCheck (struct lg_master *pLgMaster, char * angles, uint32_t respondToWhom )
 {
 
-	if ( !CheckSourceAndMode ( respondToWhom ) ) return;
-	gRespondToWhom = respondToWhom;
-        PerformAndSendQuickCheck (pLgMaster, angles, 6 );  // must now set target number
+    gRespondToWhom = respondToWhom;
+    PerformAndSendQuickCheck (pLgMaster, angles, 6 );  // must now set target number
 }
 
 void CloseLaserCommands (void)

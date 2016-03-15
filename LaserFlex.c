@@ -214,7 +214,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       if ((pLgMaster->gHeaderSpecialByte & 0x80))
 	{
 #ifdef PATDEBUG
-	  syslog(LOG_DEBUG,"PostCmdDispNoResp from DoFlexDisplayChunks");
+	  syslog(LOG_DEBUG,"PostCmdDisplay from DoFlexDisplayChunks");
 #endif
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, respondToWhom);
 	  ResetFlexPlyCounter();
@@ -236,9 +236,9 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 		    struct parse_flexdisp_parms *parameters, char *patternData)
 {
   struct displayData dispData;
-  struct lg_xydata   xydata;
   double             tmpDoubleArr[12];
-  int32_t           anglePairs[2 * kNumberOfFlexPoints];
+  struct lg_xydata   anglePairs[2 * kNumberOfFlexPoints];
+  struct lg_xydata   *pCurXY;
   double *currentTransform;
   int32_t *currentData;
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
@@ -250,7 +250,6 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
   memset(pResp, 0, sizeof(struct parse_basic_resp));
   memset((char *)&dispData, 0, sizeof(struct displayData));
   memset((char *)&anglePairs[0], 0, sizeof(anglePairs));
-  memset((char *)&xydata, 0, sizeof(struct lg_xydata));
   gAbortDisplay = false;
 
   currentData = (int32_t*)&parameters->inp_anglepairs[0];
@@ -263,20 +262,21 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 
   ChangeTransform((double *)&tmpDoubleArr);
   zeroTarget = 1;
-  for(i=0,j=0;  i++ < numberOfTargets; i+=2)
+  for(i=0,j=0;  i++ < numberOfTargets; i++)
     {
+      pCurXY = (struct lg_xydata *)&anglePairs[i];
       x = currentData[j];
       y = currentData[j+1];
       z = currentData[j+2];
       return_code = Transform3DPointToBinary(pLgMaster,
 					     x, y, z,
-					     &anglePairs[i],
-					     &anglePairs[i+1]);
+					     &pCurXY->xdata,
+					     &pCurXY->ydata);
       if ((fabs(x) > 0.0001) || (fabs(y) > 0.0001))
 	zeroTarget = 0;
-      xydata.xdata = anglePairs[i] & kMaxSigned;
-      xydata.ydata = anglePairs[i+1] & kMaxSigned;
-      SetHighBeam ((struct lg_xydata *)&xydata);
+      pCurXY->xdata &= kMaxSigned;
+      pCurXY->ydata &= kMaxSigned;
+      SetHighBeam (pCurXY);
       if (return_code)
 	{
 	  pResp->hdr.status = RESPFAIL;

@@ -30,8 +30,8 @@ void CalculateTransform ( struct lg_master *pLgMaster,
 {
         double theCoordinateBuffer[kNumberOfRegPoints * 3];
 	double foundAngles [ kNumberOfRegPoints * 2 ];
-	int32_t Xarr[kNumberOfRegPoints];
-	int32_t Yarr[kNumberOfRegPoints];
+	int16_t Xarr[kNumberOfRegPoints];
+	int16_t Yarr[kNumberOfRegPoints];
 	struct parse_clctrnsfrm_resp *pResp;
 	uint32_t *pOut;
 	double Xgeo;

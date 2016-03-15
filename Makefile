@@ -5,9 +5,11 @@
 #
 #       $Id: Makefile,v 1.30 2000/09/28 19:57:01 ags-sw Exp ags-sw $
 #
-BUILDDIR = $(HOME)/buildroot
-STAGING_DIR = $(BUILDDIR)/output/host/usr/x86_64-buildroot-linux-gnu/sysroot
-TOOLDIR = $(BUILDDIR)/output/host/usr/bin/x86_64-buildroot-linux-gnu
+BUILDROOTDIR = $(HOME)/buildroot
+STAGING_DIR = $(BUILDROOTDIR)/output/host/usr/x86_64-buildroot-linux-gnu/sysroot
+TOOLDIR = $(BUILDROOTDIR)/output/host/usr/bin/x86_64-buildroot-linux-gnu
+AGSCFGDIR = $(HOME)/ags/ags-config-files
+AGSSCRIPTDIR = $(HOME)/ags/ags-scripts
 CC=$(TOOLDIR)-gcc
 LD=$(TOOLDIR)-ld
 AS=$(TOOLDIR)-as
@@ -117,8 +119,22 @@ oclean:
 clean:
 	rm -f *.o agsd
 install:
-	chmod 755 agsd
-	cp agsd /home/patti/buildroot/board/agslaser/rootfs_overlay
-	cp *.o /home/patti/buildroot/board/agslaser/rootfs_overlay
-	cp /home/patti/.gdbinit /home/patti/buildroot/board/agslaser/rootfs_overlay
-	cp /home/patti/ags/ags-config-files/etc_files/* /home/patti/buildroot/board/agslaser/rootfs_overlay/etc/ags/conf
+	chmod 777 agsd
+	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/
+	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
+	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
+	cp $(HOME)/.gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
+	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
+	chmod 777 $(AGSSCRIPTDIR)/S50agsd
+	cp $(AGSSCRIPTDIR)/S50agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
+burnusb:
+	sudo umount /dev/sdb1
+	sudo mount /dev/sdb1 /mnt/stick
+	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
+	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
+	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
+	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick/boot
+	sudo cp $(HOME)/ags/ags-demo/rev1.0/extlinux.conf /mnt/stick
+	sudo umount /dev/sdb1
+	sudo umount $(BUILDROOTDIR)/output/ext2
+

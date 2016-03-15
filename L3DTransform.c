@@ -53,9 +53,6 @@ int permuted[24][4] = { { 0, 1, 2, 3 }
                       , { 3, 2, 1, 0 }
                       };
 
-unsigned char gBestTargetArray[128];
-int32_t gBestTargetNumber;
-
 enum {
 	false,
 	true

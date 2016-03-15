@@ -61,8 +61,7 @@ void RightOnCert(struct lg_master *pLgMaster,
    double aXg, aYg;
    double Xe, Ye;
    double Xf, Yf;
-   int32_t bXe, bYe;
-   int32_t bXf, bYf;
+   int16_t bXe, bYe, bXf, bYf;
    double Xexternal; 
    double Yexternal; 
    double time_now, time_diff, time_start;

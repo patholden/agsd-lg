@@ -5,7 +5,7 @@
 void ResetFlexPlyCounter(void);
 void CloseLaserCommands (void);
 void InitLaserCommands ( void );
-void DoStop ( struct lg_master *pLgMaster, uint32_t respondToWhom );
+void DoStopCmd( struct lg_master *pLgMaster, uint32_t respondToWhom );
 void DoGoAngle(struct lg_master *pLgMaster,struct parse_goangle_parms *pInp, uint32_t respondToWhom);
 void DoEtherAngle(struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom);
 void DarkAngle(struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom);

@@ -79,18 +79,22 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   struct lg_xydata first_xypos;
   struct lg_xydata cur_xypos;
   struct lg_xydata last_xypos;
+  struct event_times  last_times;
   struct lg_xydata *pXYout;
   struct lg_xydata *pXYtmp;
-  struct cmd_rw  *cmd_buff;
-  double         n,dx,dy,dsqr,dlen;
-  uint32_t       i,j,k,count;
-  uint32_t       Npoints;
-  uint32_t       ptn_len;
-  int32_t        xout;
-  int32_t        yout;
-  int32_t        xstep, ystep;
-  uint8_t        cur_flags;
+  struct cmd_rw    *cmd_buff;
+  double           n,dx,dy,dsqr,dlen;
+  uint32_t         i,j,k,count;
+  uint32_t         Npoints;
+  uint32_t         ptn_len;
+  int16_t          xout,yout;
+  uint16_t         xstep, ystep;
 
+  // Get current execution time value for laser device driver display
+  ioctl(pLgMaster->fd_laser, LGGETEVENTTIMES, &last_times);
+  syslog(LOG_NOTICE, "Last driver display execution time %lu usec",last_times.last_exec_usec);
+  syslog(LOG_NOTICE, "Last driver display interval %lu usec",last_times.last_gap_usec);
+  
   // Prepare for response back to PC host
   memset((char *)pLgMaster->theResponseBuffer, 0, sizeof(struct parse_basic_resp));
   // Check input data
@@ -122,6 +126,9 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   memset((char *)cmd_buff, 0, sizeof(struct cmd_rw));
   memset(tmp_pattern, 0, MAX_LG_BUFFER);
   memset(out_pattern, 0, MAX_LG_BUFFER);
+  memset((char *)&cur_xypos, 0, sizeof(struct lg_xydata));
+  memset((char *)&first_xypos, 0, sizeof(struct lg_xydata));
+  memset((char *)&last_xypos, 0, sizeof(struct lg_xydata));
 
   // Send initial commands to laser-dev
   ROIoff(pLgMaster);
@@ -142,47 +149,47 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   j = 0;
   count = 0;
   Npoints = ptn_len / sizeof(struct lg_xydata);
-  for (i=1; i < Npoints; i++)
+  for (i=0; i < Npoints; i++)
     {
       pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
       pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
       cur_xypos.xdata = pXYtmp->xdata;
       cur_xypos.ydata = pXYtmp->ydata;
-      cur_flags = pXYtmp->ctrl_flags;
+      cur_xypos.ctrl_flags = pXYtmp->ctrl_flags;
       pXYout->xdata = last_xypos.xdata;
       pXYout->ydata = last_xypos.ydata;
-      pXYout->ctrl_flags = pXYtmp->ctrl_flags;
+      pXYout->ctrl_flags = last_xypos.ctrl_flags;
       j++;
       count++;
       dx = (double)(cur_xypos.xdata - last_xypos.xdata);
       dy = (double)(cur_xypos.ydata - last_xypos.ydata);
       dsqr = dx*dx + dy*dy;
       dlen = sqrt(dsqr);
-      cur_flags = pXYtmp->ctrl_flags;
       if (dlen > pLgMaster->dmax)
 	{
 	  n = ((dlen / pLgMaster->dmax) + 0.001);
 	  n += 2.0;
-	  xstep =  (int32_t)(dx / n);
-	  ystep =  (int32_t)(dy / n);
+	  xstep =  (uint16_t)(dx / n);
+	  ystep =  (uint16_t)(dy / n);
 	  for (k = 0; k < n; k++)
 	    {
 	      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
 	      xout = last_xypos.xdata + (k * xstep);
 	      yout = last_xypos.ydata + (k * ystep);
-	      pXYout->xdata = (int16_t)(xout & kMaxSigned);
-	      pXYout->ydata = (int16_t)(yout & kMaxSigned);
-	      pXYout->ctrl_flags = cur_flags;
+	      pXYout->xdata = xout & kMaxSigned;
+	      pXYout->ydata = yout & kMaxSigned;
+	      pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	      j++;
 	      count++;
 	    }
 	}
       last_xypos.xdata = cur_xypos.xdata;
       last_xypos.ydata = cur_xypos.ydata;
+      last_xypos.ctrl_flags = cur_xypos.ctrl_flags;
     }
   pXYout->xdata = last_xypos.xdata;
   pXYout->ydata = last_xypos.ydata;
-  pXYout->ctrl_flags = cur_flags;
+  pXYout->ctrl_flags = last_xypos.ctrl_flags;
   j++;
   count++;
   dx = first_xypos.xdata - last_xypos.xdata;
@@ -192,21 +199,20 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
     {
       n = (sqrt((double)(dsqr / pLgMaster->dmax)));
       n+= 2.0;
-      xstep =  (int32_t)(dx / n);
-      ystep =  (int32_t)(dy / n);
+      xstep =  (uint16_t)(dx / n);
+      ystep =  (uint16_t)(dy / n);
       for (k = 0; k < n ; k++)
 	{
 	  xout = last_xypos.xdata + (k * xstep);
 	  yout = last_xypos.ydata + (k * ystep);
-	  pXYout->xdata = (int16_t)(xout & kMaxSigned);
-	  pXYout->ydata = (int16_t)(yout & kMaxSigned);
-	  pXYout->ctrl_flags = cur_flags;
+	  pXYout->xdata = xout & kMaxSigned;
+	  pXYout->ydata = yout & kMaxSigned;
+	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	  j++;
 	  count++;
 	}
     }
-  Npoints  = count;
-  ptn_len = Npoints * sizeof(struct lg_xydata);
+  ptn_len = count * sizeof(struct lg_xydata);
   
   SaveBeamPosition(pLgMaster, (char *)out_pattern);
   // Don't send if too much data for laser-dev to handle
@@ -229,7 +235,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   pLgMaster->gDisplayFlag = 1;
   doDevDisplay(pLgMaster);
 #ifdef PATDEBUG
-  syslog(LOG_DEBUG,"POSTCMDDISP: Starting pattern display");
+  syslog(LOG_DEBUG,"POSTCMDDISP: Starting pattern display for %d XY pairs",count);
 #endif
   pRespHdr.status = RESPGOOD;
   if (pLgMaster->gOutOfRange.errtype1 || pLgMaster->gOutOfRange.errtype2)
@@ -244,16 +250,21 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 }
 void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom)
 {
-  struct k_header gResponseBuffer;
+    struct k_header gResponseBuffer;
 
-  memset((char *)&gResponseBuffer, 0, sizeof(struct k_header));
+    pLgMaster->gDisplayFlag = 0;
+    gRespondToWhom = respondToWhom;
+    memset((char *)&gResponseBuffer, 0, sizeof(struct k_header));
 
-  gResponseBuffer.status = RESPGOOD;
-  move_lite(pLgMaster, pAngleData);
-  SetHighBeam(pAngleData);
-  doWriteDevPoints(pLgMaster, pAngleData);
-  DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
-  return;
+    gResponseBuffer.status = RESPGOOD;
+    SetHighBeam(pAngleData);
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"POSTETHER: x=%x,y=%x",pAngleData->xdata, pAngleData->ydata);
+#endif
+    move_lite(pLgMaster, pAngleData);
+    doWriteDevPoints(pLgMaster, pAngleData);
+    DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
+    return;
 }
 void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom)
 {
@@ -262,8 +273,8 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
   memset((char *)&gResponseBuffer, 0, sizeof(struct k_header));
   
   gResponseBuffer.status = RESPGOOD;
-  move_lite(pLgMaster, pAngleData);
   SetHighBeam(pAngleData);
+  move_lite(pLgMaster, pAngleData);
   doWriteDevPoints(pLgMaster, pAngleData);
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
     DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
@@ -273,6 +284,7 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
 {
   struct lg_xydata   xydata;
   struct k_header    gResponseBuffer;
+  struct event_times last_times;
   struct displayData *dispData;
   struct cmd_rw      *cmd_buff;
   struct lg_xydata   *pXYData;
@@ -281,6 +293,11 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
   
   memset((char *)&gResponseBuffer, 0, sizeof(gResponseBuffer));
   
+  // Get current execution time value for laser device driver display
+  ioctl(pLgMaster->fd_laser, LGGETEVENTTIMES, &last_times);
+  syslog(LOG_NOTICE, "Last driver display execution time %lu usec",last_times.last_exec_usec);
+  syslog(LOG_NOTICE, "Last driver display interval %lu usec",last_times.last_gap_usec);
+
   //  assume display is off or being turned off
   pLgMaster->gDisplayFlag = 0;
   gRespondToWhom = respondToWhom;
@@ -293,11 +310,11 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
   switch ( theCommand )
     {
       case kStop:
-	// stop, slow down and turn off comm err LED
+	// stop, slow down and turn off Ready LED
 	doLGSTOP(pLgMaster);
 	doSetClock(pLgMaster, KETIMER_10M);
 	doStopPulse(pLgMaster);
-	doSetReadyLED(pLgMaster);
+	doClearReadyLED(pLgMaster);
 	ROIoff(pLgMaster);
 	g_FODflag = 0;
 	gQuickCheckCounterStart = -1;
@@ -527,14 +544,22 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
     itest = EAGAIN;
     num = 0;
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"\nLINESEARCH: Reading data from laser dev, fd %d", pLgMaster->fd_laser);
+#endif
     while (itest == EAGAIN)
       {
-	num = read( pLgMaster->fd_laser, c_out, n);
+	num = read(pLgMaster->fd_laser, c_out, n);
 	if (num < 0)
 	  itest = errno;
 	else
 	  itest = num;
       }
+ #ifdef PATDEBUG
+    int i;
+    for (i=0; i < n; i++)
+      syslog(LOG_DEBUG,"Level Search read value %x",c_out[i]);
+ #endif
     if ((c_out[0] == 0xA5) && (c_out[1] == 0x5A)
 	&& (c_out[2] == 0xA5) && (c_out[3] == 0x5A))
       {
@@ -550,11 +575,11 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
 
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydata *pDeltaData, uint32_t n, int32_t *c_out)
+		  struct lg_xydata *pDeltaData, uint32_t n, uint16_t *c_out)
 {
-  int itest, num;
+  int      itest, num;
   uint32_t index;
-  unsigned short searchbuff[MAX_DIODE_BUFFER];
+  uint16_t searchbuff[MAX_DIODE_BUFFER];
 
   memset((char *)&searchbuff[0], 0, sizeof(searchbuff));
   
@@ -579,25 +604,28 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
   while (itest == EAGAIN)
     {
-      num = read( pLgMaster->fd_laser, (void *)searchbuff, 2*n);
+      num = read( pLgMaster->fd_laser, (char *)&searchbuff, 2*n);
       if (num < 0)
 	itest = errno;
       else
 	itest = num;
     }
   for (index=0; index < n ; index++)
-    c_out[index] = (int32_t)searchbuff[index];
+    {
+      c_out[index] = (int32_t)searchbuff[index];
+ #ifdef PATDEBUG
+      syslog(LOG_DEBUG,"Level Search read value %x",c_out[index]);
+#endif
+    }
   if ((searchbuff[0] == 0xA5) && (searchbuff[1] == 0x5A)
       && (searchbuff[2] == 0xA5) && (searchbuff[3] == 0x5A))
     {
       itest = -1;
       return itest;
     }
-
-  itest = doSetClock(pLgMaster, KETIMER_10M);
-  if (itest && (errno != ENOTTY))
-    return itest;
-  return 0;
+  
+  doSetClock(pLgMaster, KETIMER_10M);
+  return(0);
 }
 
 int SearchBeamOn(struct lg_master *pLgMaster)
@@ -610,7 +638,8 @@ int SearchBeamOff(struct lg_master *pLgMaster)
 {
   int rc=0;
 
-  doClearSearchBeam(pLgMaster);
+  // FIXME---PAH---I don't think we need this next call
+  // doClearSearchBeam(pLgMaster);
   // attempt to turn off beam
   rc = doLGSTOP(pLgMaster);
   return(rc);
@@ -757,9 +786,16 @@ void SetHighBeam(struct lg_xydata *pDevXYData)
 }
 void SetLowBeam(struct lg_xydata *pDevXYData)
 {
-  // Set beam LOW, keep laser enabled
-  //  pDevXYData->ctrl_flags = BEAMONISSET;
+    // Set beam LOW, keep laser enabled
+    pDevXYData->ctrl_flags = BEAMONISSET;
     pDevXYData->ctrl_flags = LASERENBISSET;
+    return;
+}
+void SetDarkBeam(struct lg_xydata *pDevXYData)
+{
+    // No beam, keep laser enabled
+    pDevXYData->ctrl_flags = LASERENBISSET;
+    return;
 }
 int doLoadWriteNum(struct lg_master *pLgMaster, uint32_t write_count)
 {
@@ -953,21 +989,20 @@ void SlowDownAndStop(struct lg_master *pLgMaster)
 
 void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 {
-  struct  lg_xydata xydata;
-  struct  lg_xydata first_xypos;
-  struct  lg_xydata cur_xypos;
-  struct  lg_xydata last_xypos;
+  struct   lg_xydata xydata;
+  struct   lg_xydata first_xypos;
+  struct   lg_xydata cur_xypos;
+  struct   lg_xydata last_xypos;
+  struct   cmd_rw    *cmd_buff;
+  struct   lg_xydata *pXYtmp;
+  struct   lg_xydata *pXYout;
   double   n, dx, dy, dsqr, dlen;
   uint32_t ptn_len;
   uint32_t Npoints;
   uint32_t i,j,k,count;
-  int32_t  xstep, ystep;
-  int32_t  xout;
-  int32_t  yout;
-  struct cmd_rw    *cmd_buff;
-  struct lg_xydata *pXYtmp;
-  struct lg_xydata *pXYout;
-
+  uint16_t xstep, ystep;
+  int16_t  xout,  yout;
+  
   if (!wr_ptr)
     return;
 
@@ -981,6 +1016,9 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   memset(tmp_pattern, 0, MAX_LG_BUFFER);
   memset(out_pattern, 0, MAX_LG_BUFFER);
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+  memset((char *)&cur_xypos, 0, sizeof(struct lg_xydata));
+  memset((char *)&first_xypos, 0, sizeof(struct lg_xydata));
+  memset((char *)&last_xypos, 0, sizeof(struct lg_xydata));
 
   // Set pattern length established in command arguments
   ptn_len = pattern_len;
@@ -1004,6 +1042,7 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   // Set first & last positions to initial pattern
   first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
   first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
+  first_xypos.ctrl_flags = pXYtmp->ctrl_flags;
   j = 0;
   count = 0;
   for (i=0; i < Npoints; i++)
@@ -1012,8 +1051,10 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
       pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
       cur_xypos.xdata = pXYtmp->xdata;
       cur_xypos.ydata = pXYtmp->ydata;
+      cur_xypos.ctrl_flags = pXYtmp->ctrl_flags;
       pXYout->xdata = last_xypos.xdata;
       pXYout->ydata = last_xypos.ydata;
+      pXYout->ctrl_flags = last_xypos.ctrl_flags;
       j++;
       count++;
       dx = (double)(cur_xypos.xdata - last_xypos.xdata);
@@ -1024,25 +1065,28 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 	{
 	  n = dlen / pLgMaster->dmax;
 	  n += 2.0;
-	  xstep =  (int32_t)(dx / n);
-	  ystep =  (int32_t)(dy / n);
+	  xstep =  (uint16_t)(dx / n);
+	  ystep =  (uint16_t)(dy / n);
 	  for ( k = 0; k < n ; k++ ) {
 	    pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * j));
 	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) *j));
 	    xout = last_xypos.xdata + (k * xstep);
 	    yout = last_xypos.ydata + (k * ystep);
-	    pXYout->xdata = (int16_t)(xout & kMaxSigned);
-	    pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	    pXYout->xdata = xout & kMaxSigned;
+	    pXYout->ydata = yout & kMaxSigned;
+	    pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	    j++;
 	    count++;
 	  }
 	}
       last_xypos.xdata = cur_xypos.xdata;
       last_xypos.ydata = cur_xypos.ydata;
+      last_xypos.ctrl_flags = cur_xypos.ctrl_flags;
     }
   pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
   pXYout->xdata = last_xypos.xdata;
   pXYout->ydata = last_xypos.ydata;
+  pXYout->ctrl_flags = last_xypos.ctrl_flags;
   j++;
   count++;
   //  take care of jump between last and first points
@@ -1053,39 +1097,47 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
     {
       n = sqrt(dsqr / pLgMaster->dmax);
       n+= 2.0;
-      xstep =  (int32_t)(dx / n);
-      ystep =  (int32_t)(dy / n);
+      xstep =  (uint16_t)(dx / n);
+      ystep =  (uint16_t)(dy / n);
       for (k = 0; k < n ; k++)
 	{
 	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
 	  xout = last_xypos.xdata + (k * xstep);
 	  yout = last_xypos.ydata + (k * ystep);
-	  pXYout->xdata = (int16_t)(xout & kMaxSigned);
-	  pXYout->ydata = (int16_t)(yout & kMaxSigned);
+	  pXYout->xdata = xout & kMaxSigned;
+	  pXYout->ydata = yout & kMaxSigned;
+	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	  j++;
 	  count++;
 	}
     }
-  Npoints  = count;
-  ptn_len = Npoints * sizeof(struct lg_xydata);
+  ptn_len = count * sizeof(struct lg_xydata);
 
   //   fault avoidance
   SaveBeamPosition(pLgMaster, (char *)out_pattern);
+  // Don't send if too much data for laser-dev to handle
+  if (ptn_len > MAX_LG_BUFFER)
+    {
+      syslog(LOG_ERR,"JUSTDODISP: too many points for laser device, length %d, points %d", ptn_len,count); 
+      return;
+    }
   memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, ptn_len);
   cmd_buff->base.cmd = CMDW_BUFFER;
   cmd_buff->base.length = ptn_len;
   write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
 #ifdef PATDEBUG
-  syslog(LOG_DEBUG,"JustDoDisplay:wrote to laser device len %d,points %d", ptn_len, Npoints); 
-  syslog(LOG_DEBUG,"JustDoDisplay: first xy=%x,%x last xy=%x,%x",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
+  syslog(LOG_DEBUG,"JUSTDODISP:wrote to laser device len %d,points %d", ptn_len, count); 
+  syslog(LOG_DEBUG,"JUSTDODISP: first xy=%x,%x last xy=%x,%x",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
 #endif
   free(cmd_buff);
-  doLoadWriteNum(pLgMaster, Npoints);
-
+  doLoadWriteNum(pLgMaster, ptn_len);
   doSetClock(pLgMaster, pLgMaster->gPeriod);
   StartHobbs(pLgMaster);
   pLgMaster->gDisplayFlag = 1;
   doDevDisplay(pLgMaster);
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"JUSTDODISP: Starting pattern display");
+#endif
   return;
 }
 
@@ -1093,7 +1145,6 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
 {
   double n, dx, dy, dsqr, dlen;
   struct lg_xydata  xydata;
-  int rc;
 
   /* move slowly from current position to start of pattern */
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
@@ -1102,28 +1153,28 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   doLGSTOP(pLgMaster);
   doStopPulse(pLgMaster);
   ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG, "MOVE_LITE:  InputAngle x=%x,y=%x,flags=%x",pNewData->xdata, pNewData->ydata,pNewData->ctrl_flags);
+#endif
   dx = (double)(pNewData->xdata - xydata.xdata);
   dy = (double)(pNewData->ydata - xydata.ydata);
   dsqr = dx*dx + dy*dy;
-  dlen = sqrt( dsqr );
+  dlen = sqrt(dsqr);
   if (dlen > pLgMaster->dmax)
     {
       // Just re-use the struct, delta doesn't care about ctrl-flags
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       n = dlen / pLgMaster->dmax;
       n += 60;
-      xydata.xdata =  (int16_t)(dx / n) & kMaxSigned;
-      xydata.ydata =  (int16_t)(dy / n) & kMaxSigned;
-
-      rc = doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);
-      if (rc)
-	return(rc);
-      rc = doLoadReadNum(pLgMaster, n);
-      if (rc)
-	return(rc);
-      rc = doSensor(pLgMaster);
-      if (rc)
-	return(rc);
+      xydata.xdata =  (int16_t)((int32_t)dx / n) & kMaxSigned;
+      xydata.ydata =  (int16_t)((int32_t)dy / n) & kMaxSigned;
+      xydata.ctrl_flags = pNewData->ctrl_flags;
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG, "MOVE_LITE:  Delta x=%x, y=%x",xydata.xdata, xydata.ydata);
+#endif
+      doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);
+      doLoadReadNum(pLgMaster, n);
+      doSensor(pLgMaster);
       // FIXME---PAH---why is this sleep here?
       usleep( 2 * (int)n * 150  + 2000 );
     }
@@ -1153,8 +1204,8 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   n += 20;
   // Just re-use the struct, delta doesn't care about ctrl-flags
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
-  xydata.xdata =  (int16_t)(dx / n) & kMaxSigned;
-  xydata.ydata =  (int16_t)(dy / n) & kMaxSigned;
+  xydata.xdata = (int16_t)(dx / n) & kMaxSigned;
+  xydata.ydata = (int16_t)(dy / n) & kMaxSigned;
   rc = doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);
   if (rc)
     return(rc);

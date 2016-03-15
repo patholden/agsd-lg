@@ -23,7 +23,7 @@ CalibXY(struct lg_master *pLgMaster,
   uint32_t    resp_len=(sizeof(int32_t) + (2 * sizeof(double)) + kCRCSize);
   uint32_t    return_code=0;
   double xgotoang,  ygotoang;
-  int32_t xbinary, ybinary;
+  int16_t xbinary, ybinary;
   double aXf, aYf;
   double Ztr, Xf, Yf;
   char *tmpPtr;

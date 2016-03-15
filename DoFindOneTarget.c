@@ -34,9 +34,7 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
   double YfoundAngle=0;
   double XExternalAngle=0;
   double YExternalAngle=0;
-  int32_t ptX=0, ptY=0;
-  int32_t fndX=0;
-  int32_t fndY=0;
+  int16_t ptX=0, ptY=0, fndX=0, fndY=0;
   int rc;
 	
   pResp = (struct parse_findonetgt_resp *)pLgMaster->theResponseBuffer;

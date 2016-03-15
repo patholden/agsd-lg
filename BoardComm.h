@@ -11,9 +11,10 @@
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
 #define PARSE_HOBBS_LASER 4
-#define kMaxUnsigned   0xFFFF
-#define kMinSigned     0x8000
-#define kMaxSigned     0x7FFF
+#define kMaxOutLength     0x80000
+#define kMaxUnsigned      0xFFFF
+#define kMinSigned        0x8000
+#define kMaxSigned        0x7FFF
 
 extern  uint32_t  gRespondToWhom;
 struct displayData
@@ -50,12 +51,6 @@ struct k_header {
     };
   };
 } __attribute__ ((packed));
-struct hobbs_ctrs {
-  time_t    hobbs_time;
-  time_t    xscanner_time;
-  time_t    yscanner_time;
-  time_t    laser_time;
-};
 struct version_info {
   char      *pVersions;
   uint32_t   version_size;
@@ -70,6 +65,7 @@ struct lg_master {
   struct lg_xydata gSaveXY;
   struct lg_xydata gCheckXY;
   char            webhost[128];
+  unsigned char   gBestTargetArray[128];
   double          gArgTol;
   double          ping_count;
   double          gTolerance;
@@ -82,15 +78,15 @@ struct lg_master {
   unsigned char   *gRawBuffer;
   unsigned char   *gParametersBuffer;
   unsigned char   *theResponseBuffer;
+  uint16_t        *gScan;
+  uint16_t        *coarsedata;
+  uint16_t        *gLsort;
   int             af_serial;
   int             socketfd;
   int             datafd;
   int             fd_laser;
   int             serial_ether_flag;
   unsigned long   gProjectorSerialNumber;
-  uint16_t        seqNo;
-  unsigned char   newCommand;
-  unsigned char   gHeaderSpecialByte;
   uint32_t        gHEX;
   uint32_t        enet_retry_count;
   uint32_t        gotA1;
@@ -100,11 +96,16 @@ struct lg_master {
   uint32_t        gDisplayFlag;
   uint32_t        gSrchStpPeriod;
   uint32_t        gTransmitLengthSum;
+  uint32_t        gBestTargetNumber;
   int32_t         gQCcount;
   int32_t         gCoarse2SearchStep;
-  int32_t         gXcheck;
-  int32_t         gYcheck;
+  int16_t         gXcheck;
+  int16_t         gYcheck;
+  uint16_t        seqNo;
   uint8_t         gCALIBFileOK;
+  uint8_t         newCommand;
+  uint8_t         gHeaderSpecialByte;
+  uint8_t         RFUpad;
 };
 
 typedef struct ags_bkgd_thread_struct
@@ -125,6 +126,7 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char * data,
 int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster);
 void SetHighBeam(struct lg_xydata *pDevXYData);
 void SetLowBeam(struct lg_xydata *pDevXYData);
+void SetDarkBeam(struct lg_xydata *pDevXYData);
 int doWriteDevCmdNoData(struct lg_master *pLgMaster, uint32_t command);
 int doWriteDevCmd32(struct lg_master *pLgMaster, uint32_t command, uint32_t write_val);
 int doWriteDevDelta(struct lg_master *pLgMaster, struct lg_xydata *pDelta);
@@ -173,7 +175,7 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 void ResumeDisplay(struct lg_master *pLgMaster);
 int32_t GetQCflag(struct lg_master *pLgMaster);
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydata *pDeltaData, uint32_t n, int32_t *c_out);
+		  struct lg_xydata *pDeltaData, uint32_t n, uint16_t *c_out);
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		 struct lg_xydata *pDeltaData, uint32_t n, unsigned char *c_out);
 void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, int32_t do_response, uint32_t respondToWhom);

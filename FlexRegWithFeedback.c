@@ -31,189 +31,183 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
 			       char * parameters,
 			       uint32_t respondToWhom )
 {
-	int32_t ptX, ptY;
-	int32_t fndX;
-	int32_t fndY;
-	double XfoundAngles [ kNumberOfFlexPoints ];
-	double YfoundAngles [ kNumberOfFlexPoints ];
-	double XExternalAngles [ kNumberOfFlexPoints ];
-	double YExternalAngles [ kNumberOfFlexPoints ];
-	double foundAngles [ kNumberOfFlexPoints * 2 ];
-	int32_t Xarr [ kNumberOfFlexPoints ];
-	int32_t Yarr [ kNumberOfFlexPoints ];
-        int32_t target_status [ kNumberOfFlexPoints ];
-        int numberOfFoundTargets;
-        int useTarget [ kNumberOfFlexPoints ];
-	char *RespBuff=(char *)pLgMaster->theResponseBuffer;
-	uint32_t   resp_len = (sizeof ( uint32_t )
-			       + (12 * sizeof(double))
-			       +        sizeof ( double )
-			       +        sizeof ( double ) 
-			       +        sizeof ( double ) 
-			       +        sizeof ( int32_t ) 
-			       +        sizeof ( int32_t ) 
-			       +  (2 * kNumberOfFlexPoints * sizeof(uint32_t))
-			       +  (2 * kNumberOfFlexPoints * sizeof(double))
-			       +  (kNumberOfFlexPoints * sizeof(int32_t))
-			       +  OutputPadding
-			       +  sizeof ( int32_t ) 
-			       +  sizeof ( int32_t ) 
-			       +  sizeof ( int32_t ) 
-			       +  sizeof ( int32_t ) 
-			       +  sizeof ( int32_t ) 
-			       +  sizeof ( int32_t ) 
-			       +  1024
-			       +  3 *  sizeof ( double ) 
-			       +  kCRCSize);
-	uint32_t      return_code=0;
-        unsigned char *ucPtr;
-	unsigned short i, j;
-	uint32_t lostSensors;
-	unsigned char theResult;
-        int32_t numberOfTargets;
-        int32_t RawGeomFlag;
-        double theCoordinateBuffer[kNumberOfFlexPoints * 3];
-        int32_t theAngleBuffer[kNumberOfFlexPoints * 2];
-        double *currentData;
-	int index;
-	double theTransformTolerance;
-	transform foundTransform;
-        uint32_t *pRawAngles;
-        double *pGeometricAngles;
-        int32_t offset;
-        int32_t int32_tColinear;
-        int32_t int32_tPlanar;
-        double useTol;
-	
-	int searchResult;
+    int16_t ptX, ptY, fndX, fndY;
+    double XfoundAngles [ kNumberOfFlexPoints ];
+    double YfoundAngles [ kNumberOfFlexPoints ];
+    double XExternalAngles [ kNumberOfFlexPoints ];
+    double YExternalAngles [ kNumberOfFlexPoints ];
+    double foundAngles [ kNumberOfFlexPoints * 2 ];
+    int16_t Xarr [ kNumberOfFlexPoints ];
+    int16_t Yarr [ kNumberOfFlexPoints ];
+    int16_t target_status [ kNumberOfFlexPoints ];
+    int numberOfFoundTargets;
+    int useTarget [ kNumberOfFlexPoints ];
+    char *RespBuff=(char *)pLgMaster->theResponseBuffer;
+    uint32_t   resp_len = (sizeof ( uint32_t )
+			   + (12 * sizeof(double))
+			   +        sizeof ( double )
+			   +        sizeof ( double ) 
+			   +        sizeof ( double ) 
+			   +        sizeof ( int32_t ) 
+			   +        sizeof ( int32_t ) 
+			   +  (2 * kNumberOfFlexPoints * sizeof(uint32_t))
+			   +  (2 * kNumberOfFlexPoints * sizeof(double))
+			   +  (kNumberOfFlexPoints * sizeof(int32_t))
+			   +  OutputPadding
+			   +  sizeof ( int32_t ) 
+			   +  sizeof ( int32_t ) 
+			   +  sizeof ( int32_t ) 
+			   +  sizeof ( int32_t ) 
+			   +  sizeof ( int32_t ) 
+			   +  sizeof ( int32_t ) 
+			   +  1024
+			   +  3 *  sizeof ( double ) 
+			   +  kCRCSize);
+    uint32_t      return_code=0;
+    unsigned char *ucPtr;
+    uint16_t      i, j;
+    uint32_t      lostSensors;
+    unsigned char theResult;
+    uint32_t      numberOfTargets;
+    int32_t       RawGeomFlag;
+    double theCoordinateBuffer[kNumberOfFlexPoints * 3];
+    int32_t theAngleBuffer[kNumberOfFlexPoints * 2];
+    double *currentData;
+    struct lg_xydata *pCurXY;
+    int index;
+    double theTransformTolerance;
+    transform foundTransform;
+    uint32_t *pRawAngles;
+    double *pGeometricAngles;
+    int32_t offset;
+    int32_t int32_tColinear;
+    int32_t int32_tPlanar;
+    double useTol;
+    int searchResult;
+    unsigned char saveHeaderSpecialByte;
 
-        unsigned char saveHeaderSpecialByte;
+    // Stop display by driver that may be in progress
+    SlowDownAndStop(pLgMaster);
 
-        saveHeaderSpecialByte = pLgMaster->gHeaderSpecialByte;
+    // Initialize variables
+    saveHeaderSpecialByte = pLgMaster->gHeaderSpecialByte;
+    theTransformTolerance  = pLgMaster->gArgTol;
+    int32_tColinear = 0;
+    int32_tPlanar = 0;
+    pLgMaster->gBestTargetNumber = 0;
+    gWorstTolReg = 1.0;
+    i = 0;
 
-	memset(RespBuff, 0, resp_len);
-        SlowDownAndStop(pLgMaster);
-	
-	theTransformTolerance  = pLgMaster->gArgTol;
-
-        int32_tColinear = 0;
-        int32_tPlanar = 0;
-
-
-        gBestTargetNumber = 0;
-        for ( i = 0; i < 128; i++ ) {
-               gBestTargetArray[i] = 0;
-        }
-
-	// Initialize buffers
-        for ( i = 0; i < kNumberOfFlexPoints; i++ ) {
-               target_status[i] = 0;
-               foundTarget[i]  = 0;
-               savePoint[i] = 0;
-               XExternalAngles[i] = 0;
-               YExternalAngles[i] = 0;
-               Xarr[i] = 0;
-               Yarr[i] = 0;
-               useTarget[i] = 1;
-               gColinear[i] = 0;
-               gCoplanar[i] = 0;
-        }
-        gWorstTolReg = 1.0;
+    //Initialize buffers
+    memset(RespBuff, 0, resp_len);
+    memset(pLgMaster->gBestTargetArray, 0, sizeof(pLgMaster->gBestTargetArray));
+    memset((char *)&target_status, 0, sizeof(target_status));
+    memset((char *)&foundTarget, 0, sizeof(foundTarget));
+    memset((char *)&savePoint, 0, sizeof(savePoint));
+    memset((char *)&XExternalAngles, 0, sizeof(XExternalAngles));
+    memset((char *)&YExternalAngles, 0, sizeof(YExternalAngles));
+    memset((char *)&Xarr, 0, sizeof(Xarr));
+    memset((char *)&Yarr, 0, sizeof(Yarr));
+    memset((char *)&useTarget, 0, sizeof(useTarget));
+    memset((char *)&gColinear, 0, sizeof(gColinear));
+    memset((char *)&gCoplanar, 0, sizeof(gCoplanar));
 
 
-	i = 0U;
-	
-        RawGeomFlag = *(int32_t *)(&(parameters)[0]);
+    //FIXME---PAH---NEED TO DO CMD/RESP HERE	
+    RawGeomFlag = *(int32_t *)(&(parameters)[0]);
 
-          /*
-           * for RawGeomFlag:
-           *   1 -> raw binary angles
-           *   2 -> Geometric angles
-           */
-        offset =    sizeof(int32_t); 
-        numberOfTargets = *(int32_t *)(&(parameters)[offset]);
-
-        offset =    sizeof(int32_t) 
-                  + sizeof(int32_t)
-                  + sizeof(double) * kNumberOfFlexPoints * 3;
-        pGeometricAngles = (double *)(&(parameters)[offset]);
-        offset =    sizeof(int32_t) 
-                  + sizeof(int32_t)
-                  + sizeof(double) * kNumberOfFlexPoints * 3
-                  + sizeof(double) * kNumberOfFlexPoints * 2;
-        pRawAngles = (uint32_t *)(&(parameters)[offset]);
-
-        if ( RawGeomFlag == 1 ) {
-           for ( i = 0; i <  numberOfTargets ; i++ ) {
-               theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
-               theAngleBuffer[2*i+1] = pRawAngles[2*i+1];
-               if ( numberOfTargets == 4 ) {
-                   theAngleBuffer[2*(i+4)  ] = pRawAngles[2*(i)  ];
-                   theAngleBuffer[2*(i+4)+1] = pRawAngles[2*(i)+1];
-               }
-           }
-        } else if ( RawGeomFlag == 2 ) {
-           for ( i = 0; i <  numberOfTargets ; i++ ) {
-	     return_code = ConvertExternalAnglesToBinary(pLgMaster,
+    /*
+     * for RawGeomFlag:
+     *   1 -> raw binary angles
+     *   2 -> Geometric angles
+     */
+    offset =    sizeof(int32_t); 
+    numberOfTargets = *(int32_t *)(&(parameters)[offset]);
+    
+    offset =    sizeof(int32_t) 
+      + sizeof(int32_t)
+      + sizeof(double) * kNumberOfFlexPoints * 3;
+    pGeometricAngles = (double *)(&(parameters)[offset]);
+    offset =    sizeof(int32_t) 
+      + sizeof(int32_t)
+      + sizeof(double) * kNumberOfFlexPoints * 3
+      + sizeof(double) * kNumberOfFlexPoints * 2;
+    pRawAngles = (uint32_t *)(&(parameters)[offset]);
+    
+    if ( RawGeomFlag == 1 ) {
+      for ( i = 0; i <  numberOfTargets ; i++ ) {
+	theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
+	theAngleBuffer[2*i+1] = pRawAngles[2*i+1];
+	if ( numberOfTargets == 4 ) {
+	  theAngleBuffer[2*(i+4)  ] = pRawAngles[2*(i)  ];
+	  theAngleBuffer[2*(i+4)+1] = pRawAngles[2*(i)+1];
+	}
+      }
+    } else if ( RawGeomFlag == 2 ) {
+      for ( i = 0; i <  numberOfTargets ; i++ ) {
+	pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
+	return_code = ConvertExternalAnglesToBinary(pLgMaster,
 							 pGeometricAngles[2*i],
 							 pGeometricAngles[2*i+1],
-							 &(theAngleBuffer[2*i]),
-							 &(theAngleBuffer[2*i+1]));
+							 &pCurXY->xdata,
+							 &pCurXY->ydata);
                
-                if ( numberOfTargets == 4 ) {
-		  return_code = ConvertExternalAnglesToBinary(pLgMaster,
-							      pGeometricAngles[2*(i)],
-							      pGeometricAngles[2*(i)+1],
-							      &(theAngleBuffer[2*(i+4)]),
-							      &(theAngleBuffer[2*(i+4)+1]));
-                }
-           }
-        } else {
-        }
-        i = 0;
-        index = sizeof(int32_t) + sizeof(int32_t);
-        currentData = (double *)(&parameters[index]);
-        if ( numberOfTargets > 4 ) {
-            while ( i < ( numberOfTargets * 3 ) )
-            {
-              theCoordinateBuffer[i] = currentData[i];
-              i++;
-            }
-            SaveFullRegCoordinates ( numberOfTargets, theCoordinateBuffer );
-        } else {
-            while ( i < ( 12 ) )
-            {
-              theCoordinateBuffer[i]    = currentData[i];
-              theCoordinateBuffer[i+12] = currentData[i];
-              i++;
-            }
-            SaveFullRegCoordinates ( 8, theCoordinateBuffer );
-        }
+	if ( numberOfTargets == 4 ) {
+	  pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * 4));
+	  
+	  return_code = ConvertExternalAnglesToBinary(pLgMaster,
+						      pGeometricAngles[2*(i)],
+						      pGeometricAngles[2*(i)+1],
+						      &pCurXY->xdata,
+						      &pCurXY->ydata);
+	}
+      }
+    } else {
+    }
+    i = 0;
+    index = sizeof(int32_t) + sizeof(int32_t);
+    currentData = (double *)(&parameters[index]);
+    if ( numberOfTargets > 4 ) {
+      while ( i < ( numberOfTargets * 3 ) )
+	{
+	  theCoordinateBuffer[i] = currentData[i];
+	  i++;
+	}
+      SaveFullRegCoordinates ( numberOfTargets, theCoordinateBuffer );
+    } else {
+      while ( i < ( 12 ) )
+	{
+	  theCoordinateBuffer[i]    = currentData[i];
+	  theCoordinateBuffer[i+12] = currentData[i];
+	  i++;
+	}
+      SaveFullRegCoordinates ( 8, theCoordinateBuffer );
+    }
+    
+    // *****************************************************
+    // if numberOfTargets is 4, change it to 8 at this point
+    // *****************************************************
+    
+    if ( numberOfTargets == 4 )
+      numberOfTargets = 8;
 
-        // *****************************************************
-        // if numberOfTargets is 4, change it to 8 at this point
-        // *****************************************************
+    lostSensors = 0;
+    i = 0;
+    if (!return_code) {
+      while ( i < numberOfTargets ) {
+	j = gNumberOfSensorSearchAttempts;
+	gSearchCurrentSensor = i;
 
-        if ( numberOfTargets == 4 ) {
-               numberOfTargets = 8;
-        }
-
-	lostSensors = 0U;
-	
-        i = 0;
-        if (!return_code) {
-	  while ( i < numberOfTargets ) {
-		j = gNumberOfSensorSearchAttempts;
-		gSearchCurrentSensor = i;
-
-		  /*
-		   *  allow for a variable speed search, in needed
-		   */
-		gCoarse2Factor     = gCoarseFactor;
-		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-		while ( j-- ) {
-                        ptX = theAngleBuffer[2*i  ];
-                        ptY = theAngleBuffer[2*i+1];
+	/*
+	 *  allow for a variable speed search, in needed
+	 */
+	gCoarse2Factor     = gCoarseFactor;
+	pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+	while (j--)
+	  {
+	    pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
+                        ptX = pCurXY->xdata;
+                        ptY = pCurXY->ydata;
                         if ( useTarget[i] == 1 ) {
 			  searchResult = SearchForASensor ( pLgMaster, ptX,
 							    ptY, &fndX, &fndY );

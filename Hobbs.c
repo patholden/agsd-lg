@@ -92,11 +92,13 @@ void StartHobbs(struct lg_master *pLgMaster)
 }
 
 
+// FIXME---PAH---NEED TO PUSH LASER, X & Y SCANNER TIMES TO DRIVER & USE IOCTL
+// TO GET THEM.
 void EndHobbs(struct lg_master *pLgMaster)
 {
   time_t delta_time;
 
-  end_display = time( (time_t *)NULL );
+  end_display = time(NULL);
   if ( start_display > 0 ) {
     delta_time = end_display - start_display;
     // only count display intervals int32_ter that one second

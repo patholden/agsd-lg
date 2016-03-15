@@ -356,12 +356,11 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
                                          // find the "best" transform
               if ( tCos < gBestTolAll ) {
 
-                    gBestTargetNumber   = 4;
-                    gBestTargetArray[0] = a + 1;
-                    gBestTargetArray[1] = b + 1;
-                    gBestTargetArray[2] = c + 1;
-                    gBestTargetArray[3] = d + 1;
-
+                    pLgMaster->gBestTargetNumber   = 4;
+                    pLgMaster->gBestTargetArray[0] = a + 1;
+                    pLgMaster->gBestTargetArray[1] = b + 1;
+                    pLgMaster->gBestTargetArray[2] = c + 1;
+                    pLgMaster->gBestTargetArray[3] = d + 1;
 
                     gBestTolAll = tCos;
                     ii = 3;

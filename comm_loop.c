@@ -39,26 +39,13 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
   // Initialize buffers to 0
   memset(&pLgMaster->webhost_addr, 0, sockaddr_len);
 
-#ifdef PATDEBUG
-  syslog(LOG_DEBUG,"Start socket interface");
-#endif
   // Just in case this is a re-config, check for open socketfd & close first
   if ((pLgMaster->socketfd >= 0) || (pLgMaster->datafd >= 0))
     {
       if (pLgMaster->datafd >= 0)
-	{
-#ifdef PATDEBUG
-	  syslog(LOG_DEBUG,"Closing live datafd %d",pLgMaster->datafd);
-#endif
-	  close(pLgMaster->datafd);
-	}
+	close(pLgMaster->datafd);
       if (pLgMaster->socketfd >= 0)
-	{
-#ifdef PATDEBUG
-	  syslog(LOG_DEBUG,"Closing live socketfd %d",pLgMaster->socketfd);
-#endif
-	  close(pLgMaster->socketfd);
-	}
+	close(pLgMaster->socketfd);
       pLgMaster->socketfd = -1;
       pLgMaster->datafd = -1;
     }
@@ -94,7 +81,6 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
 
   pLgMaster->enet_retry_count++;
   pLgMaster->serial_ether_flag = 2;
-  doSetLinkLED(pLgMaster);
   return(0);
 }
 
@@ -193,15 +179,12 @@ static int ProcPktLookAhead(struct lg_master *pLgMaster, unsigned char *parse_bu
     uint8_t       theCommand;
 
     theCommand = *parse_buff;
-#ifdef PATDEBUG
-  syslog(LOG_DEBUG,"Waiting for more data, command %x", theCommand);
-#endif
-  if ((theCommand != kDisplayChunksData) && (theCommand != kFilePutData)
-      && (theCommand != kDisplayKitVideo))
-    return(0);
+    if ((theCommand != kDisplayChunksData) && (theCommand != kFilePutData)
+	&& (theCommand != kDisplayKitVideo))
+      return(0);
   
-  pInp = (unsigned char *)&parse_buff[4];  // Pointer to input parms
-  switch(theCommand)
+    pInp = (unsigned char *)&parse_buff[4];  // Pointer to input parms
+    switch(theCommand)
       {
       case  kDisplayChunksData:
 	if ((((struct parse_chunkdata_parms *)pInp)->chunk_len - COMM_ENET_PKT_SIZE) > 0)
@@ -244,9 +227,6 @@ static int ProcPktLookAhead(struct lg_master *pLgMaster, unsigned char *parse_bu
 	  return(COMMLOOP_ERROR);
 	if ((data_len > 0) && ((*total_count + data_len) <= COMM_RECV_MAX_SIZE))
 	  {
-#ifdef PATDEBUG
-	    syslog(LOG_DEBUG,"Got more data, command %x, length %d", parse_buff[0], data_len);
-#endif
 	    memcpy((char *)(parse_buff + *total_count), recv_data, data_len);
 	    *total_count += data_len;
 	  }
@@ -302,7 +282,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
 	  syslog(LOG_DEBUG, "Data not ready on receive");
 	  break;
 	}
-      error = poll((struct pollfd *)&poll_fd, 1, 5);
+      error = poll((struct pollfd *)&poll_fd, 1, 3);
       if (error < 1)
 	break;
       if (!(poll_fd.revents & POLLIN))
@@ -368,9 +348,6 @@ void SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand)
 	    }
 	}
       sent = send(pLgMaster->datafd, gOutputHex, count, MSG_NOSIGNAL);
-#ifdef PATDEBUG
-      syslog(LOG_ERR,"Sending GHEX1 confirm: cmd %d errno %d", theCommand, errno);
-#endif
       if (sent <=0)
 	syslog(LOG_ERR,"bad send on confirmation: errno %d", errno);
     }
@@ -379,9 +356,6 @@ void SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand)
       {
 	if ((pLgMaster->serial_ether_flag == 2) && (pLgMaster->datafd >= 0)) 
 	  sent = send(pLgMaster->datafd, gOutputBuffer, COMM_CONFIRM_LEN, MSG_NOSIGNAL);
-#ifdef PATDEBUG
-      syslog(LOG_ERR,"Sending GHEX1 confirm: cmd %d errno %d", theCommand, errno);
-#endif
 	if (sent <=0)
 	  syslog(LOG_ERR,"Bad send on confirmation: errno %d", errno);
       }
@@ -538,69 +512,63 @@ int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster)
 
 int DoProcEnetPackets(struct lg_master *pLgMaster)
 {
-  struct sockaddr_in client_addr;
-  struct sockaddr_in haddr;
-  socklen_t          sockaddr_len = sizeof(struct sockaddr_in);
-  int                error=0;
-  int                on=1;
-  unsigned long      loop_count;
-  
-  // Initialize buffers
-  memset(&client_addr, 0, sockaddr_len);
-  memset(&haddr, 0, sockaddr_len);
+    struct sockaddr_in client_addr;
+    struct sockaddr_in haddr;
+    socklen_t          sockaddr_len = sizeof(struct sockaddr_in);
+    int                error=0;
+    int                on=1;
 
-  // Accept connection with host
-  if (pLgMaster->datafd >= 0)
-    {
-#ifdef PATDEBUG
-      syslog(LOG_DEBUG,"Closing live datafd %d",pLgMaster->datafd);
-#endif
+    // Initialize buffers
+    memset(&client_addr, 0, sockaddr_len);
+    memset(&haddr, 0, sockaddr_len);
+
+    // Accept connection with host
+    if (pLgMaster->datafd >= 0)
       close(pLgMaster->datafd);
-    }
-  pLgMaster->datafd = accept(pLgMaster->socketfd, (struct sockaddr *)&client_addr, (socklen_t *)&sockaddr_len);
-  if (pLgMaster->datafd < 0)
-    {
-      syslog(LOG_ERR,"COMMLOOP:  unable to accept data from %s", pLgMaster->webhost);
-      return(-1);
-    }
-  error = setsockopt(pLgMaster->datafd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on));
-  if (error < 0)
-    {
-      syslog(LOG_ERR,"COMMCFGSCK: setsockopt failed for socket %d",pLgMaster->socketfd);
-      return(-2);
-    }
-  // Get host's IP address
+    pLgMaster->datafd = accept(pLgMaster->socketfd, (struct sockaddr *)&client_addr, (socklen_t *)&sockaddr_len);
+    if (pLgMaster->datafd < 0)
+      {
+	syslog(LOG_ERR,"COMMLOOP:  unable to accept data from %s", pLgMaster->webhost);
+	return(-1);
+      }
+    error = setsockopt(pLgMaster->datafd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on));
+    if (error < 0)
+      {
+	syslog(LOG_ERR,"COMMCFGSCK: setsockopt failed for socket %d",pLgMaster->socketfd);
+	return(-2);
+      }
+    // Get host's IP address
     error = getpeername(pLgMaster->datafd, (struct sockaddr *)&haddr, &sockaddr_len);
-  if (error < 0)
-    {
-      syslog(LOG_ERR,"COMMCFGSCK: getpeername failed");
-      return(-2);
-    }
-  strcpy(pLgMaster->webhost, inet_ntoa(haddr.sin_addr));
+    if (error < 0)
+      {
+	syslog(LOG_ERR,"COMMCFGSCK: getpeername failed");
+	return(-2);
+      }
+    strcpy(pLgMaster->webhost, inet_ntoa(haddr.sin_addr));
 
-  syslog(LOG_NOTICE, "receiving data from %s, recvfd %x", pLgMaster->webhost, pLgMaster->datafd);
-  loop_count = 0;
-  while (pLgMaster->datafd >= 0)
-    {
-      error = ProcEnetPacketsFromHost(pLgMaster);
-      if (error < 0)
-	{
-	  // Honor ping-heartbeat so partner knows we're alive
-	  // FIXME--PAH.  NEED TO PUT PING INTO PTHREAD & JUST CHECK STATUS.
-	  if ((pingClient(pLgMaster->webhost)) != 0)
-	    pLgMaster->ping_count = 0;
-	  else
-	    pLgMaster->ping_count++;
-	  return(0);
-	}
+    syslog(LOG_NOTICE, "receiving data from %s, recvfd %x", pLgMaster->webhost, pLgMaster->datafd);
 #ifdef PATDEBUG
-      syslog(LOG_DEBUG,"Comm Loop Continues, loop count %ld", loop_count++);
+    syslog(LOG_DEBUG,"Turn on LINK LED");
 #endif
-    }
+    doSetLinkLED(pLgMaster);
+    while (pLgMaster->datafd >= 0)
+      {
+	error = ProcEnetPacketsFromHost(pLgMaster);
+	if (error < 0)
+	  {
+	    // Honor ping-heartbeat so partner knows we're alive
+	    // FIXME--PAH.  NEED TO PUT PING INTO PTHREAD & JUST CHECK STATUS.
+	    if ((pingClient(pLgMaster->webhost)) != 0)
+	      pLgMaster->ping_count = 0;
+	    else
+	      pLgMaster->ping_count++;
+	    return(0);
+	  }
+      }
 
-  // Should never get here
-  if (pLgMaster->datafd == -1)
-    return(-1);
-  return(0);
+    // Should never get here
+    if (pLgMaster->datafd == -1)
+      return(-1);
+    return(0);
 }
 

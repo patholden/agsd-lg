@@ -106,7 +106,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
 	{
 	  syslog(LOG_ERR, "PARSEDATA:  Extraneous data received %d, len %d",
 		  *pLgMaster->gRawBuffer, *rawindex);
-	  return(0);
+	  return(-2);
 	}
     }
 
@@ -156,7 +156,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
 	{
 	  SendConfirmation (pLgMaster, kStop);
 	  SearchBeamOff(pLgMaster);
-	  DoStop ( pLgMaster, 0 );
+	  DoStopCmd(pLgMaster, 0);
 	}
       else
 	{

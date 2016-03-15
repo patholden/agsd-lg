@@ -107,6 +107,7 @@ static void limitXY(int32_t currentX, int32_t currentY,
 //Start of local functions
 void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Parameters, uint32_t respondToWhom )
 {
+    struct parse_basic_resp *pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
     char *wr_buf;
     char *tmpPtr;
     int maxSize;
@@ -114,39 +115,33 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     int nTargets; 
     double Xtemp;
     double Ytemp;
-    int32_t Xi;
-    int32_t Yi;
-    int32_t Xarr[32];
-    int32_t Yarr[32];
+    int16_t Xarr[32];
+    int16_t Yarr[32];
     int32_t flag[32];
-    int32_t currentX;
-    int32_t currentY;
-    int32_t lastX;
-    int32_t lastY;
     int i;
-    struct parse_basic_resp *pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+    int16_t Xi, Yi, currentX, currentY, lastX, lastY;
 
     memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
     memset((char *)&Xarr, 0, sizeof(Xarr));
     memset((char *)&Yarr, 0, sizeof(Yarr));
     memset((char *)&flag, 0, sizeof(flag));
     maxSize = NPOINTS * 24;
-    wr_buf = (char *)calloc( NPOINTS * 24, 4 );
-    memset(wr_buf, 0, (NPOINTS * 24 * 4));
-    
-    tmpPtr = wr_buf;
 
     nTargets = Parameters->inp_numpairs;
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"SHOWTGT: num_pairs %d",nTargets);
+#endif
     if(nTargets > kNumberOfFlexPoints)
       {
 	pResp->hdr.status = RESPFAIL;
-	HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
+    wr_buf = (char *)calloc(NPOINTS * 24, 4);
+    memset(wr_buf, 0, (NPOINTS * 24 * 4));
+    
+    tmpPtr = wr_buf;
     gCoarse3SearchStep = 0x0008;
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"\nSHOWTGT: num_pairs %d",nTargets);
-#endif
     for (i = 0; i < nTargets; i++) {
         Xtemp = Parameters->inp_targetpairs[i].Xangle;
         Ytemp = Parameters->inp_targetpairs[i].Yangle;
@@ -155,7 +150,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
         Yarr[i] = Yi;
         flag[i] = Parameters->inp_targetpairs[i].flag;
 #ifdef PATDEBUG
-	syslog(LOG_DEBUG,"\nSHOWTGT: Xangle %fx,Yangle %fx",Xtemp,Ytemp);
+	syslog(LOG_DEBUG,"SHOWTGT: Xangle %fx,Yangle %fx,Xbin %x, Ybin %x, flag %d",Xtemp,Ytemp,Xarr[i],Yarr[i], flag[i]);
 #endif
     }
 
@@ -166,232 +161,117 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     lastX = Xarr[0];
     lastY = Yarr[0];
     for ( i = 0; i < nTargets; i++ ) {
-      if ( flag[i] == 1 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do1( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 2 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do2( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 3 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do3( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 4 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do4( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 5 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do5( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 6 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do6( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 7 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do7( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 8 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do8( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 9 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do9( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 10 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do10( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 11 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do11( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 12 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do12( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 13 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do13( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 14 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do14( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 15 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do15( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 16 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do16( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 17 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do17( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 18 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do18( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 19 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do19( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 20 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do20( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 21 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do21( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 22 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do22( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 23 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do23( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 24 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           Do24( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 31 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           DoCross( currentX, currentY, tmpPtr, &index );
-        }
-        if ( flag[i] == 32 ) {
-           currentX = Xarr[i];
-           currentY = Yarr[i];
-           show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-           lastX = currentX;
-           lastY = currentY;
-           DoSquare( currentX, currentY, tmpPtr, &index );
-        }
+      currentX = Xarr[i];
+      currentY = Yarr[i];
+      show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
+      lastX = currentX;
+      lastY = currentY;
+      switch(flag[i])
+	{
+	case SHOWTARGETNUM1:
+	  Do1(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM2:
+	  Do2(currentX, currentY, tmpPtr, &index);
+	  break;
+	case SHOWTARGETNUM3:
+	  Do3(currentX, currentY, tmpPtr, &index);
+	  break;
+	case SHOWTARGETNUM4:
+	  Do4(currentX, currentY, tmpPtr, &index);
+	  break;
+	case SHOWTARGETNUM5:
+	  Do5(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM6:
+	  Do6(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM7:
+	  Do7(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM8:
+	  Do8(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM9:
+	  Do9(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM10:
+	  Do10(currentX, currentY, tmpPtr, &index);
+	  break;
+	case SHOWTARGETNUM11:
+	  Do11(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM12:
+	  Do12(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM13:
+	  Do13(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM14:
+	  Do14(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM15:
+	  Do15(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM16:
+	  Do16( currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM17:
+	  Do17(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM18:
+	  Do18(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM19:
+	  Do19(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM20:
+	  Do20(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM21:
+	  Do21(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM22:
+	  Do22(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM23:
+	  Do23(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETNUM24:
+	  Do24(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETCROSS:
+	  DoCross(currentX, currentY, tmpPtr, &index);
+	  break;
+        case SHOWTARGETBOX:
+	  DoSquare(currentX, currentY, tmpPtr, &index);
+	  break;
+	}
     }
     currentX = Xarr[0];
     currentY = Yarr[0];
     show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
+#ifdef PATDEBUG
+    syslog(LOG_DEBUG,"SHOWTGT: currentX %x, currentY %x",currentX,currentY);
+#endif
 
-    if ( index < maxSize ) {
-      JustDoDisplay(pLgMaster, wr_buf, index );
-
-       free( wr_buf );
-       pResp->hdr.status = RESPGOOD;
-       HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-       return;
-    } else {
-       free( wr_buf );
-       pResp->hdr.status = RESPFAIL;
-       HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-       return;
-    }
+    if (index < maxSize)
+      {
+	JustDoDisplay(pLgMaster, wr_buf, index );
+	pResp->hdr.status = RESPGOOD;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+      }
+    else
+      {
+#ifdef PATDEBUG
+	syslog(LOG_DEBUG,"SHOWTGT: Wrong size index=%d,maxSize=%d",index,maxSize);
+#endif
+	pResp->hdr.status = RESPFAIL;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+      }
+    // Let everything fall through here to free up buffer
+    free(wr_buf);
+    return;
 }
 
 static void DoCross(int32_t currentX, int32_t currentY,
@@ -431,6 +311,7 @@ static void DoCross(int32_t currentX, int32_t currentY,
       pXYdata->xdata = (int16_t)(currentX & kMaxSigned);
       pXYdata->ydata = (int16_t)(currentY & kMaxSigned);
       SetLowBeam(pXYdata);
+      //SetDarkBeam(pXYdata);
       *pIndex += sizeof(struct lg_xydata);
     }
   for (j = 0; j < 2; j++)
@@ -438,6 +319,7 @@ static void DoCross(int32_t currentX, int32_t currentY,
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = (int16_t)(currentX & kMaxSigned);
       pXYdata->ydata = (int16_t)(currentY & kMaxSigned);
+      //SetDarkBeam(pXYdata);
       SetLowBeam(pXYdata);
       *pIndex += sizeof(struct lg_xydata);
     }
@@ -534,6 +416,7 @@ static void DoCross(int32_t currentX, int32_t currentY,
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = (int16_t)(currentX & kMaxSigned);
       pXYdata->ydata = (int16_t)(currentY & kMaxSigned);
+      //SetDarkBeam(pXYdata);
       SetLowBeam(pXYdata);
       *pIndex += sizeof(struct lg_xydata);
     }
@@ -575,6 +458,7 @@ static void DoSquare(int32_t currentX, int32_t currentY,
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = (int16_t)(eolXNeg & kMaxSigned);
       pXYdata->ydata = (int16_t)(eolYNeg & kMaxSigned);
+      //SetDarkBeam(pXYdata);
       SetLowBeam(pXYdata);
       *pIndex += sizeof(struct lg_xydata); 
     }
@@ -655,6 +539,7 @@ static void DoSquare(int32_t currentX, int32_t currentY,
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = (uint16_t)(eolXNeg & kMaxSigned);
       pXYdata->ydata = (uint16_t)(eolYNeg & kMaxSigned);
+      //SetDarkBeam(pXYdata);
       SetLowBeam(pXYdata);
       *pIndex += sizeof(struct lg_xydata); 
     }
@@ -1184,21 +1069,26 @@ void draw_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
   delY = (y1 - y0) / 16;
 
   // pause at the start of line
-  pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
   for (j = 0; j < 2; j++)
     {
-      pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
+      pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
       pXYdata->xdata = (int16_t)(x0 & kMaxSigned);
       pXYdata->ydata = (int16_t)(y0 & kMaxSigned);
       SetHighBeam(pXYdata);
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"DRAWLINE: START LINE x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
+#endif
       *pIndex += sizeof(struct lg_xydata); 
-    }
+  }
   for (j=0; j <= 16; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = (int16_t)((x0 + (j * delX)) & kMaxSigned);
       pXYdata->ydata = (int16_t)((y0 + (j * delY)) & kMaxSigned);
       SetHighBeam(pXYdata);
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"DRAWLINE: x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
+#endif
       *pIndex += sizeof(struct lg_xydata); 
     }
   // pause at the end of line
@@ -1208,6 +1098,9 @@ void draw_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
       pXYdata->xdata = (int16_t)(x1 & kMaxSigned);
       pXYdata->ydata = (int16_t)(y1 & kMaxSigned);
       SetHighBeam(pXYdata);
+#ifdef PATDEBUG
+      syslog(LOG_DEBUG,"DRAWLINE: ENDLINE x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
+#endif
       *pIndex += sizeof(struct lg_xydata); 
     }
   return;

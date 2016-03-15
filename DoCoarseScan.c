@@ -15,24 +15,19 @@
 #include "Protocol.h"
 #include "LaserInterface.h"
 
-extern int32_t * gLsort;
-int32_t * coarsedata;
-extern int32_t * coarsedata;
-int32_t * gScan;
-extern int32_t * gScan;
 uint32_t DCSminlevel = 70;
 #define DELLEV 30
 
 static int cintsort( const void *elem1, const void *elem2 );
 
 int
-DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
-            uint32_t lsstep, int lscount, int32_t *xfound, int32_t *yfound)
+DoCoarseScan(struct lg_master *pLgMaster, int16_t dX, int16_t dY,
+            uint32_t lsstep, int lscount, int16_t *xfound, int16_t *yfound)
 {
       struct lg_xydata  xydata;
       struct lg_xydata  xydelta;
-      int32_t Xarray[65536];
-      int32_t Yarray[65536];
+      int16_t Xarray[65536];
+      int16_t Yarray[65536];
       double Dxsum, Dysum;
       double Dcount;
       int32_t xoff, yoff;
@@ -50,8 +45,8 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
       int32_t ymid;
       int Icount;
       int Ihalf;
-      int32_t Ixavg;
-      int32_t Iyavg;
+      int16_t Ixavg;
+      int16_t Iyavg;
 
       xmid = dX;
       ymid = dY;
@@ -59,7 +54,7 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
 
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
-      memset( (void *)&(coarsedata[0]), 0, 512*512*sizeof(int32_t) );
+      memset((char *)pLgMaster->coarsedata, 0, 512*512*sizeof(uint16_t) );
       memset((char *)&Xarray, 0, sizeof(Xarray));
       memset((char *)&Yarray, 0, sizeof(Yarray));
 
@@ -76,7 +71,7 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
           nSteps = lscount;
 	  
           theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
-				    (struct lg_xydata *)&xydelta, nSteps, gScan );
+				    (struct lg_xydata *)&xydelta, nSteps, pLgMaster->gScan);
           if ( theResult == kStopWasDone ) {
                    SearchBeamOff(pLgMaster);
                    return theResult;
@@ -84,20 +79,20 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
           for ( x = 0x1U; x <= lscount; x += 0x1U ) {
                  index = y * lscount + x;
                  if ( y > 1 ) {
-                     coarsedata[index] = gScan[x-1];
+                     pLgMaster->coarsedata[index] = pLgMaster->gScan[x-1];
                  }
-                 gLsort[x-1] = gScan[x-1];
+		 pLgMaster->gLsort[x-1] = pLgMaster->gScan[x-1];
           }
-          qsort( gLsort, lscount, sizeof(int32_t), cintsort);
+          qsort(pLgMaster->gLsort, lscount, sizeof(int16_t), cintsort);
           halfStep = lsstep / 2;
-          testlevel = gLsort[halfStep];
+          testlevel = pLgMaster->gLsort[halfStep];
           if ( firstCoarse == 1 ) {
                firstCoarse = 0;
                DCSminlevel = testlevel + DELLEV;
           } 
           if ( y > 1 ) {
               for ( x = 0x1U; x <= lscount; x += 0x1U ) {
-                   if ( gScan[x] >= DCSminlevel ) {
+                   if ( pLgMaster->gScan[x] >= DCSminlevel ) {
                        target_cnt++;
                        notarget = 0;
                        break;
@@ -115,17 +110,17 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
           xydelta.ydata = 0;
           nSteps = lscount;
           theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
-				    (struct lg_xydata *)&xydelta, nSteps, gScan);
+				    (struct lg_xydata *)&xydelta, nSteps, pLgMaster->gScan);
           if ( theResult == kStopWasDone ) {
 	    SearchBeamOff(pLgMaster);
 	    return theResult;
           }
           for ( x = lscount; x > 0 ; x -= 0x1U ) {
                  index = (y + 1) * lscount + (lscount - x);
-                 coarsedata[index] = gScan[x];
+                 pLgMaster->coarsedata[index] = pLgMaster->gScan[x];
           }
           for ( x = lscount; x > 0 ; x -= 0x1U ) {
-                 if ( gScan[x] >= DCSminlevel ) {
+                 if ( pLgMaster->gScan[x] >= DCSminlevel ) {
                        target_cnt++;
                        notarget = 0;
                        break;
@@ -151,9 +146,9 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
       for ( y = 0x1U; y <= lscount; y += 0x1U ) {
           for ( x = 0x1U; x <= lscount; x += 0x1U ) {
                index = y * lscount + x;
-               if ( coarsedata[index] > DCSminlevel ) {
-                    Dxsum += (double)((int32_t)x);
-                    Dysum += (double)((int32_t)y);
+               if ( pLgMaster->coarsedata[index] > DCSminlevel ) {
+                    Dxsum += (double)x;
+                    Dysum += (double)y;
                     Dcount += 1.0;
                     Xarray[Icount] = (int32_t)x;
                     Yarray[Icount] = (int32_t)y;
@@ -167,17 +162,9 @@ DoCoarseScan(struct lg_master *pLgMaster, int32_t dX, int32_t dY,
       Ihalf = Icount / 2;
       Ixavg = Xarray[Ihalf];
       Iyavg = Yarray[Ihalf];
-      *xfound = ((int32_t)Ixavg * lsstep) + xoff;
-      *yfound = ((int32_t)Iyavg * lsstep) + yoff;
-
-      return 0;
-}
-
-void
-InitCoarseScan( void )
-{
-      coarsedata = (int32_t *)calloc(512*512, sizeof(int32_t));
-      
+      *xfound = (Ixavg * lsstep) + xoff;
+      *yfound = (Iyavg * lsstep) + yoff;
+      return(0);
 }
 
 static int cintsort( const void *elem1, const void *elem2 )

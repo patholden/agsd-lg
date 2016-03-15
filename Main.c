@@ -53,7 +53,6 @@ static void	CloseUserStuff(struct lg_master *pLgMaster);
 
 char * gQCsaveData=0;
 uint32_t *scandata=0;
-uint32_t *gScan=0;
 uint32_t gQClengthOfData;
 unsigned char                   gHeaderSpecialByte = 0;
 
@@ -150,9 +149,7 @@ void *ags_bkgd_proc(void *p_threadarg)
 int main ( int argc, char **argv )
 {
   pthread_t     thread[MAX_NUM_THREADS];
-  int32_t i = 0;
   int     error=0;
-  unsigned long    loop_count;
 
 
   openlog("agsd", 0, LOG_USER);
@@ -169,10 +166,6 @@ int main ( int argc, char **argv )
   gFOM        = -1;
   gCentroid   = 1;
   gMaxPiledPts= 9;
-  gBestTargetNumber = 0;
-  for ( i=0; i<128; i++ ) {
-    gBestTargetArray[i] = 0;
-  }
 //
 //  try board initialization here
 //
@@ -249,7 +242,7 @@ int main ( int argc, char **argv )
   syslog(LOG_NOTICE, " spirals %d",   gNumberOfSpirals );
   syslog(LOG_NOTICE, " factor %d",   gCoarseFactor );
   syslog(LOG_NOTICE, " attempt %d\n",   gNumberOfSensorSearchAttempts );
-  syslog(LOG_NOTICE, " triggerlevel %d\n",           gDELLEV );
+  SensorInitLog();
   syslog(LOG_NOTICE, " factor spiral %d",   gSpiralFactor );
   syslog(LOG_NOTICE, " hatch %d\n",           gHatchFactor );
   syslog(LOG_NOTICE, " SuperFineCount %d",   gSuperFineCount );
@@ -303,7 +296,6 @@ int main ( int argc, char **argv )
       closelog();
       exit(EXIT_FAILURE);
     }
-  loop_count = 0;
   doClearReadyLED(pConfigMaster);
   while (exit_check())
     {
@@ -323,9 +315,6 @@ int main ( int argc, char **argv )
 		}
 	    }
 	}
-#ifdef PATDEBUG
-      syslog(LOG_DEBUG,"Comm Loop Continues, loop count %ld", loop_count++);
-#endif
     }
 
   // Clean up AGS specific stuff before exiting
@@ -346,12 +335,10 @@ int InitUserStuff (struct lg_master *pLgMaster)
                          + kCRCSize ) );
  
   scandata = (uint32_t *)calloc(67*67, sizeof(uint32_t));
-  gScan = (uint32_t *)calloc(1024, sizeof(uint32_t));
-  if (!gQCsaveData || !scandata || !gScan)
+  if (!gQCsaveData || !scandata)
     return(-1);
   
-  FlashLed(pLgMaster, 3);
-  doClearReadyLED(pLgMaster);
+  FlashLed(pLgMaster, 5);
   SearchBeamOff(pLgMaster);
   InitCRCHandler (  );
   InitLaserInterface (pLgMaster);
@@ -360,7 +347,6 @@ int InitUserStuff (struct lg_master *pLgMaster)
     return(-1);
   InitAPTParser (  );
   InitSensorSearch (  );
-  InitCoarseScan( );
   return(0);
 }
 

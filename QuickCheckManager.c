@@ -64,7 +64,7 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, char *data, uint32_t 
   memset(localdata, 0xFF, sizeof(localdata));
 
   memcpy( localdata, data, sizeof(int32_t) * 2 * nTargets );
-  lostSensors = 0U;
+  lostSensors = 0;
   lostSum = 0;
 
   ptrX = (uint32_t *)localdata; ptrY = ptrX; ptrY++;

@@ -34,61 +34,54 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
 			  char * parameters,
 			  uint32_t respondToWhom )
 {
-	int32_t ptX, ptY;
-	int32_t fndX;
-	int32_t fndY;
-	double XfoundAngles [ kFeedbackNumber ];
-	double YfoundAngles [ kFeedbackNumber ];
-	double XExternalAngles [ kFeedbackNumber ];
-	double YExternalAngles [ kFeedbackNumber ];
-	double foundAngles [ kFeedbackNumber * 2 ];
-	int32_t Xarr[kFeedbackNumber];
-	int32_t Yarr[kFeedbackNumber];
-        int32_t target_status [ kFeedbackNumber ];
-        int numberOfFoundTargets;
-        int useTarget [ kFeedbackNumber ];
-	char *RespBuff=(char *)pLgMaster->theResponseBuffer;
-	uint32_t    resp_len=(sizeof ( uint32_t )
-			      + 12 * ( sizeof ( double )  )
-			      +        sizeof ( double ) 
-			      +        sizeof ( double ) 
-			      +        sizeof ( double ) 
-			      +        sizeof ( int32_t ) 
-			      +        sizeof ( int32_t ) 
-			      +  2 * kFeedbackNumber * sizeof ( uint32_t )
-			      +  2 * kFeedbackNumber * sizeof ( double )
-			      +      kFeedbackNumber * sizeof ( int32_t )
-			      +  OutputPadding
-			      +  1024
-			      +  kCRCSize);
-	uint32_t    return_code=0;
-        unsigned char *ucPtr;
-	unsigned short i, j;
-	uint32_t lostSensors;
-	unsigned char theResult;
-        int32_t numberOfTargets;
-        int32_t RawGeomFlag;
-        double theCoordinateBuffer[kFeedbackNumber * 3];
-        int32_t theAngleBuffer[kFeedbackNumber * 2];
-        double *currentData;
-	int index;
-	double theTransformTolerance;
-	transform foundTransform;
-        uint32_t *pRawAngles;
-        double *pGeometricAngles;
-        int32_t offset;
-	
-	int searchResult;
-
-        SlowDownAndStop(pLgMaster);
-	
-	theTransformTolerance  = pLgMaster->gArgTol;
-
-        gBestTargetNumber = 0;
-        for ( i = 0; i < 128; i++ ) {
-               gBestTargetArray[i] = 0;
-        }
-
+    int16_t fndX, fndY;
+    double XfoundAngles [ kFeedbackNumber ];
+    double YfoundAngles [ kFeedbackNumber ];
+    double XExternalAngles [ kFeedbackNumber ];
+    double YExternalAngles [ kFeedbackNumber ];
+    double foundAngles [ kFeedbackNumber * 2 ];
+    int16_t Xarr[kFeedbackNumber];
+    int16_t Yarr[kFeedbackNumber];
+    int32_t target_status [ kFeedbackNumber ];
+    int numberOfFoundTargets;
+    int useTarget [ kFeedbackNumber ];
+    char *RespBuff=(char *)pLgMaster->theResponseBuffer;
+    uint32_t    resp_len=(sizeof ( uint32_t )
+			  + 12 * ( sizeof ( double )  )
+			  +        sizeof ( double ) 
+			  +        sizeof ( double ) 
+			  +        sizeof ( double ) 
+			  +        sizeof ( int32_t ) 
+			  +        sizeof ( int32_t ) 
+			  +  2 * kFeedbackNumber * sizeof ( uint32_t )
+			  +  2 * kFeedbackNumber * sizeof ( double )
+			  +      kFeedbackNumber * sizeof ( int32_t )
+			  +  OutputPadding
+			  +  1024
+			  +  kCRCSize);
+    uint32_t    return_code=0;
+    unsigned char *ucPtr;
+    unsigned short i, j;
+    uint32_t lostSensors;
+    unsigned char theResult;
+    int32_t numberOfTargets;
+    int32_t RawGeomFlag;
+    double theCoordinateBuffer[kFeedbackNumber * 3];
+    int32_t theAngleBuffer[kFeedbackNumber * 2];
+    double *currentData;
+    struct lg_xydata *pCurXY;
+    int index;
+    double theTransformTolerance;
+    transform foundTransform;
+    uint32_t *pRawAngles;
+    double *pGeometricAngles;
+    int32_t offset;
+    int searchResult;
+    
+    SlowDownAndStop(pLgMaster);
+    theTransformTolerance  = pLgMaster->gArgTol;
+    pLgMaster->gBestTargetNumber = 0;
+    memset(pLgMaster->gBestTargetArray, 0, sizeof(pLgMaster->gBestTargetArray));
         for ( i = 0; i < kFeedbackNumber; i++ ) {
                target_status[i] = 0;
                foundTarget[i]  = 0;
@@ -136,11 +129,12 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
 	  {
 	    for ( i = 0; i <  kFeedbackNumber ; i++)
 	      {
+		pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
 		return_code = ConvertExternalAnglesToBinary (pLgMaster,
 							     pGeometricAngles[2*i],
 							     pGeometricAngles[2*i+1],
-							     &(theAngleBuffer[2*i]),
-							     &(theAngleBuffer[2*i+1]));
+							     &pCurXY->xdata,
+							     &pCurXY->ydata);
 		memcpy(RespBuff, &return_code, sizeof(uint32_t));
 	      }
         }
@@ -181,41 +175,39 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
 		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 		while (j--)
 		  {
-                        ptX = theAngleBuffer[2*i  ];
-                        ptY = theAngleBuffer[2*i+1];
-                        if (useTarget[i] == 1)
+		    pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
+		    if (useTarget[i] == 1)
+		      {
+			searchResult = SearchForASensor ( pLgMaster, pCurXY->xdata, pCurXY->ydata,
+							  &fndX, &fndY );
+			if ( searchResult == kStopWasDone )
 			  {
-			    searchResult = SearchForASensor ( pLgMaster, ptX, ptY,
-							    &fndX, &fndY );
-			    if ( searchResult == kStopWasDone )
-			      {
-                                fndX = 0;
-                                fndY = 0;
-			      }
-                        }
-			else
-			  {
-                            searchResult = 99;
-                            fndX = 0;
-                            fndY = 0;
+			    fndX = 0;
+			    fndY = 0;
 			  }
-                        Xarr[i] = fndX;
-                        Yarr[i] = fndY;
-			if (searchResult == kStopWasDone)
-			  return;
-			if (!searchResult)
-			  break;
-		        pLgMaster->gCoarse2SearchStep /= 2;
-		        gCoarse2Factor     /= 2; 
-			if (pLgMaster->gCoarse2SearchStep <= 0x00010000)
-			  {
-			    pLgMaster->gCoarse2SearchStep = 0x00010000;
-			    gCoarse2Factor     = 1;
-			  }
+		      }
+		    else
+		      {
+			searchResult = 99;
+			fndX = 0;
+			fndY = 0;
+		      }
+		    Xarr[i] = fndX;
+		    Yarr[i] = fndY;
+		    if (searchResult == kStopWasDone)
+		      return;
+		    if (!searchResult)
+		      break;
+		    pLgMaster->gCoarse2SearchStep /= 2;
+		    gCoarse2Factor     /= 2; 
+		    if (pLgMaster->gCoarse2SearchStep <= 0x00010000)
+		      {
+			pLgMaster->gCoarse2SearchStep = 0x00010000;
+			gCoarse2Factor     = 1;
+		      }
 		  }
 		gCoarse2Factor     = gCoarseFactor;
 		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
-		
 		if (searchResult)
 		  {
 		    lostSensors += 1U << i;

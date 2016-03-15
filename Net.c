@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <time.h>
 #include <linux/laser_api.h>
 #include <sys/socket.h>
 #include <sys/types.h>

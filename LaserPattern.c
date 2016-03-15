@@ -370,7 +370,7 @@ uint32_t ProcessStoredPoints(struct lg_master *pLgMaster)
 	uint32_t fastStep = FastStep (  );
 	int32_t dist, maxSlowDownDist, theSlowDownDist;
 	int32_t distXin, distXout, distYin, distYout;
-	int32_t   pathX, pathY;
+	int16_t   pathX, pathY;
 	int32_t distSlow;
 	int32_t axp, ayp, axc, ayc, axn, ayn;
 	uint16_t currIndex, prevIndex, nextIndex, pilePoints;
@@ -838,7 +838,7 @@ uint32_t ProcessStoredPoints(struct lg_master *pLgMaster)
 uint32_t PutSequenceOfPoints (struct lg_master *pLgMaster, double *theEndPoint )
 {	
 #if _NEW_PATH_
-  int32_t  endPointX, endPointY;
+  int16_t  endPointX, endPointY;
   uint32_t theError;
 
 	theError = PointToBinary(pLgMaster, theEndPoint, &endPointX, &endPointY );
@@ -1030,7 +1030,7 @@ static uint32_t PutAPoint(struct lg_master *pLgMaster, int32_t newXBin, int32_t 
 	if (gBeamOn)
 	  SetHighBeam (pCurXYData);
 	else
-	  SetLowBeam(pCurXYData);
+	  SetDarkBeam(pCurXYData);
       }
     pCurXYData++;
   return 0;
@@ -1484,7 +1484,7 @@ unsigned char	AngleBorderPointsBetween (
 
 
 uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double y,
-	double z, int32_t *xAngle, int32_t *yAngle )
+	double z, int16_t *xAngle, int16_t *yAngle )
 {
 	double inputPoint[3], outputPoint[3];
 	inputPoint[kX] = x;
@@ -1494,7 +1494,7 @@ uint32_t Transform3DPointToBinary(struct lg_master *pLgMaster, double x, double 
 	return PointToBinary(pLgMaster, outputPoint, xAngle, yAngle );
 }
 
-uint32_t PointToBinary(struct lg_master *pLgMaster,  double *point, int32_t *xAngle, int32_t *yAngle)
+uint32_t PointToBinary(struct lg_master *pLgMaster,  double *point, int16_t *xAngle, int16_t *yAngle)
 {
   double angleX, angleY;
   GeometricAnglesFrom3D(pLgMaster,point[kX], point[kY], point[kZ], &angleX, &angleY );
@@ -1588,7 +1588,7 @@ static int  findarc(struct lg_master *pLgMaster, double p1[3], double p2[3], dou
     double Xtmp, Ytmp, Ztmp;
 
     uint32_t tempLong;
-    int32_t  pathX, pathY;
+    int16_t  pathX, pathY;
     uint32_t theError;
     double pathPoint[3];    
 

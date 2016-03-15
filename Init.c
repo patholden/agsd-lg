@@ -244,10 +244,14 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gDataChunksBuffer = (char *)malloc((size_t)kMaxDataLength);
   pLgMaster->gSensorBuffer = (char *)malloc((size_t)
 		(kMaxNumberOfPlies * kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
-  
+  pLgMaster->gScan = (uint16_t *)calloc(1024, sizeof(uint16_t));
+  pLgMaster->coarsedata = (uint16_t *)calloc(512*512, sizeof(uint16_t));
+  pLgMaster->gLsort = (uint16_t *)calloc((size_t)kMaxOutLength,sizeof(int16_t));
+
   if (!pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer
       || !pLgMaster->theResponseBuffer || !pLgMaster->gAFInputBuffer
-      || !pLgMaster->gDataChunksBuffer || !pLgMaster->gSensorBuffer)
+      || !pLgMaster->gDataChunksBuffer || !pLgMaster->gSensorBuffer
+      || !pLgMaster->gScan || !pLgMaster->coarsedata || !pLgMaster->gLsort)
     {
       syslog(LOG_ERR,"\nMalloc failed for one or more master buffers");
       return(-1);
@@ -278,5 +282,8 @@ void LGMasterFree(struct lg_master *pLgMaster)
   free(pLgMaster->gDataChunksBuffer);
   free(pLgMaster->gSensorBuffer);
   free(pLgMaster->vers_data.pVersions);
+  free(pLgMaster->gScan);
+  free(pLgMaster->coarsedata);
+  free(pLgMaster->gLsort);
   return;
 }
