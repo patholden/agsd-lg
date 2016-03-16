@@ -17,7 +17,7 @@ AR=$(TOOLDIR)/x86_64-buildroot-linux-uclibc-ar
 
 # COMPILE AND LINK OPTIONS AND DEPENDENCIES
 LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm -lpthread
-EXTRA_CFLAGS = -DPATDEBUG -DCDEBUG
+EXTRA_CFLAGS = -DAGS_DEBUG
 USERINCLUDE    := \
 	-I./ \
 	-I../../linux_headers/include

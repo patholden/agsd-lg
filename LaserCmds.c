@@ -105,22 +105,13 @@ void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_
     }
   else
     {
-#ifdef PATDEBUG
-      syslog(LOG_DEBUG,"\nDISPSTART: length %d",dataLength);
-#endif
       if (!pLgMaster->gDataChunksBuffer)
 	{
-#ifdef PATDEBUG
-	  syslog(LOG_DEBUG,"\nDISPSTART: Bad buffer pointer");
-#endif
 	  pResp->hdr.status = RESPFAIL;
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
       memset(pLgMaster->gDataChunksBuffer, 0, kMaxDataLength);
-#ifdef PATDEBUG
-      syslog(LOG_DEBUG,"\nDISPSTART: MEMSET gDataChunksBuffer %lx, length %d",(long)&pLgMaster->gDataChunksBuffer, dataLength);
-#endif
       pLgMaster->gDataChunksLength = dataLength;
       pLgMaster->gTransmitLengthSum = 0;
       pResp->hdr.status = RESPGOOD;
@@ -128,9 +119,6 @@ void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_
   // If no-response flag is set, don't send response
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
     {
-#ifdef PATDEBUG
-      syslog(LOG_DEBUG,"\nDISPSTART: We won't send response");
-#endif
       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
     }
   return;
@@ -175,9 +163,7 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
   tmpPtr = (char *)((char *)pLgMaster->gSensorBuffer + index);
   numberOfTargets = PARSE_MAX_TARGETSOLD;
   gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
-#ifdef PATDEBUG
-  syslog(LOG_ERR,"\nDISPCHUNKS: targets %d, plynum %d, index %x",numberOfTargets,gPlysReceived,index);
-#endif
+
   // Get angle pairs
   memcpy(tmpPtr, pInp->chunk_anglepairs, (kNumberOfRegPoints * 2 * sizeof(uint32_t)));
 
@@ -277,9 +263,6 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
 	  ResetPlyCounter();
 	  return;
 	}
-#ifdef PATDEBUG
-      syslog(LOG_DEBUG,"\nPostCmdDisp from DoDisplayChunks");
-#endif
       PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, SENDRESPONSE, respondToWhom);
       ResetPlyCounter();
     }
@@ -297,9 +280,6 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
   
     if ((dataLength + dataOffset) > pLgMaster->gDataChunksLength)
       {
-#ifdef PATDEBUG
-	syslog(LOG_DEBUG,"\nADDCHUNKS error1, length %d, offset %d",dataLength, dataOffset);
-#endif
 	pResp->hdr.status = RESPFAIL;
 	pResp->hdr.errtype = htons(RESPDATATOOLARGE);
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
@@ -308,9 +288,6 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
     pLgMaster->gTransmitLengthSum += dataLength;
     if (pLgMaster->gTransmitLengthSum > pLgMaster->gDataChunksLength)
       {
-#ifdef PATDEBUG
-	syslog(LOG_DEBUG,"\nADDCHUNKS error2, transmitted %d, chunklen %d",pLgMaster->gTransmitLengthSum, pLgMaster->gDataChunksLength);
-#endif
 	pResp->hdr.status = RESPFAIL;
 	pResp->hdr.errtype = htons(RESPDATATOOLARGE);
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
@@ -318,9 +295,6 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
       }
     memcpy((char *)(pLgMaster->gDataChunksBuffer + dataOffset), patternData, dataLength);
     pResp->hdr.status = RESPGOOD;
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"\nADDCHUNKS good response, special byte %d",pLgMaster->gHeaderSpecialByte);
-#endif
     if (!(pLgMaster->gHeaderSpecialByte & 0x80))
       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
     return;
@@ -399,7 +373,7 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
 	}
       xydata.xdata &= kMaxSigned;
       xydata.ydata &= kMaxSigned;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG, "ETHERANGLE:  x = %x, y= %x",xydata.xdata, xydata.ydata);
 #endif
       PostCmdEtherAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom);
@@ -657,7 +631,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 #endif
 			SetQCcounter(pLgMaster, gVideoCount );
                         gQCtimer = -1;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
 			syslog(LOG_DEBUG,"\nPostCmdDisp from DoDisplayKitVideo");
 #endif
 			PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, SENDRESPONSE, respondToWhom );

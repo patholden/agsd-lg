@@ -403,9 +403,6 @@ handle_resp:
 	memcpy(pRespGood->lcName, (void *)lcName, LCNAME_SIZE);
 	pRespGood->resp_offset = offset;
 	pRespGood->resp_numbytes = size;
-#ifdef PATDEBUG
-	syslog(LOG_DEBUG, "FILEGETDATA: Sending response file %s", lcName);
-#endif
 	HandleResponse (pLgMaster, (size+offsetof(struct parse_getdata_resp,resp_buffer)), respondToWhom );
       }
     return;

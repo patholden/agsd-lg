@@ -121,7 +121,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     maxSize = NPOINTS * 24;
 
     nTargets = Parameters->inp_numpairs;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"SHOWTGT: num_pairs %d",nTargets);
 #endif
     if(nTargets > kNumberOfFlexPoints)
@@ -142,7 +142,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
         Xarr[i] = Xi;
         Yarr[i] = Yi;
         flag[i] = Parameters->inp_targetpairs[i].flag;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
 	syslog(LOG_DEBUG,"SHOWTGT: Xangle %fx,Yangle %fx,Xbin %x, Ybin %x, flag %d",Xtemp,Ytemp,Xarr[i],Yarr[i], flag[i]);
 #endif
     }
@@ -244,7 +244,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     currentX = Xarr[0];
     currentY = Yarr[0];
     show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"SHOWTGT: currentX %x, currentY %x",currentX,currentY);
 #endif
 
@@ -256,7 +256,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
       }
     else
       {
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
 	syslog(LOG_DEBUG,"SHOWTGT: Wrong size index=%d,maxSize=%d",index,maxSize);
 #endif
 	pResp->hdr.status = RESPFAIL;
@@ -1084,7 +1084,7 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
       pXYdata->xdata = x0;
       pXYdata->ydata = y0;
       SetHighBeam(pXYdata);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"DRAWLINE: START LINE x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
 #endif
       *pIndex += sizeof(struct lg_xydata); 
@@ -1095,7 +1095,7 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
       pXYdata->xdata = (x0 + (j * delX)) & kMaxUnsigned;
       pXYdata->ydata = (y0 + (j * delY)) & kMaxUnsigned;
       SetHighBeam(pXYdata);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"DRAWLINE: x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
 #endif
       *pIndex += sizeof(struct lg_xydata); 
@@ -1107,7 +1107,7 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
       pXYdata->xdata = x1;
       pXYdata->ydata = y1;
       SetHighBeam(pXYdata);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"DRAWLINE: ENDLINE x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
 #endif
       *pIndex += sizeof(struct lg_xydata); 

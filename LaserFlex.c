@@ -103,7 +103,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 
     tmpPtr = pLgMaster->gSensorBuffer + index;
     gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
     syslog(LOG_ERR,"\nFLEXDISPCHUNKS: targets %d, plynum %d, index %x",numberOfTargets,gPlysReceived,index);
 #endif
     memcpy(tmpPtr, parameters->inp_anglepairs, (kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
@@ -213,7 +213,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	}
       if ((pLgMaster->gHeaderSpecialByte & 0x80))
 	{
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
 	  syslog(LOG_DEBUG,"PostCmdDisplay from DoFlexDisplayChunks");
 #endif
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, respondToWhom);
@@ -221,7 +221,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	}
       else
 	{
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
 	  syslog(LOG_DEBUG,"PostCmdDisp from DoFlexDisplayChunks");
 #endif
 	  PostCmdDisplay(pLgMaster,(struct displayData *)&dispData, SENDRESPONSE, respondToWhom);
@@ -358,7 +358,7 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 	    }
 	  else
 	    {
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
 	      syslog(LOG_DEBUG,"PostCmdDisp from DoFlexDisplay");
 #endif
 	      PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, 0);

@@ -41,7 +41,7 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
   pResp = (struct parse_findonetgt_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_findonetgt_resp));
   rc = ConvertExternalAnglesToBinary (pLgMaster, pInp->steerX, pInp->steerY, &ptX, &ptY);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_NOTICE,"DOFIND1TGT: XY angle x=%x,y=%x",ptX,ptY);
 #endif
   pResp->hdr.errtype = htons((uint16_t)rc);
@@ -62,7 +62,7 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
       pResp->rawY = fndY;
       pResp->geoX = XExternalAngle;
       pResp->geoY = YExternalAngle;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_NOTICE,"DOFIND1TGT: Resp XY angle x=%f,y=%f",XExternalAngle,YExternalAngle);
 #endif
       HandleResponse (pLgMaster, (sizeof(struct parse_findonetgt_resp)-kCRCSize), respondToWhom );

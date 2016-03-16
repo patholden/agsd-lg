@@ -547,9 +547,6 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
     strcpy(pLgMaster->webhost, inet_ntoa(haddr.sin_addr));
 
     syslog(LOG_NOTICE, "receiving data from %s, recvfd %x", pLgMaster->webhost, pLgMaster->datafd);
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"Turn on LINK LED");
-#endif
     doSetLinkLED(pLgMaster);
     while (pLgMaster->datafd >= 0)
       {

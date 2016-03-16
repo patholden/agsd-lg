@@ -235,7 +235,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   StartHobbs(pLgMaster);
   pLgMaster->gDisplayFlag = 1;
   doDevDisplay(pLgMaster);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"POSTCMDDISP: Starting pattern display for %d XY pairs",count);
 #endif
   pRespHdr.status = RESPGOOD;
@@ -259,7 +259,7 @@ void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData
 
     gResponseBuffer.status = RESPGOOD;
     SetHighBeam(pAngleData);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"POSTETHER: x=%x,y=%x",pAngleData->xdata, pAngleData->ydata);
 #endif
     move_lite(pLgMaster, pAngleData);
@@ -276,7 +276,7 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
   gResponseBuffer.status = RESPGOOD;
   SetHighBeam(pAngleData);
   move_lite(pLgMaster, pAngleData);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"\nGOANGLE: x=%d,y=%d",pAngleData->xdata, pAngleData->ydata);
 #endif
   doWriteDevPoints(pLgMaster, pAngleData);
@@ -360,7 +360,7 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       cmd_buff->base.length = ptn_len;
       write( pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
       free(cmd_buff);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"\nPostCmdVideo: writing to device, len %d",ptn_len);
 #endif
       doLoadWriteNum(pLgMaster, Npoints);
@@ -388,7 +388,7 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       xydata.xdata = pXYData->xdata & kMaxSigned;
       xydata.ydata = pXYData->ydata & kMaxSigned;
       move_dark(pLgMaster, (struct lg_xydata *)&xydata);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"\nDARKANGLE: x=%d,y=%d",pXYData->xdata, pXYData->ydata);
 #endif
       doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
@@ -512,7 +512,7 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     int        count, blank;
     int        optic_status=0;
 
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"\nLINESEARCH: Writing x %d, y %d", pSrchData->xdata,pSrchData->ydata);
 #endif
     itest = doWriteDevPoints(pLgMaster, pSrchData);
@@ -548,7 +548,7 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
     itest = EAGAIN;
     num = 0;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"\nLINESEARCH: Reading data from laser dev, fd %d", pLgMaster->fd_laser);
 #endif
     while (itest == EAGAIN)
@@ -559,7 +559,7 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 	else
 	  itest = num;
       }
- #ifdef PATDEBUG
+ #ifdef AGS_DEBUG
     int i;
     for (i=0; i < n; i++)
       syslog(LOG_DEBUG,"Level Search read value %x",c_out[i]);
@@ -580,7 +580,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
   memset((char *)&searchbuff[0], 0, sizeof(searchbuff));
   
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"\nLEVELSEARCH: x=%d,y=%d",pSrchData->xdata, pSrchData->ydata);
 #endif
   itest = doWriteDevPoints(pLgMaster, pSrchData);
@@ -613,7 +613,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
   for (index=0; index < n ; index++)
     {
       c_out[index] = (int32_t)searchbuff[index];
- #ifdef PATDEBUG
+ #ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"Level Search read value %x",c_out[index]);
 #endif
     }
@@ -912,7 +912,7 @@ static void SaveBeamPosition(struct lg_master *pLgMaster, char *data)
 void RestoreBeamPosition(struct lg_master *pLgMaster)
 {
   move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"\nRESTOREBEAM: x=%d,y=%d",pLgMaster->gSaveXY.xdata, pLgMaster->gSaveXY.ydata);
 #endif
   doWriteDevPoints(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
@@ -923,7 +923,7 @@ void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData)
 {
   doSetClock(pLgMaster, KETIMER_10M);
   move_dark(pLgMaster, pRawData);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"\nGOTORAW: x=%d,y=%d",pRawData->xdata, pRawData->ydata);
 #endif
   doWriteDevPoints(pLgMaster, pRawData);
@@ -1123,7 +1123,7 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   cmd_buff->base.cmd = CMDW_BUFFER;
   cmd_buff->base.length = ptn_len;
   write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"JUSTDODISP:wrote to laser device len %d,points %d", ptn_len, count); 
   syslog(LOG_DEBUG,"JUSTDODISP: first xy=%x,%x last xy=%x,%x",first_xypos.xdata,first_xypos.ydata,last_xypos.xdata,last_xypos.ydata);
 #endif
@@ -1133,7 +1133,7 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   StartHobbs(pLgMaster);
   pLgMaster->gDisplayFlag = 1;
   doDevDisplay(pLgMaster);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG,"JUSTDODISP: Starting pattern display");
 #endif
   return;
@@ -1151,7 +1151,7 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   doLGSTOP(pLgMaster);
   doStopPulse(pLgMaster);
   ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG, "MOVE_LITE:  InputAngle x=%x,y=%x,flags=%x",pNewData->xdata, pNewData->ydata,pNewData->ctrl_flags);
 #endif
   dx = (double)(pNewData->xdata - xydata.xdata);
@@ -1167,7 +1167,7 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
       xydata.xdata =  (int16_t)((int32_t)dx / n) & kMaxSigned;
       xydata.ydata =  (int16_t)((int32_t)dy / n) & kMaxSigned;
       xydata.ctrl_flags = pNewData->ctrl_flags;
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
       syslog(LOG_DEBUG, "MOVE_LITE:  Delta x=%x, y=%x",xydata.xdata, xydata.ydata);
 #endif
       doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);

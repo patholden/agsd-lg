@@ -143,7 +143,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
   pLgMaster->gHeaderSpecialByte = pLgMaster->gInputBuffer[1];
   pLgMaster->seqNo    =  (pLgMaster->gInputBuffer[2] << 8) + pLgMaster->gInputBuffer[3];
 
-#ifdef PATDEBUG
+#ifdef AGS_DEBUG
   syslog(LOG_DEBUG, "newCommand %02x  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
 #endif
   switch(pLgMaster->newCommand) {
@@ -181,9 +181,6 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
     cmdSize = kSizeOfCommand
       + offsetof(struct parse_chunkdata_parms, chunk_apt_data);
     
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"\nPARSECHUNKSDATA1: index %d,cmdSize %d",index,cmdSize);
-#endif
     if (index > cmdSize) {
       // NOTE INCOMING PARMS (UINT32) ARE BIG-ENDIAN
       dataLength = htonl(((struct parse_chunkdata_parms *)pInp)->chunk_len);
@@ -206,39 +203,18 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
 				    + offsetof(struct parse_chunkdata_parms, chunk_apt_data)
 				    + dataLength)))
 	    {
-#ifdef PATDEBUG
-	      syslog(LOG_DEBUG,"\nPARSECHUNKSDATA1: sending confirmation length %d,offset %d",dataLength,dataOffset);
-#endif
 	      SendConfirmation (pLgMaster, kDisplayChunksData);
 	      AddDisplayChunksData (pLgMaster, dataLength, dataOffset,
 				    (char *)((struct parse_chunkdata_parms *)pInp)->chunk_apt_data, kRespondExtern);
 	    }
 	  else
-	    {
-#ifdef PATDEBUG
-	      syslog(LOG_DEBUG,"\nPARSECHUNKSDATA1: bad checksum length %d, offset %d",dataLength,dataOffset);
-#endif
-	      SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-	    }
+	    SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
 	}
       else
-	{
-#ifdef PATDEBUG
-	  syslog(LOG_DEBUG,"\nPARSECHUNKSDATA2: bad length:  got %d, expected at least %d",index,cmdSize);
-#endif
-	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-	}
+	SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
     }
     else
-      {
-#ifdef PATDEBUG
-	  syslog(LOG_DEBUG,"\nPARSECHUNKSDATA3: bad length: got %d, expected at least %d",index,cmdSize);
-#endif
-	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-      }	
-#ifdef PATDEBUG
-    syslog(LOG_DEBUG,"\nPARSECHUNKSDATA4: index %d, cmdSize %d, rawindex %d",index,cmdSize,*rawindex);
-#endif
+      SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
     break;
 #if 0
 // FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
