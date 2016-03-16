@@ -101,7 +101,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
     index  = gPlysReceived * kNumberOfFlexPoints *
       2 * sizeof ( uint32_t );
 
-    tmpPtr = (char *)((char *)pLgMaster->gSensorBuffer + index);
+    tmpPtr = pLgMaster->gSensorBuffer + index;
     gQuickCheckTargetNumber[gPlysReceived] = numberOfTargets;
 #ifdef PATDEBUG
     syslog(LOG_ERR,"\nFLEXDISPCHUNKS: targets %d, plynum %d, index %x",numberOfTargets,gPlysReceived,index);

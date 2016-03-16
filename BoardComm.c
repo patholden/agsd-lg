@@ -276,6 +276,9 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
   gResponseBuffer.status = RESPGOOD;
   SetHighBeam(pAngleData);
   move_lite(pLgMaster, pAngleData);
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"\nGOANGLE: x=%d,y=%d",pAngleData->xdata, pAngleData->ydata);
+#endif
   doWriteDevPoints(pLgMaster, pAngleData);
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
     DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
@@ -577,6 +580,9 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 
   memset((char *)&searchbuff[0], 0, sizeof(searchbuff));
   
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"\nLEVELSEARCH: x=%d,y=%d",pSrchData->xdata, pSrchData->ydata);
+#endif
   itest = doWriteDevPoints(pLgMaster, pSrchData);
   if (itest && (errno != ENOTTY))
     return itest;
@@ -906,6 +912,9 @@ static void SaveBeamPosition(struct lg_master *pLgMaster, char *data)
 void RestoreBeamPosition(struct lg_master *pLgMaster)
 {
   move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"\nRESTOREBEAM: x=%d,y=%d",pLgMaster->gSaveXY.xdata, pLgMaster->gSaveXY.ydata);
+#endif
   doWriteDevPoints(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
   return;
 }
@@ -914,6 +923,9 @@ void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData)
 {
   doSetClock(pLgMaster, KETIMER_10M);
   move_dark(pLgMaster, pRawData);
+#ifdef PATDEBUG
+  syslog(LOG_DEBUG,"\nGOTORAW: x=%d,y=%d",pRawData->xdata, pRawData->ydata);
+#endif
   doWriteDevPoints(pLgMaster, pRawData);
   return;
 }
