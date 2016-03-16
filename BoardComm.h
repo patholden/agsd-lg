@@ -145,7 +145,6 @@ void JustDoDisplay(struct lg_master *pLgMaster, char * wr_ptr, int patternLength
 void FlashLed(struct lg_master *pLgMaster, int numFlash);         
 void SlowDownAndStop(struct lg_master *pLgMaster);
 int setROIlength(struct lg_master *pLgMaster, int32_t half_pattern);
-int doRestartTimer(struct lg_master *pLgMaster);
 int ROIoff(struct lg_master *pLgMaster);
 int doLGSTOP(struct lg_master *pLgMaster);
 int doROIOff(struct lg_master *pLgMaster);

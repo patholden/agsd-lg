@@ -205,6 +205,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 	{
 	  xout = last_xypos.xdata + (k * xstep);
 	  yout = last_xypos.ydata + (k * ystep);
+	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
 	  pXYout->xdata = xout & kMaxSigned;
 	  pXYout->ydata = yout & kMaxSigned;
 	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
@@ -560,13 +561,6 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     for (i=0; i < n; i++)
       syslog(LOG_DEBUG,"Level Search read value %x",c_out[i]);
  #endif
-    if ((c_out[0] == 0xA5) && (c_out[1] == 0x5A)
-	&& (c_out[2] == 0xA5) && (c_out[3] == 0x5A))
-      {
-	itest = -1;
-	return itest;
-      }
-
     itest = doSetClock(pLgMaster, KETIMER_10M);
     if (itest)
       return itest;
@@ -579,7 +573,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 {
   int      itest, num;
   uint32_t index;
-  uint16_t searchbuff[MAX_DIODE_BUFFER];
+  uint16_t searchbuff[MAX_TGFIND_BUFFER];
 
   memset((char *)&searchbuff[0], 0, sizeof(searchbuff));
   
@@ -617,13 +611,6 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
       syslog(LOG_DEBUG,"Level Search read value %x",c_out[index]);
 #endif
     }
-  if ((searchbuff[0] == 0xA5) && (searchbuff[1] == 0x5A)
-      && (searchbuff[2] == 0xA5) && (searchbuff[3] == 0x5A))
-    {
-      itest = -1;
-      return itest;
-    }
-  
   doSetClock(pLgMaster, KETIMER_10M);
   return(0);
 }
@@ -641,7 +628,7 @@ int SearchBeamOff(struct lg_master *pLgMaster)
   // FIXME---PAH---I don't think we need this next call
   // doClearSearchBeam(pLgMaster);
   // attempt to turn off beam
-  rc = doLGSTOP(pLgMaster);
+  // rc = doLGSTOP(pLgMaster);
   return(rc);
 }
 
@@ -673,10 +660,6 @@ int doStopPulse(struct lg_master *pLgMaster)
 int doStartPulse(struct lg_master *pLgMaster)
 {
   return(doWriteDevCmdNoData(pLgMaster, CMDW_STARTPULSE));
-}
-int doRestartTimer(struct lg_master *pLgMaster)
-{
-  return(doWriteDevCmdNoData(pLgMaster, CMDW_RSTRTTMR));
 }
 static int doSensor(struct lg_master *pLgMaster)
 {
@@ -935,10 +918,13 @@ void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData)
   return;
 }
 
+//FIXME---PAH---THIS CODE IS NEVER USED
+#if 0
 void GoToPulse(struct lg_master *pLgMaster, struct lg_xydata *pPulseData,
 	       int32_t pulseoffvalue, int32_t pulseonvalue)
 {
     pLgMaster->gPeriod = KETIMER_50U;
+    SetHighBeam(pPulseData);
     move_lite(pLgMaster, pPulseData);
     doWriteDevPoints(pLgMaster, pPulseData);
     doSetPulseOff(pLgMaster, pulseoffvalue);
@@ -946,7 +932,7 @@ void GoToPulse(struct lg_master *pLgMaster, struct lg_xydata *pPulseData,
     doStartPulse(pLgMaster);
     return;
 }
-
+#endif
 void StopPulse (struct lg_master *pLgMaster)
 {
     doStopPulse(pLgMaster);

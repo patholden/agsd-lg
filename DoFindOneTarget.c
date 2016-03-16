@@ -7,6 +7,7 @@ static char rcsid[] = "$Id: DoFindOneTarget.c,v 1.1 2001/01/22 19:51:54 ags-sw E
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -40,10 +41,17 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
   pResp = (struct parse_findonetgt_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_findonetgt_resp));
   rc = ConvertExternalAnglesToBinary (pLgMaster, pInp->steerX, pInp->steerY, &ptX, &ptY);
+#ifdef PATDEBUG
+  syslog(LOG_NOTICE,"DOFIND1TGT: XY angle x=%x,y=%x",ptX,ptY);
+#endif
   pResp->hdr.errtype = htons((uint16_t)rc);
   rc = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
   if (rc == kStopWasDone)
-    return;
+    {
+      pResp->hdr.status = RESPFAIL;
+      HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+      return;
+    }
 		
   ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY, &XfoundAngle, &YfoundAngle);
   ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY, &XExternalAngle, &YExternalAngle);
@@ -54,6 +62,9 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
       pResp->rawY = fndY;
       pResp->geoX = XExternalAngle;
       pResp->geoY = YExternalAngle;
+#ifdef PATDEBUG
+      syslog(LOG_NOTICE,"DOFIND1TGT: Resp XY angle x=%f,y=%f",XExternalAngle,YExternalAngle);
+#endif
       HandleResponse (pLgMaster, (sizeof(struct parse_findonetgt_resp)-kCRCSize), respondToWhom );
     }
   else

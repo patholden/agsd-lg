@@ -366,7 +366,6 @@ int SearchForASensor (struct lg_master *pLgMaster,
     eolXNeg = currentX;
     eolYNeg = currentY;
     SearchBeamOn(pLgMaster);
-    doRestartTimer(pLgMaster);
     pLgMaster->gHeaderSpecialByte = 0x40;
     if (LongOrShortThrowSearch == 1)
       {
@@ -567,12 +566,10 @@ int SearchForASensor (struct lg_master *pLgMaster,
 	if (theResult == 0)
 	  break;
       }
-    doRestartTimer(pLgMaster);
     if (gDwell > 0)
       {
 	centX = *foundX | 0x40;
 	centY = *foundY;
-	// FIXME---PAH---DATA IS ONLY 16 BITS.  FIX CENTX/CENTY
 	for (i=0; i<gDwell; i++)
 	  {
 	    delY = kSuperFineSearchStep;
