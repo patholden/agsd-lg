@@ -566,8 +566,14 @@ void show_move(int32_t lastX, int32_t lastY,
 
     last_xpos = lastX & kMaxUnsigned;
     last_ypos = lastY & kMaxUnsigned;
-    new_xpos  = currentX & kMaxUnsigned;
-    new_ypos  = currentY & kMaxUnsigned;
+    if (currentX >= 0)
+      new_xpos  = currentX | kMinSigned;
+    else
+      new_xpos  = currentX & kMaxSigned;
+    if (currentY >= 0)
+      new_ypos  = currentY | kMinSigned;
+    else
+      new_ypos  = currentY & kMaxSigned;
     draw_dark(last_xpos, last_ypos, new_xpos, new_ypos, tmpPtr, pIndex);
     return;
 }
@@ -1070,12 +1076,22 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 	       char *tmpPtr, uint32_t *pIndex)
 {
   struct lg_xydata *pXYdata;
-  int32_t delX;
-  int32_t delY;
+  int16_t delX;
+  int16_t delY;
   uint32_t j;
 
   delX = (x1 - x0) / 16;
   delY = (y1 - y0) / 16;
+
+  // Make sure XY is write-ready for laser device
+  if (x0 >= 0)
+    x0 |= kMinSigned;
+  else
+    x0 &= kMaxSigned;
+  if (y0 >= 0)
+    y0 |= kMinSigned;
+  else
+    y0 &= kMaxSigned;
 
   // pause at the start of line
   for (j = 0; j < 2; j++)
@@ -1092,8 +1108,8 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   for (j=0; j <= 16; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
-      pXYdata->xdata = (x0 + (j * delX)) & kMaxUnsigned;
-      pXYdata->ydata = (y0 + (j * delY)) & kMaxUnsigned;
+      pXYdata->xdata = x0 + (j * delX);
+      pXYdata->ydata = y0 + (j * delY);
       SetHighBeam(pXYdata);
 #ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"DRAWLINE: x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
@@ -1119,12 +1135,22 @@ static void draw_dark(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 		      char *tmpPtr, uint32_t *pIndex)
 {
   struct lg_xydata *pXYdata;
-  int32_t delX;
-  int32_t delY;
+  int16_t delX;
+  int16_t delY;
   uint32_t j;
 
   delX = (x1 - x0) / 60;
   delY = (y1 - y0) / 60;
+
+  // Make sure XY is write-ready for laser device
+  if (x0 >= 0)
+    x0 |= kMinSigned;
+  else
+    x0 &= kMaxSigned;
+  if (y0 >= 0)
+    y0 |= kMinSigned;
+  else
+    y0 &= kMaxSigned;
 
   // pause at the start of line
   pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
@@ -1138,8 +1164,8 @@ static void draw_dark(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   for (j=0; j <= 60; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
-      pXYdata->xdata = (x0 + (j*delX)) & kMaxUnsigned;
-      pXYdata->ydata = (y0 + (j*delY)) & kMaxUnsigned;
+      pXYdata->xdata = x0 + (j*delX);
+      pXYdata->ydata = y0 + (j*delY);
       *pIndex += sizeof(struct lg_xydata); 
     }
   // pause at the end of line
@@ -1157,6 +1183,16 @@ static void off_pause(int16_t x1, int16_t y1, char *tmpPtr, uint32_t *pIndex)
 {
   struct lg_xydata *pXYdata;
   uint32_t j;
+
+  // Make sure XY is write-ready for laser device
+  if (x1 >= 0)
+    x1 |= kMinSigned;
+  else
+    x1 &= kMaxSigned;
+  if (y1 >= 0)
+    y1 |= kMinSigned;
+  else
+    y1 &= kMaxSigned;
 
   pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
   for (j = 0; j < 10; j++)

@@ -176,8 +176,14 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 	      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
 	      xout = last_xypos.xdata + (k * xstep);
 	      yout = last_xypos.ydata + (k * ystep);
-	      pXYout->xdata = xout & kMaxSigned;
-	      pXYout->ydata = yout & kMaxSigned;
+	      if (xout >= 0)
+		pXYout->xdata = xout | kMinSigned;
+	      else
+		pXYout->xdata = xout & kMaxSigned;
+	      if (yout >= 0)
+		pXYout->ydata = yout | kMinSigned;
+		else
+		  pXYout->ydata = yout & kMaxSigned;
 	      pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	      j++;
 	      count++;
@@ -187,16 +193,18 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
       last_xypos.ydata = cur_xypos.ydata;
       last_xypos.ctrl_flags = cur_xypos.ctrl_flags;
     }
+  // Set up last position
+  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
   pXYout->xdata = last_xypos.xdata;
   pXYout->ydata = last_xypos.ydata;
   pXYout->ctrl_flags = last_xypos.ctrl_flags;
-  j++;
-  count++;
   dx = first_xypos.xdata - last_xypos.xdata;
   dy = first_xypos.ydata - last_xypos.ydata;
   dsqr = dx*dx + dy*dy;
   if (dsqr > (pLgMaster->dmax * pLgMaster->dmax))
     {
+      j++;
+      count++;
       n = (sqrt((double)(dsqr / pLgMaster->dmax)));
       n+= 2.0;
       xstep =  (uint16_t)(dx / n);
@@ -206,8 +214,14 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 	  xout = last_xypos.xdata + (k * xstep);
 	  yout = last_xypos.ydata + (k * ystep);
 	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
-	  pXYout->xdata = xout & kMaxSigned;
-	  pXYout->ydata = yout & kMaxSigned;
+	  if (xout >= 0)
+	    pXYout->xdata = xout | kMinSigned;
+	  else
+	    pXYout->xdata = xout & kMaxSigned;
+	  if (yout >= 0)
+	    pXYout->ydata = yout | kMinSigned;
+	  else
+	    pXYout->ydata = yout & kMaxSigned;
 	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	  j++;
 	  count++;
@@ -385,8 +399,14 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       doSetClock(pLgMaster, KETIMER_10M);
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       pXYData = (struct lg_xydata *)data;
-      xydata.xdata = pXYData->xdata & kMaxSigned;
-      xydata.ydata = pXYData->ydata & kMaxSigned;
+      if (pXYData->xdata >= 0)
+	xydata.xdata = pXYData->xdata | kMinSigned;
+      else
+	xydata.xdata = pXYData->xdata & kMaxSigned;
+      if (pXYData->ydata >= 0)
+	xydata.ydata = pXYData->ydata | kMinSigned;
+      else
+	xydata.ydata = pXYData->ydata & kMaxSigned;
       move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 #ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"\nDARKANGLE: x=%d,y=%d",pXYData->xdata, pXYData->ydata);
@@ -737,8 +757,8 @@ int doWriteDevDelta(struct lg_master *pLgMaster, struct lg_xydata *pDelta)
     return(-1);
   
   p_cmd_data->cmd = CMDW_SETDELTA;
-  p_cmd_data->xydata.xdata = pDelta->xdata;
-  p_cmd_data->xydata.ydata = pDelta->ydata;
+  p_cmd_data->xydata.xdata = pDelta->xdata & kMaxSigned;
+  p_cmd_data->xydata.ydata = pDelta->ydata & kMaxSigned;
   p_cmd_data->length = sizeof(struct lg_xydata);
   rc = write(pLgMaster->fd_laser, (char *)p_cmd_data, sizeof(struct cmd_rw_base));
   if (rc < 0)
@@ -1033,8 +1053,14 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   Npoints = ptn_len / sizeof(struct lg_xydata);
   memcpy((char *)tmp_pattern, wr_ptr, ptn_len);
   pXYtmp = (struct lg_xydata *)tmp_pattern;
-  xydata.xdata = pXYtmp->xdata & kMaxSigned;
-  xydata.ydata = pXYtmp->ydata & kMaxSigned;
+  if (pXYtmp->xdata >= 0)
+    xydata.xdata = pXYtmp->xdata | kMinSigned;
+  else
+    xydata.xdata = pXYtmp->xdata & kMaxSigned;
+  if (pXYtmp->ydata >= 0)
+    xydata.ydata = pXYtmp->ydata | kMinSigned;
+  else
+    xydata.ydata = pXYtmp->ydata & kMaxSigned;
   move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 
   // Set first & last positions to initial pattern
@@ -1070,8 +1096,14 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) *j));
 	    xout = last_xypos.xdata + (k * xstep);
 	    yout = last_xypos.ydata + (k * ystep);
-	    pXYout->xdata = xout & kMaxSigned;
-	    pXYout->ydata = yout & kMaxSigned;
+	    if (xout >= 0)
+	      pXYout->xdata = xout | kMinSigned;
+	    else
+	      pXYout->xdata = xout & kMaxSigned;
+	    if (yout >= 0)
+	      pXYout->ydata = yout | kMinSigned;
+	    else
+	      pXYout->ydata = yout & kMaxSigned;
 	    pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	    j++;
 	    count++;
@@ -1102,8 +1134,14 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
 	  xout = last_xypos.xdata + (k * xstep);
 	  yout = last_xypos.ydata + (k * ystep);
-	  pXYout->xdata = xout & kMaxSigned;
-	  pXYout->ydata = yout & kMaxSigned;
+	  if (xout >= 0)
+	    pXYout->xdata = xout | kMinSigned;
+	  else
+	    pXYout->xdata = xout & kMaxSigned;
+	  if (yout >= 0)
+	    pXYout->ydata = yout | kMinSigned;
+	  else
+	    pXYout->ydata = yout & kMaxSigned;
 	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	  j++;
 	  count++;
@@ -1164,8 +1202,8 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       n = dlen / pLgMaster->dmax;
       n += 60;
-      xydata.xdata =  (int16_t)((int32_t)dx / n) & kMaxSigned;
-      xydata.ydata =  (int16_t)((int32_t)dy / n) & kMaxSigned;
+      xydata.xdata =  (int16_t)((int)(dx / n) & kMaxSigned);
+      xydata.ydata =  (int16_t)((int)(dy / n) & kMaxSigned);
       xydata.ctrl_flags = pNewData->ctrl_flags;
 #ifdef AGS_DEBUG
       syslog(LOG_DEBUG, "MOVE_LITE:  Delta x=%x, y=%x",xydata.xdata, xydata.ydata);
@@ -1202,8 +1240,8 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   n += 20;
   // Just re-use the struct, delta doesn't care about ctrl-flags
   memset((char *)&xydata, 0, sizeof(struct lg_xydata));
-  xydata.xdata = (int16_t)(dx / n) & kMaxSigned;
-  xydata.ydata = (int16_t)(dy / n) & kMaxSigned;
+  xydata.xdata =  (int16_t)((int)(dx / n) & kMaxSigned);
+  xydata.ydata =  (int16_t)((int)(dy / n) & kMaxSigned);
   rc = doWriteDevDelta(pLgMaster, (struct lg_xydata *)&xydata);
   if (rc)
     return(rc);
