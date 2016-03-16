@@ -15,36 +15,13 @@ LD=$(TOOLDIR)-ld
 AS=$(TOOLDIR)-as
 AR=$(TOOLDIR)/x86_64-buildroot-linux-uclibc-ar
 
-#
-#LDFLAGS = -L=$(LIBDIR) -lc -lm -lncurses  --entry main
-#LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--verbose=9 -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm
+# COMPILE AND LINK OPTIONS AND DEPENDENCIES
 LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm -lpthread
-#
-### EXTRA_CFLAGS = -DDEBUG_READ -DDEBUG_WRITE -DDUMMY_TRANS
-## EXTRA_CFLAGS = -DDEBUG_READ -DDEBUG_WRITE
-## EXTRA_CFLAGS = -DRDEBUG
-# EXTRA_CFLAGS = -DSDEBUG -DDEBUG_READ -DDEBUG_WRITE
-## EXTRA_CFLAGS = -DSDEBUG -DFLASHLED -DDEBUG_READ -DDEBUG_WRITE -DCENTROID
-### EXTRA_CFLAGS = -DFLASHLED -DCENTROID -DZDEBUG -DDEBUG_READ -DRDEBUG -DSDEBUG -DLOUTDEBUG -DQDEBUG -DANGDEBUG
-# Next one is one we were using
-#EXTRA_CFLAGS = -DCENTROID -DZDEBUG -DDEBUG_READ -DRDEBUG -DSDEBUG -DLOUTDEBUG -DQDEBUG -DYDEBUG
 EXTRA_CFLAGS = -DPATDEBUG -DCDEBUG
-### EXTRA_CFLAGS = -DCENTROID -DZDEBUG  -DSDEBUG -DWRITEHEX -DREADHEX -DRDEBUG  -DQDEBUG -DOLDLED -DKHHDEBUG -DKHHDEBUG -DODEBUG -DLS_DEBUG -DGSDEBUG -DGTUDEBUG
-
-# EXTRA_CFLAGS = -DCENTROID -DZDEBUG  -DSDEBUG -DWRITEHEX -DREADHEX -DRDEBUG  -DQDEBUG -DOLDLED -DKHHDEBUG -DKHHDEBUG -DODEBUG -DGSDEBUG  -DLG_DEBUG  -DZZZDEBUG
-
-### EXTRA_CFLAGS = -DCENTROID -DWRITEHEX -DREADHEX -DZZZDEBUG
-
-## CFLAGS = -pg -g -DLASER_DEFINED -DDEBUG -m486
-#CFLAGS = -g -DLASER_DEFINED -march=atom -Wall -Wextra -Werror
 USERINCLUDE    := \
 	-I./ \
 	-I../../linux_headers/include
-
 CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall $(USERINCLUDE)
-# CFLAGS = -g -DLASER_DEFINED -ICIncludes
-# CFLAGS = -DLASER_DEFINED -ICIncludes 
-#
 AGS_OBJECTS = L3DTransform.o \
 	      AngleCorrections.o \
               APTParser.o \
@@ -125,6 +102,7 @@ install:
 	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp $(HOME)/.gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
+	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	chmod 777 $(AGSSCRIPTDIR)/S50agsd
 	cp $(AGSSCRIPTDIR)/S50agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
 burnusb:
