@@ -103,6 +103,8 @@ install:
 	cp $(HOME)/.gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
+	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
+	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
 	chmod 777 $(AGSSCRIPTDIR)/S50agsd
 	cp $(AGSSCRIPTDIR)/S50agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
 burnusb:
