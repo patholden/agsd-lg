@@ -559,22 +559,16 @@ void show_move(int32_t lastX, int32_t lastY,
                 int32_t currentX, int32_t currentY,
                 char * tmpPtr, uint32_t *pIndex)
 {
-    int16_t new_xpos;
-    int16_t new_ypos;
+    int16_t cur_xpos;
+    int16_t cur_ypos;
     int16_t last_xpos;
     int16_t last_ypos;
 
     last_xpos = lastX & kMaxUnsigned;
     last_ypos = lastY & kMaxUnsigned;
-    if (currentX >= 0)
-      new_xpos  = currentX | kMinSigned;
-    else
-      new_xpos  = currentX & kMaxSigned;
-    if (currentY >= 0)
-      new_ypos  = currentY | kMinSigned;
-    else
-      new_ypos  = currentY & kMaxSigned;
-    draw_dark(last_xpos, last_ypos, new_xpos, new_ypos, tmpPtr, pIndex);
+    cur_xpos = currentX & kMaxUnsigned;
+    cur_ypos = currentY & kMaxUnsigned;
+    draw_dark(last_xpos, last_ypos, cur_xpos, cur_ypos, tmpPtr, pIndex);
     return;
 }
 
@@ -584,9 +578,11 @@ static void Do1(int32_t currentX, int32_t currentY, char *tmpPtr, uint32_t *pInd
   int16_t XPos;
   int16_t YNeg;
   int16_t YPos;
+  int16_t cur_xpos;
 
+  cur_xpos = currentX & kMaxUnsigned;
   limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-  Draw1( currentX, YNeg, YPos, tmpPtr, pIndex );
+  Draw1(cur_xpos, YNeg, YPos, tmpPtr, pIndex );
   return;
 }
 static void Do2(int32_t currentX, int32_t currentY, char *tmpPtr, uint32_t *pIndex)
@@ -595,9 +591,11 @@ static void Do2(int32_t currentX, int32_t currentY, char *tmpPtr, uint32_t *pInd
   int16_t XPos;
   int16_t YNeg;
   int16_t YPos;
+  int16_t cur_ypos;
 
+  cur_ypos = currentY & kMaxUnsigned;
   limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-  Draw2(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
+  Draw2(XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex);
   return;
 }
 
@@ -608,9 +606,11 @@ static void Do3(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
+    int16_t cur_ypos;
 
+    cur_ypos = currentY & kMaxUnsigned;
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-    Draw3(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
+    Draw3(XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex);
     return;
 }
 
@@ -622,9 +622,11 @@ static void Do4(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
+    int16_t cur_ypos;
 
+    cur_ypos = currentY & kMaxUnsigned;
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-    Draw4(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
+    Draw4(XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex);
     return;
 }
 
@@ -636,9 +638,12 @@ static void Do5(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
+    int16_t cur_ypos;
+
+    cur_ypos = currentY & kMaxUnsigned;
 
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-    Draw5(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
+    Draw5(XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex);
     return;
 }
 
@@ -649,9 +654,11 @@ static void Do6(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
+    int16_t cur_ypos;
 
+    cur_ypos = currentY & kMaxUnsigned;
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-    Draw6( XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex );
+    Draw6( XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex );
     return;
 }
 static void Do7(int32_t currentX, int32_t currentY,
@@ -673,9 +680,11 @@ static void Do8(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-    Draw8( XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex );
+    Draw8( XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex );
     return;
 }
 static void Do9(int32_t currentX, int32_t currentY,
@@ -685,14 +694,13 @@ static void Do9(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
-    Draw9(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
+    Draw9(XNeg,XPos,YNeg,cur_ypos,YPos, tmpPtr, pIndex);
     return;
 }
-
-
-
 static void Do10(int32_t currentX, int32_t currentY,
                 char *tmpPtr, uint32_t *pIndex)
 {
@@ -737,10 +745,12 @@ static void Do12(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw2(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw2(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
 
@@ -754,13 +764,14 @@ static void Do13(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw3(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw3(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
-
 
 static void Do14(int32_t currentX, int32_t currentY,
                 char *tmpPtr, uint32_t *pIndex)
@@ -771,14 +782,14 @@ static void Do14(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw4(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw4(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
-
-
 static void Do15(int32_t currentX, int32_t currentY,
 		 char *tmpPtr, uint32_t *pIndex)
 {
@@ -788,13 +799,15 @@ static void Do15(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw5(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw5(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
-
 static void Do16(int32_t currentX, int32_t currentY,
 		 char *tmpPtr, uint32_t *pIndex)
 {
@@ -804,10 +817,12 @@ static void Do16(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw6(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw6(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
 
@@ -837,10 +852,12 @@ static void Do18(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw8(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw8(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
 
@@ -853,10 +870,12 @@ static void Do19(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
-    Draw9(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw9(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
 
@@ -869,9 +888,11 @@ static void Do20(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-    Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw2(XNeg,X001,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     Draw0(X002,XPos,YNeg,YPos,tmpPtr,pIndex);
     return;
 }
@@ -886,9 +907,11 @@ static void Do21(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-    Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw2(XNeg,X001,YNeg,cur_ypos, YPos,tmpPtr,pIndex);
     Draw1(XPos,YNeg,YPos,tmpPtr,pIndex);
     return;
 }
@@ -903,14 +926,14 @@ static void Do22(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-    Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
-    Draw2(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw2(XNeg,X001,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
+    Draw2(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
-
-
 static void Do23(int32_t currentX, int32_t currentY,
 		 char *tmpPtr, uint32_t *pIndex)
 {
@@ -920,10 +943,12 @@ static void Do23(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-    Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
-    Draw3(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw2(XNeg,X001,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
+    Draw3(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
 
@@ -936,10 +961,12 @@ static void Do24(int32_t currentX, int32_t currentY,
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-
+    int16_t cur_ypos;
+    
+    cur_ypos = currentY & kMaxUnsigned;
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
-    Draw2(XNeg,X001,YNeg,currentY,YPos,tmpPtr,pIndex);
-    Draw4(X002,XPos,YNeg,currentY,YPos,tmpPtr,pIndex);
+    Draw2(XNeg,X001,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
+    Draw4(X002,XPos,YNeg,cur_ypos,YPos,tmpPtr,pIndex);
     return;
 }
 
@@ -1084,15 +1111,6 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   delY = (y1 - y0) / 16;
 
   // Make sure XY is write-ready for laser device
-  if (x0 >= 0)
-    x0 |= kMinSigned;
-  else
-    x0 &= kMaxSigned;
-  if (y0 >= 0)
-    y0 |= kMinSigned;
-  else
-    y0 &= kMaxSigned;
-
   // pause at the start of line
   for (j = 0; j < 2; j++)
     {
@@ -1142,16 +1160,6 @@ static void draw_dark(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   delX = (x1 - x0) / 60;
   delY = (y1 - y0) / 60;
 
-  // Make sure XY is write-ready for laser device
-  if (x0 >= 0)
-    x0 |= kMinSigned;
-  else
-    x0 &= kMaxSigned;
-  if (y0 >= 0)
-    y0 |= kMinSigned;
-  else
-    y0 &= kMaxSigned;
-
   // pause at the start of line
   pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
   for (j = 0; j < 2; j++)
@@ -1183,16 +1191,6 @@ static void off_pause(int16_t x1, int16_t y1, char *tmpPtr, uint32_t *pIndex)
 {
   struct lg_xydata *pXYdata;
   uint32_t j;
-
-  // Make sure XY is write-ready for laser device
-  if (x1 >= 0)
-    x1 |= kMinSigned;
-  else
-    x1 &= kMaxSigned;
-  if (y1 >= 0)
-    y1 |= kMinSigned;
-  else
-    y1 &= kMaxSigned;
 
   pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
   for (j = 0; j < 10; j++)

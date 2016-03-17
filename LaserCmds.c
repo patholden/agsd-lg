@@ -337,8 +337,6 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
-      xydata.xdata = xPoint & kMaxSigned;
-      xydata.ydata = yPoint & kMaxSigned;
       PostCmdGoAngle(pLgMaster, (struct lg_xydata *)&xydata, respondToWhom );
     }
   return;
@@ -371,8 +369,6 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
 	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	  return;
 	}
-      xydata.xdata &= kMaxSigned;
-      xydata.ydata &= kMaxSigned;
 #ifdef AGS_DEBUG
       syslog(LOG_DEBUG, "ETHERANGLE:  x = %x, y= %x",xydata.xdata, xydata.ydata);
 #endif

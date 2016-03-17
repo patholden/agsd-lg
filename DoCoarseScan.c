@@ -64,14 +64,8 @@ DoCoarseScan(struct lg_master *pLgMaster, int16_t dX, int16_t dY,
       testlevel = DELLEV;
       for ( y = 0x1U; y <= lscount+1; y += 0x2U ) {
           notarget = 0;
-	  if (xoff >= 0)
-	    xydata.xdata = ((0 * lsstep) + xoff) | kMinSigned;
-	  else
-	    xydata.xdata = ((0 * lsstep) + xoff) & kMaxSigned;
-	  if (yoff >= 0)
-	    xydata.xdata = ((y * lsstep) + yoff) | kMinSigned;
-	  else
-	    xydata.ydata = ((y * lsstep) + yoff) & kMaxSigned;
+	  xydata.xdata = ((0 * lsstep) + xoff) & kMaxSigned;
+	  xydata.ydata = ((y * lsstep) + yoff) & kMaxSigned;
           xydelta.xdata = lsstep;
           xydelta.ydata = 0;
           nSteps = lscount;
@@ -109,14 +103,8 @@ DoCoarseScan(struct lg_master *pLgMaster, int16_t dX, int16_t dY,
           if ( notarget == 1 && target_cnt >= 1 ) break;
           if ( target_cnt >= min_target ) break;
 
-	  if (xoff >= 0)
-	    xydata.xdata = ((lscount * lsstep) + xoff) | kMinSigned;
-	  else
-	    xydata.xdata = ((lscount * lsstep) + xoff) & kMaxSigned;
-	  if (yoff >= 0)
-	    xydata.ydata = (((y + 1) * lsstep) + yoff) | kMinSigned;
-	  else
-	    xydata.ydata = (((y + 1) * lsstep) + yoff) & kMaxSigned;
+	  xydata.xdata = ((lscount * lsstep) + xoff) & kMaxSigned;
+	  xydata.ydata = (((y + 1) * lsstep) + yoff) & kMaxSigned;
           xydelta.xdata = -lsstep;
           xydelta.ydata = 0;
           nSteps = lscount;

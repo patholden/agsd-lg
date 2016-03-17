@@ -84,11 +84,10 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   struct lg_xydata *pXYtmp;
   struct cmd_rw    *cmd_buff;
   double           n,dx,dy,dsqr,dlen;
-  uint32_t         i,j,k,count;
+  uint32_t         i,count;
   uint32_t         Npoints;
   uint32_t         ptn_len;
-  int16_t          xout,yout;
-  uint16_t         xstep, ystep;
+  uint16_t         k,xstep, ystep;
 
   // Get current execution time value for laser device driver display
   ioctl(pLgMaster->fd_laser, LGGETEVENTTIMES, &last_times);
@@ -146,20 +145,19 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   // Start with first & last pointing to initial XY points
   first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
   first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
-  j = 0;
+  first_xypos.ctrl_flags = last_xypos.ctrl_flags = pXYtmp->ctrl_flags;
   count = 0;
   Npoints = ptn_len / sizeof(struct lg_xydata);
   for (i=0; i < Npoints; i++)
     {
       pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
-      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
       cur_xypos.xdata = pXYtmp->xdata;
       cur_xypos.ydata = pXYtmp->ydata;
       cur_xypos.ctrl_flags = pXYtmp->ctrl_flags;
       pXYout->xdata = last_xypos.xdata;
       pXYout->ydata = last_xypos.ydata;
       pXYout->ctrl_flags = last_xypos.ctrl_flags;
-      j++;
       count++;
       dx = (double)(cur_xypos.xdata - last_xypos.xdata);
       dy = (double)(cur_xypos.ydata - last_xypos.ydata);
@@ -173,19 +171,10 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 	  ystep =  (uint16_t)(dy / n);
 	  for (k = 0; k < n; k++)
 	    {
-	      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
-	      xout = last_xypos.xdata + (k * xstep);
-	      yout = last_xypos.ydata + (k * ystep);
-	      if (xout >= 0)
-		pXYout->xdata = xout | kMinSigned;
-	      else
-		pXYout->xdata = xout & kMaxSigned;
-	      if (yout >= 0)
-		pXYout->ydata = yout | kMinSigned;
-		else
-		  pXYout->ydata = yout & kMaxSigned;
+	      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
+	      pXYout->xdata = last_xypos.xdata + (k * xstep);
+	      pXYout->ydata = last_xypos.ydata + (k * ystep);
 	      pXYout->ctrl_flags = last_xypos.ctrl_flags;
-	      j++;
 	      count++;
 	    }
 	}
@@ -194,7 +183,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
       last_xypos.ctrl_flags = cur_xypos.ctrl_flags;
     }
   // Set up last position
-  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
   pXYout->xdata = last_xypos.xdata;
   pXYout->ydata = last_xypos.ydata;
   pXYout->ctrl_flags = last_xypos.ctrl_flags;
@@ -203,7 +192,6 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
   dsqr = dx*dx + dy*dy;
   if (dsqr > (pLgMaster->dmax * pLgMaster->dmax))
     {
-      j++;
       count++;
       n = (sqrt((double)(dsqr / pLgMaster->dmax)));
       n+= 2.0;
@@ -211,19 +199,10 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
       ystep =  (uint16_t)(dy / n);
       for (k = 0; k < n ; k++)
 	{
-	  xout = last_xypos.xdata + (k * xstep);
-	  yout = last_xypos.ydata + (k * ystep);
-	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
-	  if (xout >= 0)
-	    pXYout->xdata = xout | kMinSigned;
-	  else
-	    pXYout->xdata = xout & kMaxSigned;
-	  if (yout >= 0)
-	    pXYout->ydata = yout | kMinSigned;
-	  else
-	    pXYout->ydata = yout & kMaxSigned;
+	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
+	  pXYout->xdata = last_xypos.xdata + (k * xstep);
+	  pXYout->ydata = last_xypos.ydata + (k * ystep);
 	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
-	  j++;
 	  count++;
 	}
     }
@@ -399,15 +378,7 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       doSetClock(pLgMaster, KETIMER_10M);
       memset((char *)&xydata, 0, sizeof(struct lg_xydata));
       pXYData = (struct lg_xydata *)data;
-      if (pXYData->xdata >= 0)
-	xydata.xdata = pXYData->xdata | kMinSigned;
-      else
-	xydata.xdata = pXYData->xdata & kMaxSigned;
-      if (pXYData->ydata >= 0)
-	xydata.ydata = pXYData->ydata | kMinSigned;
-      else
-	xydata.ydata = pXYData->ydata & kMaxSigned;
-      move_dark(pLgMaster, (struct lg_xydata *)&xydata);
+      move_dark(pLgMaster, pXYData);
 #ifdef AGS_DEBUG
       syslog(LOG_DEBUG,"\nDARKANGLE: x=%d,y=%d",pXYData->xdata, pXYData->ydata);
 #endif
@@ -1017,9 +988,8 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   double   n, dx, dy, dsqr, dlen;
   uint32_t ptn_len;
   uint32_t Npoints;
-  uint32_t i,j,k,count;
-  uint16_t xstep, ystep;
-  int16_t  xout,  yout;
+  uint32_t i,count;
+  uint16_t k,xstep, ystep;
   
   if (!wr_ptr)
     return;
@@ -1053,33 +1023,26 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
   Npoints = ptn_len / sizeof(struct lg_xydata);
   memcpy((char *)tmp_pattern, wr_ptr, ptn_len);
   pXYtmp = (struct lg_xydata *)tmp_pattern;
-  if (pXYtmp->xdata >= 0)
-    xydata.xdata = pXYtmp->xdata | kMinSigned;
-  else
-    xydata.xdata = pXYtmp->xdata & kMaxSigned;
-  if (pXYtmp->ydata >= 0)
-    xydata.ydata = pXYtmp->ydata | kMinSigned;
-  else
-    xydata.ydata = pXYtmp->ydata & kMaxSigned;
-  move_dark(pLgMaster, (struct lg_xydata *)&xydata);
+  move_dark(pLgMaster, pXYtmp);
+#ifdef AGS_DEBUG
+  syslog(LOG_DEBUG,"JUSTDODISP: first point x=%x,y=%x,flags=%x",pXYtmp->xdata,pXYtmp->ydata,pXYtmp->ctrl_flags);
+#endif
 
   // Set first & last positions to initial pattern
   first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
   first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
-  first_xypos.ctrl_flags = pXYtmp->ctrl_flags;
-  j = 0;
+  first_xypos.ctrl_flags = last_xypos.ctrl_flags = pXYtmp->ctrl_flags;
   count = 0;
   for (i=0; i < Npoints; i++)
     {
-      pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * j));
-      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+      pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
+      pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
       cur_xypos.xdata = pXYtmp->xdata;
       cur_xypos.ydata = pXYtmp->ydata;
       cur_xypos.ctrl_flags = pXYtmp->ctrl_flags;
       pXYout->xdata = last_xypos.xdata;
       pXYout->ydata = last_xypos.ydata;
       pXYout->ctrl_flags = last_xypos.ctrl_flags;
-      j++;
       count++;
       dx = (double)(cur_xypos.xdata - last_xypos.xdata);
       dy = (double)(cur_xypos.ydata - last_xypos.ydata);
@@ -1092,20 +1055,10 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 	  xstep =  (uint16_t)(dx / n);
 	  ystep =  (uint16_t)(dy / n);
 	  for ( k = 0; k < n ; k++ ) {
-	    pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * j));
-	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) *j));
-	    xout = last_xypos.xdata + (k * xstep);
-	    yout = last_xypos.ydata + (k * ystep);
-	    if (xout >= 0)
-	      pXYout->xdata = xout | kMinSigned;
-	    else
-	      pXYout->xdata = xout & kMaxSigned;
-	    if (yout >= 0)
-	      pXYout->ydata = yout | kMinSigned;
-	    else
-	      pXYout->ydata = yout & kMaxSigned;
+	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) *count));
+	    pXYout->xdata = last_xypos.xdata + (k * xstep);
+	    pXYout->ydata = last_xypos.ydata + (k * ystep);
 	    pXYout->ctrl_flags = last_xypos.ctrl_flags;
-	    j++;
 	    count++;
 	  }
 	}
@@ -1113,11 +1066,10 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
       last_xypos.ydata = cur_xypos.ydata;
       last_xypos.ctrl_flags = cur_xypos.ctrl_flags;
     }
-  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
+  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
   pXYout->xdata = last_xypos.xdata;
   pXYout->ydata = last_xypos.ydata;
   pXYout->ctrl_flags = last_xypos.ctrl_flags;
-  j++;
   count++;
   //  take care of jump between last and first points
   dx = (double)(first_xypos.xdata - last_xypos.xdata);
@@ -1131,19 +1083,10 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
       ystep =  (uint16_t)(dy / n);
       for (k = 0; k < n ; k++)
 	{
-	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * j));
-	  xout = last_xypos.xdata + (k * xstep);
-	  yout = last_xypos.ydata + (k * ystep);
-	  if (xout >= 0)
-	    pXYout->xdata = xout | kMinSigned;
-	  else
-	    pXYout->xdata = xout & kMaxSigned;
-	  if (yout >= 0)
-	    pXYout->ydata = yout | kMinSigned;
-	  else
-	    pXYout->ydata = yout & kMaxSigned;
+	  pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
+	  pXYout->xdata = last_xypos.xdata + (k * xstep);
+	  pXYout->ydata = last_xypos.ydata + (k * ystep);
 	  pXYout->ctrl_flags = last_xypos.ctrl_flags;
-	  j++;
 	  count++;
 	}
     }
@@ -1190,7 +1133,7 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   doStopPulse(pLgMaster);
   ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
 #ifdef AGS_DEBUG
-  syslog(LOG_DEBUG, "MOVE_LITE:  InputAngle x=%x,y=%x,flags=%x",pNewData->xdata, pNewData->ydata,pNewData->ctrl_flags);
+  syslog(LOG_DEBUG, "MOVE_LITE:  GETANGLE x=%x,y=%x,flags=%x",pNewData->xdata, pNewData->ydata,pNewData->ctrl_flags);
 #endif
   dx = (double)(pNewData->xdata - xydata.xdata);
   dy = (double)(pNewData->ydata - xydata.ydata);

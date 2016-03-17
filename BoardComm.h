@@ -13,7 +13,7 @@
 #define PARSE_HOBBS_LASER 4
 #define kMaxOutLength     0x80000
 #define kMaxUnsigned      0xFFFF
-#define kMinSigned        0x8000
+#define kMinSigned        0x0000
 #define kMaxSigned        0x7FFF
 
 extern  uint32_t  gRespondToWhom;

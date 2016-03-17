@@ -195,14 +195,8 @@ int QuickCheckASensor(struct lg_master *pLgMaster, int16_t centerX, int16_t cent
         }
 
         SearchBeamOff (pLgMaster);
-	if (centerX >= 0)
-	  xydata.xdata =  centerX | kMinSigned;
-	else
-	  xydata.xdata =  centerX & kMaxSigned;
-	if (centerY >= 0)
-	  xydata.ydata =  centerY | kMinSigned;
-	else
-	  xydata.ydata =  centerY & kMaxSigned;
+	xydata.xdata =  centerX & kMaxSigned;
+	xydata.ydata =  centerY & kMaxSigned;
         move_dark(pLgMaster, (struct lg_xydata *)&xydata);
         SearchBeamOn(pLgMaster);
 #ifdef DEBUG
@@ -282,14 +276,8 @@ int QuickCheckOne(struct lg_master *pLgMaster, int16_t centerX, int16_t centerY,
         }
 
         SearchBeamOff (pLgMaster);
-	if (centerX >= 0)
-	  xydata.xdata =  centerX | kMinSigned;
-	else
-	  xydata.xdata =  centerX & kMaxSigned;
-	if (centerY >= 0)
-	  xydata.ydata =  centerY | kMinSigned;
-	else
-	  xydata.ydata =  centerY & kMaxSigned;
+	xydata.xdata =  centerX & kMaxSigned;
+	xydata.ydata =  centerY & kMaxSigned;
         move_dark(pLgMaster, (struct lg_xydata *)&xydata);
         SearchBeamOn  (pLgMaster);
 #ifdef DEBUG
@@ -367,14 +355,8 @@ int SearchForASensor (struct lg_master *pLgMaster,
     firstCoarse = 1;
     currentX = startX & kMask;
     currentY = startY & kMask;
-    if (currentX >= 0)
-      xydata.xdata =  currentX | kMinSigned;
-    else
-      xydata.xdata =  currentX & kMaxSigned;
-    if (currentY >= 0)
-      xydata.ydata =  currentY | kMinSigned;
-    else
-      xydata.ydata =  currentY & kMaxSigned;
+    xydata.xdata =  currentX & kMaxSigned;
+    xydata.ydata =  currentY & kMaxSigned;
     move_dark(pLgMaster, (struct lg_xydata *)&xydata);
     *foundX = 0x0;
     *foundY = 0x0;
@@ -594,14 +576,8 @@ int SearchForASensor (struct lg_master *pLgMaster,
 	    nSteps =  32; 
 	    centX = *foundX;
 	    centY = *foundY - 64*delY;
-	    if (centX >= 0)
-	      xydata.xdata =  centX | kMinSigned;
-	    else
-	      xydata.xdata =  centX  & kMaxSigned;
-	    if (centY >= 0)
-	      xydata.ydata =  centY | kMinSigned;
-	    else
-	      xydata.ydata =  centY & kMaxSigned;
+	    xydata.xdata =  centX  & kMaxSigned;
+	    xydata.ydata =  centY & kMaxSigned;
 	    xydelta.xdata = 0;
 	    xydelta.ydata = delY;
 	    if (DoLineSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -612,14 +588,8 @@ int SearchForASensor (struct lg_master *pLgMaster,
 	      }
 	    centX = *foundX - 64*delX;
 	    centY = *foundY;
-	    if (centX >= 0)
-	      xydata.xdata =  centX | kMinSigned;
-	    else
-	      xydata.xdata =  centX  & kMaxSigned;
-	    if (centY >= 0)
-	      xydata.ydata =  centY | kMinSigned;
-	    else
-	      xydata.ydata =  centY & kMaxSigned;
+	    xydata.xdata =  centX  & kMaxSigned;
+	    xydata.ydata =  centY & kMaxSigned;
 	    xydelta.xdata = delX;
 	    xydelta.ydata = 0;
 	    if (DoLineSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -633,14 +603,8 @@ int SearchForASensor (struct lg_master *pLgMaster,
     SearchBeamOff(pLgMaster);
     centX = *foundX & 0x00;
     centY = *foundY;
-    if (centX >= 0)
-      xydata.xdata =  centX | kMinSigned;
-    else
-      xydata.xdata =  centX & kMaxSigned;
-    if (centY >= 0)
-      xydata.ydata =  centY | kMinSigned;
-    else
-      xydata.ydata =  centY & kMaxSigned;
+    xydata.xdata =  centX & kMaxSigned;
+    xydata.ydata =  centY & kMaxSigned;
     move_dark(pLgMaster, (struct lg_xydata *)&xydata);
     return(theResult);
 }
@@ -670,14 +634,8 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
     memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
     memset((char *)gLout, 0, (nStepsIn * sizeof(int16_t)));
 
-    if (Xin >= 0)
-      xydata.xdata =  Xin | kMinSigned;
-    else
-      xydata.xdata =  Xin & kMaxSigned;
-    if (Yin >= 0)
-      xydata.ydata =  Yin | kMinSigned;
-    else
-      xydata.ydata =  Yin & kMaxSigned;
+    xydata.xdata =  Xin & kMaxSigned;
+    xydata.ydata =  Yin & kMaxSigned;
     xydelta.xdata = delX;
     xydelta.ydata = delY;
     if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -717,14 +675,8 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
 	eolY = tmpY + (nStepsIn / 2) * delY;
 	negX = -delX;
 	negY = -delY;
-	if (eolX >= 0)
-	  xydata.xdata =  eolX | kMinSigned;
-	else
-	  xydata.xdata =  eolX & kMaxSigned;
-	if (eolY >= 0)
-	  xydata.ydata =  eolY | kMinSigned;
-	else
-	  xydata.ydata =  eolY & kMaxSigned;
+	xydata.xdata =  eolX & kMaxSigned;
+	xydata.ydata =  eolY & kMaxSigned;
 	xydelta.xdata = negX;
 	xydelta.ydata = negY;
 	if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -791,14 +743,8 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
 	eolY = tmpY + (nStepsIn / 2) * delY;
 	negX = -delX;
 	negY = -delY;
-	if (eolX >= 0)
-	  xydata.xdata =  eolX | kMinSigned;
-	else
-	  xydata.xdata =  eolX & kMaxSigned;
-	if (eolY >= 0)
-	  xydata.ydata =  eolY | kMinSigned;
-	else
-	  xydata.ydata =  eolY & kMaxSigned;
+	xydata.xdata =  eolX & kMaxSigned;
+	xydata.ydata =  eolY & kMaxSigned;
 	xydelta.xdata = negX;
 	xydelta.ydata = negY;
 	if (DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -900,14 +846,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	currentY = centerY;
 	delX = 2*gSuperFineSearchStep;
 	nSteps = theSpan / gSuperFineSearchStep;
-	if (currentX >= 0)
-	  xydata.xdata =  currentX | kMinSigned;
-	else
-	  xydata.xdata =  currentX & kMaxSigned;
-	if (currentY >= 0)
-	  xydata.ydata =  currentY | kMinSigned;
-	else
-	  xydata.ydata =  currentY & kMaxSigned;
+	xydata.xdata =  currentX & kMaxSigned;
+	xydata.ydata =  currentY & kMaxSigned;
 	xydelta.xdata = delX;
 	xydelta.ydata = 0;
 	DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -949,14 +889,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	currentY = centerY;
 	delX = -2 * gSuperFineSearchStep;
 	nSteps = theSpan / gSuperFineSearchStep;
-	if (currentX >= 0)
-	  xydata.xdata =  currentX | kMinSigned;
-	else
-	  xydata.xdata =  currentX & kMaxSigned;
-	if (currentY >= 0)
-	  xydata.ydata =  currentY | kMinSigned;
-	else
-	  xydata.ydata =  currentY & kMaxSigned;
+	xydata.xdata =  currentX & kMaxSigned;
+	xydata.ydata =  currentY & kMaxSigned;
 	xydelta.xdata = delX;
 	xydelta.ydata = 0;
 	DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -986,14 +920,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	currentY = centerY - theSpan;
 	delY = 2*gSuperFineSearchStep;
 	nSteps = theSpan / gSuperFineSearchStep;
-	if (currentX >= 0)
-	  xydata.xdata =  currentX | kMinSigned;
-	else
-	  xydata.xdata =  currentX & kMaxSigned;
-	if (currentY >= 0)
-	  xydata.ydata =  currentY | kMinSigned;
-	else
-	  xydata.ydata =  currentY & kMaxSigned;
+	xydata.xdata =  currentX & kMaxSigned;
+	xydata.ydata =  currentY & kMaxSigned;
 	xydelta.ydata = delY;
 	xydelta.xdata = 0;
 	DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -1034,14 +962,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	    currentY = centerY + theSpan;
 	    delY = -2 * gSuperFineSearchStep;
 	    nSteps = theSpan / gSuperFineSearchStep;
-	    if (currentX >= 0)
-	      xydata.xdata =  currentX | kMinSigned;
-	    else
-	      xydata.xdata =  currentX & kMaxSigned;
-	    if (currentY >= 0)
-	      xydata.ydata =  currentY | kMinSigned;
-	    else
-	      xydata.ydata =  currentY & kMaxSigned;
+	    xydata.xdata =  currentX & kMaxSigned;
+	    xydata.ydata =  currentY & kMaxSigned;
 	    xydelta.ydata = delY;
 	    xydelta.xdata = 0;
 	    DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
@@ -1254,14 +1176,8 @@ int  FakeLeg(struct lg_master *pLgMaster, int16_t X, int16_t Y,
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
 	memset((char *)ptr, 0, nSteps * (sizeof(int16_t)));
-	if (X >= 0)
-	  xydata.xdata =  X | kMinSigned;
-	else
-	  xydata.xdata =  X & kMaxSigned;
-	if (Y >= 0)
-	  xydata.ydata =  Y | kMinSigned;
-	else
-	  xydata.ydata =  Y & kMaxSigned;
+	xydata.xdata =  X & kMaxSigned;
+	xydata.ydata =  Y & kMaxSigned;
 	move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 	xydelta.xdata = delX;
 	xydelta.ydata = delY;
@@ -1287,14 +1203,8 @@ int  FakeLeg(struct lg_master *pLgMaster, int16_t X, int16_t Y,
                 eolY = Y + nSteps * delY;
                 negX = -delX;
                 negY = -delY;
-		if (eolX >= 0)
-		  xydata.xdata =  eolX | kMinSigned;
-		else
-		  xydata.xdata =  eolX & kMaxSigned;
-		if (eolY >= 0)
-		  xydata.ydata =  eolY | kMinSigned;
-		else
-		  xydata.ydata =  eolY & kMaxSigned;
+		xydata.xdata =  eolX & kMaxSigned;
+		xydata.ydata =  eolY & kMaxSigned;
 		move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 		xydelta.xdata = delX;
 		xydelta.ydata = delY;
@@ -1354,14 +1264,8 @@ static int DoFineLevel(struct lg_master *pLgMaster, int16_t *foundX,
       centerX = *foundX;
       centerY = *foundY;
       
-      if (centerX >= 0)
-	xydata.xdata =  centerX | kMinSigned;
-      else
-	xydata.xdata =  centerX & kMaxSigned;
-      if (centerY >= 0)
-	xydata.ydata =  centerY | kMinSigned;
-      else
-	xydata.ydata =  centerY & kMaxSigned;
+      xydata.xdata =  centerX & kMaxSigned;
+      xydata.ydata =  centerY & kMaxSigned;
       move_dark(pLgMaster, (struct lg_xydata *)&xydata);
 
       stepSize = kFineSearchStep;
@@ -1986,14 +1890,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	if (firstSuper == 1)
 	  {
 	    firstSuper = 0;
-	    if (startX >= 0)
-	      xydata.xdata =  startX | kMinSigned;
-	    else
-	      xydata.xdata =  startX & kMaxSigned;
-	    if (startY2 >= 0)
-	      xydata.ydata =  startY2 | kMinSigned;
-	    else
-	      xydata.ydata =  startY2 & kMaxSigned;
+	    xydata.xdata =  startX & kMaxSigned;
+	    xydata.ydata =  startY2 & kMaxSigned;
 	    xydelta.xdata = 0;
 	    xydelta.ydata = delNeg;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2004,14 +1902,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      return(result);
 	    startX  = (int16_t)dblX & kMask;
 	    startY1 = (int16_t)*dMinY & kMask;
-	    if (startX >= 0)
-	      xydata.xdata =  startX | kMinSigned;
-	    else
-	      xydata.xdata =  startX & kMaxSigned;
-	    if (startY1 >= 0)
-	      xydata.ydata =  startY1 | kMinSigned;
-	    else
-	      xydata.ydata =  startY1 & kMaxSigned;
+	    xydata.xdata =  startX & kMaxSigned;
+	    xydata.ydata =  startY1 & kMaxSigned;
 	    xydelta.xdata = 0;
 	    xydelta.ydata = delPos;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2023,14 +1915,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	  }
 	startX  = (int16_t)dblX & kMask;
 	startY2 = (int16_t)*dMaxY & kMask;
-	if (startX >= 0)
-	  xydata.xdata =  startX | kMinSigned;
-	else
-	  xydata.xdata =  startX & kMaxSigned;
-	if (startY2 >= 0)
-	  xydata.ydata =  startY2 | kMinSigned;
-	else
-	  xydata.ydata =  startY2 & kMaxSigned;
+	xydata.xdata =  startX & kMaxSigned;
+	xydata.ydata =  startY2 & kMaxSigned;
 	xydelta.xdata = 0;
 	xydelta.ydata = delNeg;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2043,14 +1929,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	  memset((char *)gLout2, 0, (NZERO * nYsteps * sizeof(int16_t)));
 	startX  = (int16_t)dblX & kMask;
 	startY1 = (int16_t)*dMinY & kMask;
-	if (startX >= 0)
-	  xydata.xdata =  startX | kMinSigned;
-	else
-	  xydata.xdata =  startX & kMaxSigned;
-	if (startY1 >= 0)
-	  xydata.ydata =  startY1 | kMinSigned;
-	else
-	  xydata.ydata =  startY1 & kMaxSigned;
+	xydata.xdata =  startX & kMaxSigned;
+	xydata.ydata =  startY1 & kMaxSigned;
 	xydelta.xdata = 0;
 	xydelta.ydata = delPos;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2128,14 +2008,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 		gLout1[i] = 0;
 		gLout2[i] = 0;
 	      }
-	    if (startX2 >= 0)
-	      xydata.xdata =  startX2 | kMinSigned;
-	    else
-	      xydata.xdata =  startX & kMaxSigned;
-	    if (startY >= 0)
-	      xydata.ydata =  startY | kMinSigned;
-	    else
-	      xydata.ydata =  startY & kMaxSigned;
+	    xydata.xdata =  startX & kMaxSigned;
+	    xydata.ydata =  startY & kMaxSigned;
 	    xydelta.ydata = 0;
 	    xydelta.xdata = delNeg;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2148,14 +2022,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      memset((char *)gLout2, 0, (NZERO * nYsteps * sizeof(int16_t)));
 	    startX1  = kMask & (int16_t)*dMinX;
 	    startY   = kMask & (int16_t)dblY;
-	    if (startX1 >= 0)
-	      xydata.xdata =  startX1 | kMinSigned;
-	    else
-	      xydata.xdata =  startX1 & kMaxSigned;
-	    if (startY >= 0)
-	      xydata.ydata =  startY | kMinSigned;
-	    else
-	      xydata.ydata =  startY & kMaxSigned;
+	    xydata.xdata =  startX1 & kMaxSigned;
+	    xydata.ydata =  startY & kMaxSigned;
 	    xydelta.ydata = 0;
 	    xydelta.xdata = delPos;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2228,14 +2096,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 		gLout1[i] = 0;
 		gLout2[i] = 0;
 	      }
-	    if (startX >= 0)
-	      xydata.xdata =  startX | kMinSigned;
-	    else
-	      xydata.xdata =  startX & kMaxSigned;
-	    if (startY2 >= 0)
-	      xydata.ydata =  startY2 | kMinSigned;
-	    else
-	      xydata.ydata =  startY2 & kMaxSigned;
+	    xydata.xdata =  startX & kMaxSigned;
+	    xydata.ydata =  startY2 & kMaxSigned;
 	    xydelta.xdata = 0;
 	    xydelta.ydata = delNeg;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2248,14 +2110,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      memset((char *)gLout2, 0, (NZERO * nYsteps * sizeof(int16_t)));
 	    startX  = kMask & (int16_t)dblX;
 	    startY1 = kMask & (int16_t)*dMinY;
-	    if (startX >= 0)
-	      xydata.xdata =  startX | kMinSigned;
-	    else
-	      xydata.xdata =  startX & kMaxSigned;
-	    if (startY1 >= 0)
-	      xydata.ydata =  startY1 | kMinSigned;
-	    else
-	      xydata.ydata =  startY1 & kMaxSigned;
+	    xydata.xdata =  startX & kMaxSigned;
+	    xydata.ydata =  startY1 & kMaxSigned;
 	    xydelta.xdata = 0;
 	    xydelta.ydata = delPos;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2326,14 +2182,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 		gLout1[i] = 0;
 		gLout2[i] = 0;
 	      }
-	    if (startX2 >= 0)
-	      xydata.xdata =  startX2 | kMinSigned;
-	    else
-	      xydata.xdata =  startX2 & kMaxSigned;
-	    if (startY >= 0)
-	      xydata.ydata =  startY | kMinSigned;
-	    else
-	      xydata.ydata =  startY & kMaxSigned;
+	    xydata.xdata =  startX2 & kMaxSigned;
+	    xydata.ydata =  startY & kMaxSigned;
 	    xydelta.ydata = 0;
 	    xydelta.xdata = delNeg;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2346,14 +2196,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      memset((char *)gLout2, 0, (NZERO * nYsteps * sizeof(int16_t)));
 	    startX1  = kMask & (int16_t)*dMinX;
 	    startY   = kMask & (int16_t)dblY;
-	    if (startX1 >= 0)
-	      xydata.xdata =  startX1 | kMinSigned;
-	    else
-	      xydata.xdata =  startX1 & kMaxSigned;
-	    if (startY >= 0)
-	      xydata.ydata =  startY | kMinSigned;
-	    else
-	      xydata.ydata =  startY & kMaxSigned;
+	    xydata.xdata =  startX1 & kMaxSigned;
+	    xydata.ydata =  startY & kMaxSigned;
 	    xydelta.ydata = 0;
 	    xydelta.xdata = delPos;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2428,14 +2272,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 		gLout1[i] = 0;
 		gLout2[i] = 0;
 	      }
-	    if (startX >= 0)
-	      xydata.xdata =  startX | kMinSigned;
-	    else
-	      xydata.xdata =  startX & kMaxSigned;
-	    if (startY >= 0)
-	      xydata.ydata =  startY | kMinSigned;
-	    else
-	      xydata.ydata =  startY & kMaxSigned;
+	    xydata.xdata =  startX & kMaxSigned;
+	    xydata.ydata =  startY & kMaxSigned;
 	    xydelta.xdata = delPos;
 	    xydelta.ydata = delNeg;
 	    result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2472,14 +2310,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	  }
 	endX = (int16_t)(dblX + (Dstep * nYsteps)) & kMask; 
 	endY = (int16_t)(dblY - (Dstep * nYsteps)) & kMask;
-	if (endX >= 0)
-	  xydata.xdata =  endX | kMinSigned;
-	else
-	  xydata.xdata =  endX & kMaxSigned;
-	if (endY >= 0)
-	  xydata.ydata =  endY | kMinSigned;
-	else
-	  xydata.ydata =  endY & kMaxSigned;
+	xydata.xdata =  endX & kMaxSigned;
+	xydata.ydata =  endY & kMaxSigned;
 	xydelta.xdata = delNeg;
 	xydelta.ydata = delPos;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2530,14 +2362,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      gLout1[i] = 0;
 	      gLout2[i] = 0;
 	    }
-	  if (startX >= 0)
-	    xydata.xdata =  startX | kMinSigned;
-	  else
-	    xydata.xdata =  startX & kMaxSigned;
-	  if (startY >= 0)
-	    xydata.ydata =  startY | kMinSigned;
-	  else
-	    xydata.ydata =  startY & kMaxSigned;
+	  xydata.xdata =  startX & kMaxSigned;
+	  xydata.ydata =  startY & kMaxSigned;
 	  xydelta.xdata = delNeg;
 	  xydelta.ydata = delPos;
 	  result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2574,14 +2400,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	    }
 	  endX = (int16_t)(dblX - (Dstep * nYsteps)) & kMask;
 	  endY = (int16_t)(dblY + (Dstep * nYsteps)) & kMask;
-	  if (endX >= 0)
-	    xydata.xdata =  endX | kMinSigned;
-	  else
-	    xydata.xdata =  endX & kMaxSigned;
-	  if (endY >= 0)
-	    xydata.ydata =  endY | kMinSigned;
-	  else
-	      xydata.ydata =  endY & kMaxSigned;
+	  xydata.xdata =  endX & kMaxSigned;
+	  xydata.ydata =  endY & kMaxSigned;
 	  xydelta.xdata = delPos;
 	  xydelta.ydata = delNeg;
 	  result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2633,17 +2453,11 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      gLout1[i] = 0;
 	      gLout2[i] = 0;
 	    }
-	  if (startX >= 0)
-	    xydata.xdata =  startX | kMinSigned;
-	  else
-	    xydata.xdata =  startX & kMaxSigned;
-	  if (startY >= 0)
-	    xydata.ydata =  startY | kMinSigned;
-	  else
-	    xydata.ydata =  startY & kMaxSigned;
-	xydelta.xdata = delNeg;
-	xydelta.ydata = delNeg;
-	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
+	  xydata.xdata =  startX & kMaxSigned;
+	  xydata.ydata =  startY & kMaxSigned;
+	  xydelta.xdata = delNeg;
+	  xydelta.ydata = delNeg;
+	  result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			       (struct lg_xydata *)&xydelta, nYsteps, gLout1);
         if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	  return(kStopWasDone);
@@ -2677,14 +2491,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	  }
 	endX = (int16_t)(dblX - (Dstep * nYsteps)) & kMask;
 	endY = (int16_t)(dblY - (Dstep * nYsteps)) & kMask;
-	if (endX >= 0)
-	  xydata.xdata =  endX | kMinSigned;
-	else
-	  xydata.xdata =  endX & kMaxSigned;
-	if (endY >= 0)
-	  xydata.ydata =  endY | kMinSigned;
-	else
-	  xydata.ydata =  endY & kMaxSigned;
+	xydata.xdata =  endX & kMaxSigned;
+	xydata.ydata =  endY & kMaxSigned;
 	xydelta.xdata = delPos;
 	xydelta.ydata = delPos;
 	result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2737,14 +2545,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	      gLout1[i] = 0;
 	      gLout2[i] = 0;
 	    }
-	  if (startX >= 0)
-	    xydata.xdata =  startX | kMinSigned;
-	  else
-	    xydata.xdata =  startX & kMaxSigned;
-	  if (startY >= 0)
-	    xydata.ydata =  startY | kMinSigned;
-	  else
-	    xydata.ydata =  startY & kMaxSigned;
+	  xydata.xdata =  startX & kMaxSigned;
+	  xydata.ydata =  startY & kMaxSigned;
 	  xydelta.xdata = delPos;
 	  xydelta.ydata = delPos;
 	  result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
@@ -2781,14 +2583,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
 	    }
 	  endX = (int16_t)(dblX + (Dstep * nYsteps)) & kMask;
 	  endY = (int16_t)(dblY + (Dstep * nYsteps)) & kMask;
-	  if (endX >= 0)
-	    xydata.xdata =  endX | kMinSigned;
-	  else
-	    xydata.xdata =  endX & kMaxSigned;
-	  if (endY >= 0)
-	    xydata.ydata =  endY | kMinSigned;
-	  else
-	    xydata.ydata =  endY & kMaxSigned;
+	  xydata.xdata =  endX & kMaxSigned;
+	  xydata.ydata =  endY & kMaxSigned;
 	  xydelta.xdata = delNeg;
 	  xydelta.ydata = delNeg;
 	  result = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
