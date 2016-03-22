@@ -11,7 +11,6 @@
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
 #define PARSE_HOBBS_LASER 4
-#define kMaxOutLength     0x80000
 #define kMaxUnsigned      0xFFFF
 #define kMinSigned        0x0000
 #define kMaxSigned        0x7FFF
@@ -21,7 +20,7 @@ struct displayData
 {
   struct lg_xydata  *pattern;
   int32_t           *sensorAngles;
-  uint16_t          numberOfSensorSets;
+  uint32_t          numberOfSensorSets;
 };
 
 // The following header is fixed for incoming commands from
@@ -78,7 +77,7 @@ struct lg_master {
   unsigned char   *gRawBuffer;
   unsigned char   *gParametersBuffer;
   unsigned char   *theResponseBuffer;
-  uint16_t        *gScan;
+  int16_t         *gScan;
   uint16_t        *coarsedata;
   uint16_t        *gLsort;
   int             af_serial;
@@ -97,6 +96,8 @@ struct lg_master {
   uint32_t        gSrchStpPeriod;
   uint32_t        gTransmitLengthSum;
   uint32_t        gBestTargetNumber;
+  uint32_t        gPlysToDisplay;
+  uint32_t        gPlysReceived;
   int32_t         gQCcount;
   int32_t         gCoarse2SearchStep;
   int16_t         gXcheck;
@@ -106,6 +107,7 @@ struct lg_master {
   uint8_t         newCommand;
   uint8_t         gHeaderSpecialByte;
   uint8_t         RFUpad;
+  uint8_t         gAbortDisplay;
 };
 
 typedef struct ags_bkgd_thread_struct
@@ -115,7 +117,8 @@ typedef struct ags_bkgd_thread_struct
   int              time_to_update;  // determines when to do backup, set by timer from Main loop
 } AGS_BKGD_THREAD;
 
-void	RandomSegment ( void );
+double ArrayToDouble(double inp_data);
+void RandomSegment(void);
 int32_t InitQCtimer( void );
 int32_t GetQCtimer( void );
 void SetROIsearch( void );
@@ -129,7 +132,7 @@ void SetLowBeam(struct lg_xydata *pDevXYData);
 void SetDarkBeam(struct lg_xydata *pDevXYData);
 int doWriteDevCmdNoData(struct lg_master *pLgMaster, uint32_t command);
 int doWriteDevCmd32(struct lg_master *pLgMaster, uint32_t command, uint32_t write_val);
-int doWriteDevDelta(struct lg_master *pLgMaster, struct lg_xydata *pDelta);
+int doWriteDevDelta(struct lg_master *pLgMaster, struct lg_xydelta *pDelta);
 int doWriteDevPoints(struct lg_master *pLgMaster, struct lg_xydata *pXYData);
 void StopPulse(struct lg_master *pLgMaster);
 int CDRHflag(struct lg_master *pLgMaster);
@@ -174,11 +177,11 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 void ResumeDisplay(struct lg_master *pLgMaster);
 int32_t GetQCflag(struct lg_master *pLgMaster);
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydata *pDeltaData, uint32_t n, uint16_t *c_out);
+		  struct lg_xydelta *pDeltaData, int16_t n, int16_t *c_out);
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		 struct lg_xydata *pDeltaData, uint32_t n, unsigned char *c_out);
+		 struct lg_xydelta *pDeltaData, int16_t n, unsigned char *c_out);
 void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, int32_t do_response, uint32_t respondToWhom);
-void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom);
+void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData);
 void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom);
 
 #endif // BOARDCOMM_H

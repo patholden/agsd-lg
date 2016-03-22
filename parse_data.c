@@ -45,10 +45,7 @@ uint32_t cmdState = 1;
 static char     *gDisplayDataBuffer = 0;
 static int32_t  nTargets;
 
-
-
-int
-parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, uint32_t *rawindex)
+int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, uint32_t *rawindex)
 {
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   unsigned char *pInp;
@@ -191,7 +188,7 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
 	{
 	  // Restarting AddChunks command, wipe out data collected so far
 	  // but need to preserve total length from ChunkStart command.
-	  ResetPlyCounter();
+	  ResetPlyCounter(pLgMaster);
 	  pLgMaster->gTransmitLengthSum = 0;
 	  memset(pLgMaster->gDataChunksBuffer, 0, kMaxDataLength);
 	}
@@ -992,4 +989,3 @@ parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_len, 
   }
   return(0);
 }
-

@@ -19,9 +19,6 @@ extern	double		gDeltaMirror;
 extern	double		gMirrorThickness;
 extern	double		gQuarterPi;
 
-extern double                     gBinaryCenter;
-extern double                     gBinarySpanEachDirection;
-
 extern uint32_t           gSlowBabies;
 extern uint32_t           gFastBabies;
 extern uint32_t           gSlowExponent;

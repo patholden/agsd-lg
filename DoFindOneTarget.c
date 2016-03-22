@@ -35,12 +35,16 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
   double YfoundAngle=0;
   double XExternalAngle=0;
   double YExternalAngle=0;
+  double steerX,steerY;
   int16_t ptX=0, ptY=0, fndX=0, fndY=0;
   int rc;
 	
   pResp = (struct parse_findonetgt_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_findonetgt_resp));
-  rc = ConvertExternalAnglesToBinary (pLgMaster, pInp->steerX, pInp->steerY, &ptX, &ptY);
+  
+  steerX = ArrayToDouble(pInp->steerX);
+  steerY = ArrayToDouble(pInp->steerY);
+  rc = ConvertExternalAnglesToBinary (pLgMaster, steerX, steerY, &ptX, &ptY);
 #ifdef AGS_DEBUG
   syslog(LOG_NOTICE,"DOFIND1TGT: XY angle x=%x,y=%x",ptX,ptY);
 #endif

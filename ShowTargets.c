@@ -121,9 +121,6 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     maxSize = NPOINTS * 24;
 
     nTargets = Parameters->inp_numpairs;
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"SHOWTGT: num_pairs %d",nTargets);
-#endif
     if(nTargets > kNumberOfFlexPoints)
       {
 	pResp->hdr.status = RESPFAIL;
@@ -131,7 +128,6 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
 	return;
       }
     wr_buf = (char *)calloc(NPOINTS * 24, 4);
-    memset(wr_buf, 0, (NPOINTS * 24 * 4));
     
     tmpPtr = wr_buf;
     gCoarse3SearchStep = 0x0008;
@@ -159,6 +155,9 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
       show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
       lastX = currentX;
       lastY = currentY;
+#ifdef AGS_DEBUG
+      syslog(LOG_DEBUG,"SHOWTGT: curX=%x, curY=%x, lastX=%x, lastY=%x, flag %d",currentX, currentY, lastX, lastY, flag[i]);
+#endif
       switch(flag[i])
 	{
 	case SHOWTARGETNUM1:
@@ -245,7 +244,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     currentY = Yarr[0];
     show_move( lastX, lastY, currentX, currentY, tmpPtr, &index );
 #ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"SHOWTGT: currentX %x, currentY %x",currentX,currentY);
+    syslog(LOG_DEBUG,"SHOWTGT: JUSTDODISP, first x=%x,y=%x, buflen %d",((struct lg_xydata *)wr_buf)->xdata, ((struct lg_xydata *)wr_buf)->ydata, index);
 #endif
 
     if (index < maxSize)
@@ -256,9 +255,6 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
       }
     else
       {
-#ifdef AGS_DEBUG
-	syslog(LOG_DEBUG,"SHOWTGT: Wrong size index=%d,maxSize=%d",index,maxSize);
-#endif
 	pResp->hdr.status = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
       }
@@ -281,6 +277,8 @@ static void DoCross(int32_t currentX, int32_t currentY,
   int16_t outX;
   int16_t outY;
 
+  if (!tmpPtr)
+    return;
   if (currentX >= (int32_t)(kMaxSigned - gNumberStep))
     eolXPos = kMaxSigned;
   else
@@ -299,16 +297,10 @@ static void DoCross(int32_t currentX, int32_t currentY,
   else
     eolYNeg = currentY - gNumberStep; 
 
-  if (currentX >= 0)
-    outX = (int16_t)(currentX & kMaxUnsigned) | kMinSigned;
-  else
-    outX = (int16_t)(currentX & kMaxSigned);
-  if (currentY >= 0)
-    outY = (int16_t)(currentY & kMaxUnsigned) | kMinSigned;
-  else
-    outY = (int16_t)(currentY & kMaxSigned);
+  outX = (int16_t)(currentX & kMaxUnsigned);
+  outY = (int16_t)(currentY & kMaxUnsigned);
     
-  pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
+  pXYdata = (struct lg_xydata *)tmpPtr;
   for (j = 0; j < 10; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
@@ -439,6 +431,8 @@ static void DoSquare(int32_t currentX, int32_t currentY,
   int16_t y;
   int j;
 
+  if (!tmpPtr)
+    return;
   if (currentX >= (kMaxSigned - gNumberStep))
     eolXPos   =  kMaxSigned;
   else
@@ -456,12 +450,9 @@ static void DoSquare(int32_t currentX, int32_t currentY,
   else
     eolYNeg = currentY - gNumberStep; 
 
-  if (currentX >= 0)
-    outX = (int16_t)(currentX & kMaxUnsigned) | kMinSigned;
-  else
-    outX = (int16_t)(currentX & kMaxSigned);
+  outX = (int16_t)(currentX & kMaxUnsigned);
 
-  pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
+  pXYdata = (struct lg_xydata *)tmpPtr;
   for (j = 0; j < 10; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
@@ -580,8 +571,11 @@ static void Do1(int32_t currentX, int32_t currentY, char *tmpPtr, uint32_t *pInd
   int16_t YPos;
   int16_t cur_xpos;
 
-  cur_xpos = currentX & kMaxUnsigned;
   limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+#ifdef AGS_DEBUG
+  syslog(LOG_DEBUG, "curx %x,cury %x, xneg %x,xpos %x,yneg %x,ypos %x",currentX,currentY,XNeg,XPos,YNeg,YPos);
+#endif
+  cur_xpos = currentX & kMaxUnsigned;
   Draw1(cur_xpos, YNeg, YPos, tmpPtr, pIndex );
   return;
 }
@@ -801,7 +795,7 @@ static void Do15(int32_t currentX, int32_t currentY,
     int16_t YPos;
     int16_t cur_ypos;
     
-    cur_ypos = currentY & kMaxUnsigned;
+    cur_ypos = currentY;
 
     limit2C(currentX,currentY,&XNeg,&X001,&X002,&XPos,&YNeg,&YPos);
     Draw1(XNeg,YNeg,YPos,tmpPtr,pIndex);
@@ -1110,17 +1104,18 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   delX = (x1 - x0) / 16;
   delY = (y1 - y0) / 16;
 
+#ifdef AGS_DEBUG
+  syslog(LOG_DEBUG,"DRAWLINE: x0 %x, y0 %x, x1 %x, y1 %x delx %x,dely %x",x0,y0,x1,y1,delX,delY);
+#endif
   // Make sure XY is write-ready for laser device
   // pause at the start of line
+  pXYdata = (struct lg_xydata *)tmpPtr;
   for (j = 0; j < 2; j++)
     {
-      pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
+      pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = x0;
       pXYdata->ydata = y0;
       SetHighBeam(pXYdata);
-#ifdef AGS_DEBUG
-      syslog(LOG_DEBUG,"DRAWLINE: START LINE x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
-#endif
       *pIndex += sizeof(struct lg_xydata); 
   }
   for (j=0; j <= 16; j++)
@@ -1129,9 +1124,6 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
       pXYdata->xdata = x0 + (j * delX);
       pXYdata->ydata = y0 + (j * delY);
       SetHighBeam(pXYdata);
-#ifdef AGS_DEBUG
-      syslog(LOG_DEBUG,"DRAWLINE: x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
-#endif
       *pIndex += sizeof(struct lg_xydata); 
     }
   // pause at the end of line
@@ -1141,9 +1133,6 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
       pXYdata->xdata = x1;
       pXYdata->ydata = y1;
       SetHighBeam(pXYdata);
-#ifdef AGS_DEBUG
-      syslog(LOG_DEBUG,"DRAWLINE: ENDLINE x=%x,y=%x,flags=%x",pXYdata->xdata,pXYdata->ydata,pXYdata->ctrl_flags);
-#endif
       *pIndex += sizeof(struct lg_xydata); 
     }
   return;
@@ -1160,8 +1149,11 @@ static void draw_dark(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   delX = (x1 - x0) / 60;
   delY = (y1 - y0) / 60;
 
+#ifdef AGS_DEBUG
+  syslog(LOG_DEBUG,"DRAWDARK: x0 %x, y0 %x, x1 %x, y1 %x",x0,y0,x1,y1);
+#endif
+  pXYdata = (struct lg_xydata *)tmpPtr;
   // pause at the start of line
-  pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
   for (j = 0; j < 2; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
@@ -1192,14 +1184,20 @@ static void off_pause(int16_t x1, int16_t y1, char *tmpPtr, uint32_t *pIndex)
   struct lg_xydata *pXYdata;
   uint32_t j;
 
-  pXYdata = (struct lg_xydata *)(tmpPtr + *pIndex);
+  if (!tmpPtr)
+    return;
+#ifdef AGS_DEBUG
+  syslog(LOG_DEBUG,"PAUSE: x1 %x, y1 %x",x1,y1);
+#endif
+  pXYdata = (struct lg_xydata *)tmpPtr;
   for (j = 0; j < 10; j++)
     {
       pXYdata = (struct lg_xydata *)((char *)pXYdata + *pIndex + (j*sizeof(struct lg_xydata)));
       pXYdata->xdata = x1;
       pXYdata->ydata = y1;
-      *pIndex += sizeof(struct lg_xydata); 
     }
+
+  *pIndex += 10 * sizeof(struct lg_xydata); 
   return;
 }
 

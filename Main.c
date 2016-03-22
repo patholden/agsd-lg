@@ -328,26 +328,20 @@ int main ( int argc, char **argv )
 
 int InitUserStuff (struct lg_master *pLgMaster)
 {
-  gQCsaveData = (char *)malloc(
-                (size_t)( kSizeOfCommand
-                         + kMaxParametersLength
-                         + kMaxDataLength
-                         + kCRCSize ) );
- 
-  scandata = (uint32_t *)calloc(67*67, sizeof(uint32_t));
-  if (!gQCsaveData || !scandata)
-    return(-1);
+    gQCsaveData = (char *)malloc((kSizeOfCommand + kMaxParametersLength + kMaxDataLength + kCRCSize));
+    scandata = (uint32_t *)calloc(67*67, sizeof(uint32_t));
+    if (!gQCsaveData || !scandata)
+      return(-1);
   
-  FlashLed(pLgMaster, 5);
-  SearchBeamOff(pLgMaster);
-  InitCRCHandler (  );
-  InitLaserInterface (pLgMaster);
-  InitLaserCommands (  );
-  if (InitLaserPattern())
-    return(-1);
-  InitAPTParser (  );
-  InitSensorSearch (  );
-  return(0);
+    FlashLed(pLgMaster, 5);
+    SearchBeamOff(pLgMaster);
+    InitCRCHandler();
+    InitLaserInterface(pLgMaster);
+    if (InitLaserPattern())
+      return(-1);
+    InitAPTParser();
+    InitSensorSearch();
+    return(0);
 }
 
 int32_t exit_check( void )
@@ -366,7 +360,6 @@ static void CloseUserStuff (struct lg_master *pLgMaster)
         CloseSensorSearch (  );
         CloseAPTParser (  );
         CloseLaserPattern (  );
-        CloseLaserCommands (  );
 	CloseLaserInterface (  );
 	CloseCRCHandler (  );
         ReleaseBoard(pLgMaster);

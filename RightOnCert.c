@@ -116,23 +116,28 @@ void RightOnCert(struct lg_master *pLgMaster,
        break;
      case 1:
        gCoarse2Factor     = 1;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
        break;
      case 2:
        gCoarse2Factor     = 2;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
        break;
      case 3:
        gCoarse2Factor     = 4;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
        break;
      case 4:
        gCoarse2Factor     = 8;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
        break;
      default:
        gCoarse2Factor     = 1;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
+       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
        break;
      }
    status = SearchForASensor(pLgMaster, bXe, bYe, &bXf, &bYf);

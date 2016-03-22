@@ -178,12 +178,24 @@ struct parse_chngdisp_parms {
   uint32_t    displayPeriod;
 } __attribute__ ((packed));
 struct parse_ethangle_parms {
-  double   xData;
-  double   yData;
+  union {
+    double   xData;
+    uint8_t xchar[8];
+  }x;
+  union {
+    double   yData;
+    uint8_t  ychar[8];
+  }y;
 } __attribute__ ((packed));
 struct parse_goangle_parms {
-  double   xData;
-  double   yData;
+  union {
+    double   xData;
+    int8_t xchar[8];
+  }x;
+  union {
+    double   yData;
+    int8_t  ychar[8];
+  }y;
 } __attribute__ ((packed));
 struct parse_setbit_parms {
   uint32_t  bit_id;

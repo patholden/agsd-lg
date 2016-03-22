@@ -131,10 +131,10 @@ properly interpret them can easily be added */
 #define	kFourthSensor				( 0x00000001U << 3 )
 #define	kFifthSensor				( 0x00000001U << 4 )
 #define	kSixthSensor				( 0x00000001U << 5 )
-#define	kXTooSmall					( 0x00000001U << 8 )
-#define	kXTooLarge					( 0x00000001U << 9 )
-#define	kYTooSmall					( 0x00000001U << 10 )
-#define	kYTooLarge					( 0x00000001U << 11 )
+#define	kXTooSmall				0x1
+#define	kXTooLarge				0x2
+#define	kYTooSmall				0x4
+#define	kYTooLarge				0x8
 #define	kAPTError				0x00040000U
 #define	kBoardError				0x00050000U
 #define	kBoardInitializing			0x00000001U

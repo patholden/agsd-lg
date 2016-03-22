@@ -99,6 +99,7 @@ install:
 	chmod 777 agsd
 	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/
 	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
+	cp *.c $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp $(HOME)/.gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf

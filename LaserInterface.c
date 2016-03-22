@@ -24,10 +24,6 @@
 int gMaxPiledPts;
 
 static	double	gAPTunitsPerInch	= 1.0;
-
-static	double	gXMirrorAngularRange = 30.0;	
-static	double	gYMirrorAngularRange = 30.0;	
-
 static	double	gXExternalCoefficient = +1.0;	
 static	double	gYExternalCoefficient = -1.0;
 static	double	gXExternalCenterAngle = 0.0;
@@ -39,7 +35,10 @@ static	double	gXGeometricCenterAngle;
 static	double	gYGeometricCenterAngle;
 
 #define	kDefaultDeltaMirror .50
-
+//#define kBinaryCenter	   -.50
+#define kBinaryCenter	   0.50
+#define kXMirrorAngularRange  30.0	
+#define kYMirrorAngularRange  30.0	
 double gDeltaMirror = -1.0;
 double gMirrorThickness = 0.050;
 enum
@@ -59,8 +58,7 @@ static	void				ConvertMirrorToExternalAngles
 						( double xIn, double yIn,
 						double *xOut, double *yOut );
 
-double		gBinaryCenter;
-double		gBinarySpanEachDirection;
+static double		gBinarySpanEachDirection;
 
 uint32_t		gSlowBabies;
 uint32_t		gFastBabies;
@@ -129,60 +127,64 @@ void XYFromGeometricAnglesAndZ(struct lg_master *pLgMaster, double xa, double ya
 }
 void ConvertBinaryToMirrorAngles(int16_t xIn, int16_t yIn, double *xOut, double *yOut)
 {
-    *xOut = gXMirrorAngularRange *
-      ((double)(((xIn & kMaxSigned) -
-		 gBinaryCenter) / gBinarySpanEachDirection));
-	*yOut = gYMirrorAngularRange *
-	  ((double)(((yIn & kMaxSigned) -
-		     gBinaryCenter) / gBinarySpanEachDirection));
+    if (xIn < 0)
+      *xOut = (double)(xIn * kXMirrorAngularRange / gBinarySpanEachDirection) - kBinaryCenter;
+    else
+      *xOut = (double)(xIn * kXMirrorAngularRange / gBinarySpanEachDirection) + kBinaryCenter;
+    if (yIn < 0)
+      *yOut = (double)(yIn * kYMirrorAngularRange / gBinarySpanEachDirection) - kBinaryCenter;
+    else
+      *yOut = (double)(yIn * kYMirrorAngularRange / gBinarySpanEachDirection) - kBinaryCenter;
+#ifdef AGS_DEBUG
+    syslog(LOG_DEBUG,"CNVRTBINTOMIRANGL: x=%f, y=%f,span%f",*xOut, *yOut,gBinarySpanEachDirection);
+#endif
+    return;
 }
 uint32_t ConvertMirrorAnglesToBinary(double xIn, double yIn,
 				     int16_t *xOut, int16_t *yOut)
 {
   uint32_t theResult = 0;
-  if ( xIn > gXMirrorAngularRange )
+  
+  if ( xIn >kXMirrorAngularRange )
     {
-      *xOut = (int16_t)
-	(rint((gBinaryCenter + gBinarySpanEachDirection)));
+      *xOut = (int16_t)gBinarySpanEachDirection;
       theResult = kXTooLarge;
     }
   else
     {
-      if (xIn < -gXMirrorAngularRange)
+      if (xIn < -kXMirrorAngularRange)
 	{
-	  *xOut = (int16_t)
-	    (rint((gBinaryCenter - gBinarySpanEachDirection)));
+	  *xOut = (int16_t)-gBinarySpanEachDirection;
 	  theResult = kXTooSmall;
 	}
       else
 	{
-	  *xOut = (int16_t)
-	    (rint((gBinaryCenter
-		   + ((xIn * gBinarySpanEachDirection) / gXMirrorAngularRange))));
+	  (xIn > 0) ? (xIn += kBinaryCenter) : (xIn -= kBinaryCenter);
+	  *xOut = (int16_t)(xIn * gBinarySpanEachDirection / kXMirrorAngularRange);
 	}
     }
 
-  if (yIn > gYMirrorAngularRange)
+  if (yIn > kYMirrorAngularRange)
     {
-      *yOut = (int16_t)
-	(rint((gBinaryCenter + gBinarySpanEachDirection)));
+      *yOut = (int16_t)gBinarySpanEachDirection;
       theResult += kYTooLarge;
     }
   else
     {
-      if (yIn < -gYMirrorAngularRange)
+      if (yIn < -kYMirrorAngularRange)
 	{
-	  *yOut = (int16_t)
-	    (rint((gBinaryCenter - gBinarySpanEachDirection)));
+	  *yOut = (int16_t)-gBinarySpanEachDirection;
 	  theResult += kYTooSmall;
 	}
       else
 	{
-	  *yOut = (int16_t)
-	    (rint((gBinaryCenter
-		   + ((yIn * gBinarySpanEachDirection) / gYMirrorAngularRange))));
+	  (yIn > 0) ? (yIn += kBinaryCenter) : (yIn -= kBinaryCenter);
+	  *yOut = (int16_t)(yIn * gBinarySpanEachDirection / kYMirrorAngularRange);
 	}
     }
+#ifdef AGS_DEBUG
+  syslog(LOG_DEBUG,"MIRANGL2BIN: x=%x,y=%x,span=%f",*xOut,*yOut,gBinarySpanEachDirection);
+#endif
   return(theResult);
 }
 /*********************************************************/
@@ -191,7 +193,7 @@ uint32_t ConvertExternalAnglesToBinary(struct lg_master *pLgMaster,
 				       double xIn, double yIn,
 				       int16_t *xOut, int16_t *yOut)
 {
-    double xMirror, yMirror;
+    double xMirror=0, yMirror=0;
     
     ConvertExternalAnglesToMirror ( xIn, yIn, &xMirror, &yMirror );
     ApplyCorrection(pLgMaster, &xMirror, &yMirror);
@@ -222,7 +224,7 @@ uint32_t ConvertGeometricAnglesToBinary(struct lg_master *pLgMaster,
 {
     ConvertGeometricAnglesToMirror ( &xIn, &yIn );
     ApplyCorrection(pLgMaster, &xIn, &yIn );
-    return ConvertMirrorAnglesToBinary ( xIn, yIn, xOut, yOut );
+    return(ConvertMirrorAnglesToBinary(xIn, yIn, xOut, yOut));
 }
 void ConvertBinaryToGeometricAngles(struct lg_master *pLgMaster,
 				    int16_t xIn, int16_t yIn,
@@ -390,23 +392,15 @@ unsigned char InitLaserInterface (struct lg_master *pLgMaster)
 	gYGeometricCenterAngle = M_PI;
 	gQuarterPi = M_PI * .250;
 	gSqrtOfTwo = sqrt ( 2.L );
-	
         gAPTunitsPerInch = 1.0;
-
-
-	gBinaryCenter = -.50;
-	gBinarySpanEachDirection = (double)(1 << 17) - .50;
-
+	gBinarySpanEachDirection = (double)(1 << 15) - .50;
 	gMaxPiledPts = 9;
 	gCoarseBabies = 1U << 3;
 	gFineBabies = 1U << 2;
 	gSuperFineBabies = 1U;
 	gYGeometricCoefficient = -gYGeometricCoefficient;
-	
 	gDeltaMirror = -1.0;
-	
 	theResult = (unsigned char)InitAngleCorrections (pLgMaster);
-	
 	if ( gDeltaMirror < 0.0 ) {
           gDeltaMirror = .50;
         }

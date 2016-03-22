@@ -166,7 +166,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
       if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
 	sscanf( token, "coarsefactor = %d", &gCoarseFactor ); 
 	gCoarseSearchStep = (uint32_t)(
-				       0xffff0000 &  (gCoarseFactor * 0x00010000));
+				       0xffff &  (gCoarseFactor * 0x0001));
 	gNumberOfSpirals = gSpiralFactor / gCoarseFactor;
       }
       strcpy( testStr, "searchstepperiod =" );
@@ -244,9 +244,9 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gDataChunksBuffer = (char *)malloc((size_t)kMaxDataLength);
   pLgMaster->gSensorBuffer = (char *)malloc((size_t)
 		(kMaxNumberOfPlies * kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
-  pLgMaster->gScan = (uint16_t *)calloc(1024, sizeof(uint16_t));
+  pLgMaster->gScan = (int16_t *)calloc(1024, sizeof(int16_t));
   pLgMaster->coarsedata = (uint16_t *)calloc(512*512, sizeof(uint16_t));
-  pLgMaster->gLsort = (uint16_t *)calloc((size_t)kMaxOutLength,sizeof(int16_t));
+  pLgMaster->gLsort = (uint16_t *)calloc((size_t)MAX_LG_BUFFER,sizeof(int16_t));
 
   if (!pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer
       || !pLgMaster->theResponseBuffer || !pLgMaster->gAFInputBuffer

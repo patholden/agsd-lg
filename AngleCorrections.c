@@ -56,12 +56,6 @@ static	unsigned char		gHalfWayThru = false;
 static	double	AbsCos ( double x1, double y1,
 						double x2, double y2 );
 
-static	void	OldRemoveCorrection
-					( double *x, double *y );
-					
-static	void	OldApplyCorrection
-					( double *x, double *y );
-
 static	char **		gFileBuffer = 0;
 static	int32_t		gFileLength = 0;
 
@@ -163,15 +157,30 @@ enum
 
 void ApplyCorrection (struct lg_master *pLgMaster, double *x, double *y )
 {
-	if ( !pLgMaster->gCALIBFileOK ) OldApplyCorrection ( x, y );
-	else DoCorrection(pLgMaster, x, y, gXActualCoeffs, gYActualCoeffs );
+	if (!pLgMaster->gCALIBFileOK)
+	  {
+	    // next two lines fixes gcc complaints
+	    *x = *x;
+	    *y = *y;
+	    return;
+	  }
+	else
+	  DoCorrection(pLgMaster, x, y, gXActualCoeffs, gYActualCoeffs );
+	return;
 }
 
 void RemoveCorrection(struct lg_master *pLgMaster, double *x, double *y )
 {
 	if (!pLgMaster->gCALIBFileOK)
-	  OldRemoveCorrection ( x, y );
-	else DoCorrection(pLgMaster, x, y, gXTheoryCoeffs, gYTheoryCoeffs );
+	  {
+	    // next two lines fixes gcc complaints
+	    *x = *x;
+	    *y = *y;
+	    return;
+	  }
+	else
+	  DoCorrection(pLgMaster, x, y, gXTheoryCoeffs, gYTheoryCoeffs );
+	return;
 }
 
 static void DoCorrection(struct lg_master *pLgMaster, double *x, double *y,
@@ -266,23 +275,6 @@ static void DoCorrection(struct lg_master *pLgMaster, double *x, double *y,
 		wDwR * xCoeffs[xIndex1][yIndex ][2] +
 		wUwL * xCoeffs[xIndex ][yIndex1][2] +
 		wUwR * xCoeffs[xIndex1][yIndex1][2] )
-#if	kSIX
-		+ *x * *x * (
-		wDwL * xCoeffs[xIndex ][yIndex ][3] +
-		wDwR * xCoeffs[xIndex1][yIndex ][3] +
-		wUwL * xCoeffs[xIndex ][yIndex1][3] +
-		wUwR * xCoeffs[xIndex1][yIndex1][3] )
-		+ *x * *y * (
-		wDwL * xCoeffs[xIndex ][yIndex ][4] +
-		wDwR * xCoeffs[xIndex1][yIndex ][4] +
-		wUwL * xCoeffs[xIndex ][yIndex1][4] +
-		wUwR * xCoeffs[xIndex1][yIndex1][4] )
-		+ *y * *y * (
-		wDwL * xCoeffs[xIndex ][yIndex ][5] +
-		wDwR * xCoeffs[xIndex1][yIndex ][5] +
-		wUwL * xCoeffs[xIndex ][yIndex1][5] +
-		wUwR * xCoeffs[xIndex1][yIndex1][5] )
-#endif
 		;
 	
 	*y =
@@ -295,52 +287,14 @@ static void DoCorrection(struct lg_master *pLgMaster, double *x, double *y,
 		wDwR * yCoeffs[xIndex1][yIndex ][1] +
 		wUwL * yCoeffs[xIndex ][yIndex1][1] +
 		wUwR * yCoeffs[xIndex1][yIndex1][1] )
-		+ *y * (
-		wDwL * yCoeffs[xIndex ][yIndex ][2] +
-		wDwR * yCoeffs[xIndex1][yIndex ][2] +
-		wUwL * yCoeffs[xIndex ][yIndex1][2] +
-		wUwR * yCoeffs[xIndex1][yIndex1][2] )
-#if	kSIX
-		+ *x * *x * (
-		wDwL * yCoeffs[xIndex ][yIndex ][3] +
-		wDwR * yCoeffs[xIndex1][yIndex ][3] +
-		wUwL * yCoeffs[xIndex ][yIndex1][3] +
-		wUwR * yCoeffs[xIndex1][yIndex1][3] )
-		+ *x * *y * (
-		wDwL * yCoeffs[xIndex ][yIndex ][4] +
-		wDwR * yCoeffs[xIndex1][yIndex ][4] +
-		wUwL * yCoeffs[xIndex ][yIndex1][4] +
-		wUwR * yCoeffs[xIndex1][yIndex1][4] )
-		+ *y * *y * (
-		wDwL * yCoeffs[xIndex ][yIndex ][5] +
-		wDwR * yCoeffs[xIndex1][yIndex ][5] +
-		wUwL * yCoeffs[xIndex ][yIndex1][5] +
-		wUwR * yCoeffs[xIndex1][yIndex1][5] )
-#endif
-		;
+	  + *y * (wDwL * yCoeffs[xIndex][yIndex][2]
+			+ wDwR * yCoeffs[xIndex1][yIndex][2]
+			+ wUwL * yCoeffs[xIndex][yIndex1][2]
+			+ wUwR * yCoeffs[xIndex1][yIndex1][2]);
 	
 	*x = temp;	
 	return;
 }
-
-
-void OldApplyCorrection ( double *x, double *y )
-{
-  // Next two lines fix gcc complaints
-  *x = *x;
-  *y = *y;
-  return;
-}
-					
-void OldRemoveCorrection ( double *x, double *y )
-{
-  // Next two lines fix gcc complaints
-  *x = *x;
-  *y = *y;
-  return;
-}
-
-
 void CloseAngleCorrections ( void )
 {
 	if ( gXTheoryCoeffs ) free( (void *)gXTheoryCoeffs );

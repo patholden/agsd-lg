@@ -2,9 +2,8 @@
 #ifndef LASERCMDS_H
 #define LASERCMDS_H
 
-void ResetFlexPlyCounter(void);
-void CloseLaserCommands (void);
-void InitLaserCommands ( void );
+void ResetPlyCounter(struct lg_master *pLgMaster);
+void ResetFlexPlyCounter(struct lg_master *pLgMaster);
 void DoStopCmd( struct lg_master *pLgMaster, uint32_t respondToWhom );
 void DoGoAngle(struct lg_master *pLgMaster,struct parse_goangle_parms *pInp, uint32_t respondToWhom);
 void DoEtherAngle(struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom);
@@ -31,8 +30,6 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
 			  uint32_t dataOffset, char *patternData, uint32_t respondToWhom);
 
 void DoQuickCheck(struct lg_master *pLgMaster, char *angles, uint32_t respondToWhom);
-void AbortDisplay(void);
-void ResetPlyCounter(void);
 void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number,
 		       uint32_t respondToWhom);
 void DoDisplayVideoCheck(uint32_t dataLength, char *otherParameters,
@@ -43,7 +40,4 @@ void DimAngle (struct lg_master *pLgMaster, char * parameters );
 
 double DoubleFromCharConv(unsigned char *theChar);
 void ShortConv(unsigned char *theChar);
-extern unsigned char           gAbortDisplay;
-extern uint16_t                gPlysToDisplay;
-extern uint32_t                gPlysReceived;
 #endif

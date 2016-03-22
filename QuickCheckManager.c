@@ -245,7 +245,7 @@ int ShouldDoQuickCheck ( void )
         for ( i=0; i<kNumberOfFlexPoints; i++ ) {
             xRaw = gQuickCheckAngles[gCurrentQCSet*2*kNumberOfFlexPoints+2*i  ];
             yRaw = gQuickCheckAngles[gCurrentQCSet*2*kNumberOfFlexPoints+2*i+1];
-            if ((xRaw & kMaxSigned) || (yRaw & kMaxSigned))
+            if ((xRaw & kMaxUnsigned) || (yRaw & kMaxUnsigned))
 	      doCheck = 1;
         }
 

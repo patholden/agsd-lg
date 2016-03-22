@@ -25,11 +25,11 @@ static int c2intsort( const void *elem1, const void *elem2 );
 
 int DoCoarseScan2(struct lg_master *pLgMaster,
 		  int16_t dX, int16_t dY,
-		  uint32_t lsstep, int lscount,
+		  uint16_t lsstep, uint16_t lscount,
 		  int16_t *xfound, int16_t *yfound)
 {
       struct lg_xydata  xydata;
-      struct lg_xydata  xydelta;
+      struct lg_xydelta  xydelta;
       int16_t Xarray[65536];
       int16_t Yarray[65536];
       double Dxsum, Dysum;
@@ -67,27 +67,27 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
       yoff = ymid - ((lscount * lsstep) / 2 );
    
       testlevel = DELLEV;
-      for ( x = 0x1U; x <= lscount+1; x += 0x2U ) {
+      for ( x = 1; x <= (lscount+1); x += 2) {
           notarget = 0;
-	  xydata.xdata = ((x * lsstep) + xoff) & kMaxSigned;
-	  xydata.ydata = (lsstep + yoff) & kMaxSigned;
+	  xydata.xdata = (x * lsstep) + xoff;
+	  xydata.ydata = lsstep + yoff;
           xydelta.xdata   = 0;
           xydelta.ydata = lsstep;
           nSteps = lscount;
           theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
-				    (struct lg_xydata *)&xydelta, nSteps, pLgMaster->gScan);
+				    (struct lg_xydelta *)&xydelta, nSteps, pLgMaster->gScan);
           if ( theResult == kStopWasDone ) {
 	    SearchBeamOff(pLgMaster);
                    return theResult;
           }
-          for ( y = 0x1U; y <= lscount; y += 0x1U ) {
-                 index = y * lscount + x;
-                 if ( x > 1 ) {
-                     pLgMaster->coarsedata[index] = pLgMaster->gScan[y-1];
-                 }
-                 pLgMaster->gLsort[y-1] = pLgMaster->gScan[y-1];
-          }
-          qsort(pLgMaster->gLsort, lscount, sizeof(uint32_t), c2intsort);
+          for (y = 1; y <= lscount; y ++)
+	    {
+	      index = y * lscount + x;
+	      if (x > 1)
+		pLgMaster->coarsedata[index] = pLgMaster->gScan[y-1];
+	      pLgMaster->gLsort[y-1] = pLgMaster->gScan[y-1];
+	    }
+          qsort(pLgMaster->gLsort, lscount, sizeof(int16_t), c2intsort);
           halfStep = lsstep / 2;
           testlevel = pLgMaster->gLsort[halfStep];
           if ( firstCoarse == 1 ) {
@@ -113,13 +113,13 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
           if (target_cnt >= min_target)
 	    break;
 
-	  xydata.xdata = (((x + 1) * lsstep) + xoff) & kMaxSigned;
-	  xydata.ydata = ((lscount * lsstep) + yoff) & kMaxSigned;
+	  xydata.xdata = ((x + 1) * lsstep) + xoff;
+	  xydata.ydata = (lscount * lsstep) + yoff;
           xydelta.xdata = 0;
           xydelta.ydata = -lsstep;
           nSteps = lscount;
           theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
-				    (struct lg_xydata *)&xydelta,
+				    (struct lg_xydelta *)&xydelta,
 				    nSteps, pLgMaster->gScan);
           if (theResult == kStopWasDone)
 	    {
@@ -179,18 +179,18 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
       Ihalf = Icount / 2;
       Ixavg = Xarray[Ihalf];
       Iyavg = Yarray[Ihalf];
-      *xfound = ((uint16_t)Ixavg * lsstep) + xoff;
-      *yfound = ((uint16_t)Iyavg * lsstep) + yoff;
+      *xfound = ((int16_t)Ixavg * lsstep) + xoff;
+      *yfound = ((int16_t)Iyavg * lsstep) + yoff;
       return(0);
 }
 
 
 static int c2intsort(const void *elem1, const void *elem2)
 {
-    uint16_t numone, numtwo;
+    int16_t numone, numtwo;
 
-    numone = *(const uint16_t *)elem1;
-    numtwo = *(const uint16_t *)elem2;
+    numone = *(const int16_t *)elem1;
+    numtwo = *(const int16_t *)elem2;
 
     if ( numone < numtwo ) return -1;
     if ( numone > numtwo ) return  1;
