@@ -9,7 +9,6 @@ BUILDROOTDIR = $(HOME)/buildroot
 STAGING_DIR = $(BUILDROOTDIR)/output/host/usr/x86_64-buildroot-linux-gnu/sysroot
 TOOLDIR = $(BUILDROOTDIR)/output/host/usr/bin/x86_64-buildroot-linux-gnu
 AGSCFGDIR = $(HOME)/ags/ags-config-files
-AGSSCRIPTDIR = $(HOME)/ags/ags-scripts
 CC=$(TOOLDIR)-gcc
 LD=$(TOOLDIR)-ld
 AS=$(TOOLDIR)-as
@@ -106,8 +105,8 @@ install:
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
-	chmod 777 $(AGSSCRIPTDIR)/S50agsd
-	cp $(AGSSCRIPTDIR)/S50agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
+	chmod 777 $(AGSCFGDIR)/S50agsd
+	cp $(AGSCFGDIR)/S50agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
 burnusb:
 	sudo umount /dev/sdb1
 	sudo mount /dev/sdb1 /mnt/stick
