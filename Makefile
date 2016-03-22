@@ -5,10 +5,10 @@
 #
 #       $Id: Makefile,v 1.30 2000/09/28 19:57:01 ags-sw Exp ags-sw $
 #
-BUILDROOTDIR = $(HOME)/buildroot
+BUILDROOTDIR = ../buildroot
 STAGING_DIR = $(BUILDROOTDIR)/output/host/usr/x86_64-buildroot-linux-gnu/sysroot
 TOOLDIR = $(BUILDROOTDIR)/output/host/usr/bin/x86_64-buildroot-linux-gnu
-AGSCFGDIR = $(HOME)/ags/ags-config-files
+AGSCFGDIR = ../ags-config-files
 CC=$(TOOLDIR)-gcc
 LD=$(TOOLDIR)-ld
 AS=$(TOOLDIR)-as
@@ -19,7 +19,7 @@ LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(S
 EXTRA_CFLAGS = -DAGS_DEBUG
 USERINCLUDE    := \
 	-I./ \
-	-I../../linux_headers/include
+	-I../linux_headers/include
 CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall $(USERINCLUDE)
 AGS_OBJECTS = L3DTransform.o \
 	      AngleCorrections.o \
@@ -100,7 +100,7 @@ install:
 	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
 	cp *.c $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
 	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
-	cp $(HOME)/.gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
+	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/.gdbinit
 	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
