@@ -13,7 +13,7 @@
 #define PARSE_HOBBS_LASER 4
 #define kMaxUnsigned      0xFFFF
 #define kMinSigned        0x0000
-#define kMaxSigned        0x7FFF
+#define kMaxSigned        0xFFFF
 
 extern  uint32_t  gRespondToWhom;
 struct displayData
