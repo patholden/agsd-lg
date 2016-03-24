@@ -279,7 +279,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
       total_count+= data_len;
       if (!total_count || (total_count >= COMM_RECV_MAX_SIZE))
 	{
-	  syslog(LOG_DEBUG, "Data not ready on receive");
+	  syslog(LOG_NOTICE, "Data not ready on receive");
 	  break;
 	}
       error = poll((struct pollfd *)&poll_fd, 1, 3);

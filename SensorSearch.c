@@ -334,6 +334,9 @@ int SearchForASensor (struct lg_master *pLgMaster,
 	for (longFactor = 1; longFactor <= 4 ; longFactor *= 2)
 	  {
 	    minlevel = gDELLEV;
+#ifdef AGS_DEBUG
+	    syslog(LOG_NOTICE,"SRCH4SENS: XY angle x=%x,y=%x,factor %d",startX,startY,longFactor);
+#endif
 	    theResult = DoCoarseScan(pLgMaster, startX, startY, 4,
                                      (32 * longFactor), &f1x, &f1y);
 	    if (theResult == kStopWasDone)
@@ -610,7 +613,7 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
     if (IfStopThenStopAndNeg1Else0(pLgMaster))
       return(kStopWasDone);
     ptr  = gLout;
-    memset((char *)pLgMaster->gLsort, 0, nStepsIn*sizeof(uint16_t));
+    memset((char *)pLgMaster->gLsort, 0, nStepsIn*sizeof(int16_t));
     for (i = 0; i < nStepsIn; i++)
       pLgMaster->gLsort[i] = gLout[i];
     qsort(pLgMaster->gLsort, nStepsIn, sizeof(int16_t), sensor_sort);
@@ -865,7 +868,7 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	  return(kStopWasDone);
 
-	memset((char *)gLout, 0, (7 * sizeof(uint16_t)));
+	memset((char *)gLout, 0, (7 * sizeof(int16_t)));
 	index = 0; ptr = gLout;  tmpX = currentX;
 	if (j > 1)
 	  {
@@ -1465,7 +1468,7 @@ DoSuperLevelSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY
                  gSuperReturn[i][j] = 0;
             }
         }
-        ptr = gLoutPtr;
+        ptr = (char *)gLoutPtr;
         localCount = 0;
         sweepSumX = 0.0; 
         sweepSumY = 0.0; 
@@ -1622,7 +1625,7 @@ static int findFirstLast(struct lg_master *pLgMaster, int16_t *firstX, int16_t *
         startY = (double)currentY;
         dX = (double)((int32_t)xStep);
         dY = (double)((int32_t)yStep);
-        while (i < nSteps)
+        while (ptr && (i < nSteps))
 	  {
 	    dI = (double)i;
 	    tmpX = startX + dI * dX;

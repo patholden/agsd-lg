@@ -318,6 +318,7 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
       pResp->hdr.status1 = RESPFAIL;
       pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+      return;
     }
   else
     {

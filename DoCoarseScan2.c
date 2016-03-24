@@ -16,7 +16,6 @@
 #include "Protocol.h"
 #include "LaserInterface.h"
 
-extern int32_t * gLsort;
 uint32_t DCS2minlevel = 70;
 
 #define DELLEV 30
@@ -45,8 +44,8 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
       int min_target = 6;
       int theResult;
       uint32_t testlevel;
-      uint32_t xmid;
-      uint32_t ymid;
+      int16_t xmid;
+      int16_t ymid;
       int Icount;
       int Ihalf;
       int16_t Ixavg;
@@ -61,7 +60,7 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
       memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
       memset((char *)&Xarray[0], 0, sizeof(Xarray));
       memset((char *)&Yarray[0], 0, sizeof(Yarray));
-      memset((char *)pLgMaster->coarsedata, 0, 512*512*sizeof(uint16_t));
+      memset((char *)pLgMaster->coarsedata, 0, 512*512*sizeof(int16_t));
 
       xoff = xmid - ((lscount * lsstep) / 2 );
       yoff = ymid - ((lscount * lsstep) / 2 );

@@ -30,8 +30,8 @@ DoCoarseScan(struct lg_master *pLgMaster, int16_t dX, int16_t dY,
       int16_t Yarray[65536];
       double Dxsum, Dysum;
       double Dcount;
-      int32_t xoff, yoff;
-      int32_t x, y;
+      int16_t xoff, yoff;
+      int16_t x, y;
       int16_t nSteps;
       int firstCoarse = 1;
       uint32_t index;
@@ -41,8 +41,8 @@ DoCoarseScan(struct lg_master *pLgMaster, int16_t dX, int16_t dY,
       uint32_t testlevel;
       int notarget;
       int theResult;
-      int32_t xmid;
-      int32_t ymid;
+      int16_t xmid;
+      int16_t ymid;
       int Icount;
       int Ihalf;
       int16_t Ixavg;
@@ -160,8 +160,8 @@ DoCoarseScan(struct lg_master *pLgMaster, int16_t dX, int16_t dY,
 		  Dxsum += (double)x;
 		  Dysum += (double)y;
 		  Dcount += 1.0;
-		  Xarray[Icount] = (int32_t)x;
-		  Yarray[Icount] = (int32_t)y;
+		  Xarray[Icount] = x;
+		  Yarray[Icount] = y;
 		  Icount++;
 		}
 	    }

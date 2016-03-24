@@ -121,8 +121,8 @@ static void FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
 	pXYout->ydata = last_xypos.ydata;
 	pXYout->ctrl_flags = last_xypos.ctrl_flags;
 	count++;
-	dx = (double)(cur_xypos.xdata - last_xypos.xdata);
-	dy = (double)(cur_xypos.ydata - last_xypos.ydata);
+	dx = (double)cur_xypos.xdata - (double)last_xypos.xdata;
+	dy = (double)cur_xypos.ydata - (double)last_xypos.ydata;
 	dsqr = dx*dx + dy*dy;
 	dlen = sqrt(dsqr);
 	if (dlen > pLgMaster->dmax)
@@ -149,8 +149,8 @@ static void FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
     pXYout->xdata = last_xypos.xdata;
     pXYout->ydata = last_xypos.ydata;
     pXYout->ctrl_flags = last_xypos.ctrl_flags;
-    dx = (double)(first_xypos.xdata - last_xypos.xdata);
-    dy = (double)(first_xypos.ydata - last_xypos.ydata);
+    dx = (double)first_xypos.xdata - (double)last_xypos.xdata;
+dy = (double)first_xypos.ydata - (double)last_xypos.ydata;
     dsqr = dx*dx + dy*dy;
     if (dsqr > (pLgMaster->dmax * pLgMaster->dmax))
       {
@@ -183,9 +183,6 @@ static void FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
     cmd_buff->base.length = ptn_len;
     write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
     free(cmd_buff);
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"FILLDISPBUFF: Starting display for %d XY pairs, first x=%x,y=%x", count, out_pattern->xdata,out_pattern->ydata);
-#endif
     return;
 }
 void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, int32_t do_response, uint32_t respondToWhom)
@@ -251,9 +248,6 @@ void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData
 {
     pLgMaster->gDisplayFlag = 0;
     SetHighBeam(pAngleData);
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"POSTETHER: x=%x,y=%x",pAngleData->xdata, pAngleData->ydata);
-#endif
     move_lite(pLgMaster, pAngleData);
     doWriteDevPoints(pLgMaster, pAngleData);
     return;
@@ -267,12 +261,10 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
   gResponseBuffer.status = RESPGOOD;
   SetHighBeam(pAngleData);
   move_lite(pLgMaster, pAngleData);
-#ifdef AGS_DEBUG
-  syslog(LOG_DEBUG,"\nGOANGLE: x=%d,y=%d",pAngleData->xdata, pAngleData->ydata);
-#endif
   doWriteDevPoints(pLgMaster, pAngleData);
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
     DoRespond (pLgMaster, (struct k_header *)&gResponseBuffer);
+  usleep(1000000);
   return;
 }
 void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, uint32_t respondToWhom )
@@ -644,7 +636,8 @@ int doLGSTOP(struct lg_master *pLgMaster)
 }
 int doROIOff(struct lg_master *pLgMaster)
 {
-  return(doWriteDevCmdNoData(pLgMaster, CMDW_ROIOFF));
+    usleep(250000);
+    return(doWriteDevCmdNoData(pLgMaster, CMDW_ROIOFF));
 }
 int doDevDisplay(struct lg_master *pLgMaster)
 {
@@ -672,7 +665,7 @@ int doSetSearchBeam(struct lg_master *pLgMaster)
 }
 int doClearSearchBeam(struct lg_master *pLgMaster)
 {
-  return(doWriteDevCmdNoData(pLgMaster, CMDW_SEARCHBEAMOFF));
+  return(doWriteDevCmdNoData(pLgMaster, CMDW_SEARCHBEAMON));
 }
 int doSetReadyLED(struct lg_master *pLgMaster)
 {
@@ -767,8 +760,7 @@ void SetHighBeam(struct lg_xydata *pDevXYData)
 void SetLowBeam(struct lg_xydata *pDevXYData)
 {
     // Set beam LOW, keep laser enabled
-    pDevXYData->ctrl_flags = BEAMONISSET;
-    pDevXYData->ctrl_flags = LASERENBISSET;
+    pDevXYData->ctrl_flags = BEAMONISSET | LASERENBISSET;
     return;
 }
 void SetDarkBeam(struct lg_xydata *pDevXYData)
@@ -902,12 +894,13 @@ static void SaveBeamPosition(struct lg_master *pLgMaster, char *data)
 
 void RestoreBeamPosition(struct lg_master *pLgMaster)
 {
-  move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
+    move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
 #ifdef AGS_DEBUG
-  syslog(LOG_DEBUG,"\nRESTOREBEAM: x=%d,y=%d",pLgMaster->gSaveXY.xdata, pLgMaster->gSaveXY.ydata);
+    syslog(LOG_DEBUG,"\nRESTOREBEAM: x=%d,y=%d",pLgMaster->gSaveXY.xdata, pLgMaster->gSaveXY.ydata);
 #endif
-  doWriteDevPoints(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
-  return;
+    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
+    usleep( 10000 );
+    return;
 }
 
 void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData)
@@ -989,7 +982,6 @@ void JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
 
   // Set pattern length established in command arguments
   ptn_len = pattern_len;
-
   // Send new settings to laser-dev
   doLGSTOP(pLgMaster);
   doSetClock(pLgMaster, KETIMER_10M);
@@ -1017,14 +1009,11 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
 
     /* move slowly from current position to start of pattern */
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
-  // FIXME---PAH---Do we need usleep?
-  // Can 4 writes to device be replaced with 1 single command?
     doLGSTOP(pLgMaster);
+    doSetClock(pLgMaster, KETIMER_10M);
     doStopPulse(pLgMaster);
+    usleep( 10000 );
     ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG, "MOVE_LITE:  GETANGLE x=%x,y=%x,flags=%x",pNewData->xdata, pNewData->ydata,pNewData->ctrl_flags);
-#endif
     dx = (double)pNewData->xdata - (double)xydata.xdata;
     dy = (double)pNewData->ydata - (double)xydata.ydata;
     dsqr = dx*dx + dy*dy;
@@ -1037,14 +1026,10 @@ static int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
 	n += 60;
 	xydelta.xdata =  (int16_t)(dx / n);
 	xydelta.ydata =  (int16_t)(dy / n);
-#ifdef AGS_DEBUG
-	syslog(LOG_DEBUG, "MOVE_LITE:  Delta x=%x, y=%x",xydelta.xdata, xydelta.ydata);
-#endif
 	doWriteDevDelta(pLgMaster, (struct lg_xydelta *)&xydelta);
 	doLoadReadNum(pLgMaster, n);
 	doSensor(pLgMaster);
-	// FIXME---PAH---why is this sleep here?
-	//      usleep( 2 * (int)n * 150  + 2000 );
+	usleep(2 * (int)n * 150  + 2000);
       }
 
     doSetClock(pLgMaster, KETIMER_10M);
@@ -1062,6 +1047,7 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   /* move slowly from current position to start of pattern */
   doLGSTOP(pLgMaster);
   doStopPulse(pLgMaster);
+  usleep(20000);
   doSetClock(pLgMaster, pLgMaster->gPeriod);
   ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
   dx = (double)pNewData->xdata - (double)xydata.xdata;
@@ -1075,20 +1061,15 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
   xydelta.xdata =  (int16_t)(dx / n);
   xydelta.ydata =  (int16_t)(dy / n);
   xydelta.ctrl_flags = pNewData->ctrl_flags;
-#ifdef AGS_DEBUG
-  syslog(LOG_DEBUG, "MOVE_DARK:  Delta x=%x, y=%x",xydelta.xdata, xydelta.ydata);
-#endif
   doWriteDevDelta(pLgMaster, (struct lg_xydelta *)&xydelta);
   doLoadReadNum(pLgMaster, n);
   doSetClock(pLgMaster, KETIMER_150U);
   doDarkSensor(pLgMaster);
 
-#if 0
   // FIXME---PAH---why is this sleep here?
   // And why is clock changed mid operation?
-  //  usleep((2 * (int)n * 150) + 2000);
+  usleep((2 * (int)n * 150) + 2000);
   doSetClock(pLgMaster, KETIMER_10M);
-#endif
   /* end of dark move */
   return(0);
 }

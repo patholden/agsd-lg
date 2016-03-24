@@ -114,7 +114,7 @@ burnusb:
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick/boot
-	sudo cp $(HOME)/ags/ags-demo/rev1.0/extlinux.conf /mnt/stick
+	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/stick
 	sudo umount /dev/sdb1
 	sudo umount $(BUILDROOTDIR)/output/ext2
 

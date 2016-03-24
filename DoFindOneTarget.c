@@ -48,7 +48,13 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
 #ifdef AGS_DEBUG
   syslog(LOG_NOTICE,"DOFIND1TGT: XY angle x=%x,y=%x",ptX,ptY);
 #endif
-  pResp->hdr.errtype = htons((uint16_t)rc);
+  if (rc)
+    {
+      pResp->hdr.status1 = RESPFAIL;
+      pResp->hdr.errtype = RESPE1INANGLEOUTOFRANGE;
+      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+      return;
+    }
   rc = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
   if (rc == kStopWasDone)
     {

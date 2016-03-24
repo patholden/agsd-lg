@@ -213,17 +213,11 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	}
       if ((pLgMaster->gHeaderSpecialByte & 0x80))
 	{
-#ifdef AGS_DEBUG
-	  syslog(LOG_DEBUG,"PostCmdDisplay from DoFlexDisplayChunks");
-#endif
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, respondToWhom);
 	  ResetFlexPlyCounter(pLgMaster);
 	}
       else
 	{
-#ifdef AGS_DEBUG
-	  syslog(LOG_DEBUG,"PostCmdDisp from DoFlexDisplayChunks");
-#endif
 	  PostCmdDisplay(pLgMaster,(struct displayData *)&dispData, SENDRESPONSE, respondToWhom);
 	  ResetFlexPlyCounter(pLgMaster);
 	}
@@ -231,7 +225,6 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
   return;
 }
 
-//FIXME---PAH---look into anglepair input
 void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 		    struct parse_flexdisp_parms *parameters, char *patternData)
 {
