@@ -4,7 +4,6 @@
 
 int CommInit(struct lg_master *pLgMaster);
 int CommConfigSockfd(struct lg_master *pLgMaster);
-int IfStopThenStopAndNeg1Else0(struct lg_master *pLgMaster);
 int DoProcEnetPackets(struct lg_master *pLgMaster);
 void SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand);
 void SendA3(struct lg_master *pLgMaster);

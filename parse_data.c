@@ -51,9 +51,13 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   unsigned char *pInp;
   uint32_t       index;
   uint32_t       i,cmdSize;
-  uint32_t dataLength=0;
-  uint32_t dataOffset;
-  uint32_t number;
+  uint32_t       dataLength=0;
+  uint32_t       dataOffset;
+  uint32_t       number;
+#ifdef SPECIAL
+  struct timeval  tv;
+  struct timezone tz;
+#endif
   //  FIXME--PAH  int magic, magic_too, flag;
 
   if (!pLgMaster || !pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer || !pLgMaster->theResponseBuffer || !data || (data_len > kMaxDataLength))

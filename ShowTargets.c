@@ -88,9 +88,6 @@ static void limit2C(int16_t currentX, int16_t currentY,
 		    int16_t *eolXNeg, int16_t *eolX001,
 		    int16_t *eolX002, int16_t *eolXPos,
 		    int16_t *eolYNeg, int16_t * eolYPos);
-static void limitXY(int16_t currentX, int16_t currentY,
-		    int16_t *eolXNeg, int16_t *eolXPos,
-		    int16_t *eolYNeg, int16_t * eolYPos);
 
 //Start of local functions
 void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Parameters, uint32_t respondToWhom )
@@ -268,7 +265,7 @@ static void DoCross(int16_t currentX, int16_t currentY,
     if (!tmpPtr)
       return;
 
-    limitXY(currentX,currentY,&eolXNeg,&eolXPos,&eolYNeg,&eolYPos);
+    limitXY(currentX,currentY,&eolXNeg,&eolXPos,&eolYNeg,&eolYPos, kNumberStep);
     outX = currentX;
     outY = currentY;
 
@@ -407,7 +404,7 @@ static void DoSquare(int16_t currentX, int16_t currentY,
     if (!tmpPtr)
       return;
 
-    limitXY(currentX,currentY,&eolXNeg,&eolXPos,&eolYNeg,&eolYPos);
+    limitXY(currentX,currentY,&eolXNeg,&eolXPos,&eolYNeg,&eolYPos,kNumberStep);
     outX = currentX;
     count = *pIndex;
     for (j = 0; j < 10; j++)
@@ -510,7 +507,7 @@ static void Do1(int16_t currentX, int16_t currentY, char *tmpPtr, uint32_t *pInd
     int16_t XPos;
     int16_t YNeg;
     int16_t YPos;
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw1(currentX, YNeg, YPos, tmpPtr, pIndex);
   return;
 }
@@ -521,7 +518,7 @@ static void Do2(int16_t currentX, int16_t currentY, char *tmpPtr, uint32_t *pInd
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw2(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
     return;
 }
@@ -534,7 +531,7 @@ static void Do3(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw3(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
     return;
 }
@@ -548,7 +545,7 @@ static void Do4(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw4(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
     return;
 }
@@ -562,7 +559,7 @@ static void Do5(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw5(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
     return;
 }
@@ -575,7 +572,7 @@ static void Do6(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw6(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
     return;
 }
@@ -587,7 +584,7 @@ static void Do7(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw7( XNeg,XPos,YNeg,YPos, tmpPtr, pIndex );
     return;
 }
@@ -599,7 +596,7 @@ static void Do8(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw8( XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex );
     return;
 }
@@ -611,7 +608,7 @@ static void Do9(int16_t currentX, int16_t currentY,
     int16_t YNeg;
     int16_t YPos;
 
-    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos);
+    limitXY(currentX,currentY,&XNeg,&XPos,&YNeg,&YPos,kNumberStep);
     Draw9(XNeg,XPos,YNeg,currentY,YPos, tmpPtr, pIndex);
     return;
 }
@@ -1084,30 +1081,6 @@ static void off_pause(int16_t x1, int16_t y1, char *tmpPtr, uint32_t *pIndex)
   return;
 }
 
-static void limitXY(int16_t currentX, int16_t currentY,
-		    int16_t *eolXNeg, int16_t *eolXPos,
-		    int16_t *eolYNeg, int16_t * eolYPos)
-{
-    
-    if ((currentX + kNumberStep) > kMaxSigned)
-      *eolXPos   =  kMaxSigned;
-    else
-      *eolXPos =  currentX + kNumberStep; 
-    if ((currentX - kNumberStep) < kMinSigned)
-      *eolXNeg   =  kMinSigned;
-    else
-      *eolXNeg = currentX - kNumberStep; 
-    
-    if ((currentY + kNumberStep) > kMaxSigned)
-      *eolYPos   =  kMaxSigned;
-    else
-      *eolYPos = currentY + kNumberStep; 
-    if ((currentY - kNumberStep) < kMinSigned)
-      *eolYNeg   =  kMinSigned;
-    else
-      *eolYNeg = currentY - kNumberStep;
-    return;
-}
 
 static void limit2C(int16_t currentX, int16_t currentY,
 		    int16_t *eolXNeg, int16_t *eolX001,
@@ -1124,11 +1097,11 @@ static void limit2C(int16_t currentX, int16_t currentY,
     else
       *eolX002 = currentX + kNumberStep/3; 
     if ((currentX + (kNumberStep/3)) < kMinSigned)
-      *eolX001   =  kMinSigned;
+      *eolX001   =  kMinSigned & kMaxUnsigned;
     else
       *eolX001 = currentX - kNumberStep/3; 
     if ((currentX + kNumberStep) < kMinSigned)
-      *eolXNeg   =  kMinSigned;
+      *eolXNeg   =  kMinSigned & kMaxUnsigned;
     else
       *eolXNeg =  currentX - kNumberStep; 
     if ((currentY + kNumberStep) > kMaxSigned)
@@ -1136,7 +1109,7 @@ static void limit2C(int16_t currentX, int16_t currentY,
     else
       *eolYPos =  currentY + kNumberStep; 
     if ((currentY - kNumberStep) < kMinSigned)
-      *eolYNeg   =  kMinSigned;
+      *eolYNeg   =  kMinSigned & kMaxUnsigned;
     else
       *eolYNeg = currentY - kNumberStep;
     return;

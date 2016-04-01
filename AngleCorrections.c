@@ -40,16 +40,6 @@ enum
 	kY
 };
 
-#define kSIX	0
-#define kFOUR	0
-#define	kMaxNumberOfCALIBAngles	4000
-
-#define	kGridPointsX	61
-#define	kGridPointsY	61
-#define	kGridOriginX	-30.0
-#define	kGridStepX		1.0
-#define	kGridOriginY	-30.0
-#define	kGridStepY		1.0
 
 static	unsigned char		gHalfWayThru = false;
 

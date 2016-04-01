@@ -9,6 +9,7 @@ BUILDROOTDIR = ../buildroot
 STAGING_DIR = $(BUILDROOTDIR)/output/host/usr/x86_64-buildroot-linux-gnu/sysroot
 TOOLDIR = $(BUILDROOTDIR)/output/host/usr/bin/x86_64-buildroot-linux-gnu
 AGSCFGDIR = ../ags-config-files
+LNXHDRDIR = ../linux_headers
 CC=$(TOOLDIR)-gcc
 LD=$(TOOLDIR)-ld
 AS=$(TOOLDIR)-as
@@ -19,9 +20,10 @@ LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(S
 EXTRA_CFLAGS = -DAGS_DEBUG
 USERINCLUDE    := \
 	-I./ \
-	-I../linux_headers/include
+	-I$(LNXHDRDIR)/include
 CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall $(USERINCLUDE)
-AGS_OBJECTS = L3DTransform.o \
+AGS_OBJECTS = Main.o \
+	      L3DTransform.o \
 	      AngleCorrections.o \
               APTParser.o \
               CRCHandler.o  \
@@ -60,14 +62,12 @@ AGS_OBJECTS = L3DTransform.o \
 	      CalibXY.o \
 	      segtest.o segpoly.o pnpoly.o tan_init.o \
 	      area_order.o heap.o allace4.o shoelace4.o \
-	      CalculateTransform.o
+	      CalculateTransform.o \
+	      SensorSearch.o  Files.o
 #
 #
-agsd : Main.o $(AGS_OBJECTS) SensorSearch.o Files.o
-	$(CC) $(LDFLAGS) -o $@ $(AGS_OBJECTS) Main.o SensorSearch.o Files.o
-
-ISensorSearch.o : ISensorSearch.c
-	$(CC) ISensorSearch.c -o ISensorSearch.o -c $(CFLAGS)
+agsd : $(AGS_OBJECTS)
+	$(CC) $(LDFLAGS) -o $@ $(AGS_OBJECTS)
 
 jigqc : $(JIG_OBJECTS) jigqc.o
 	$(CC) jigqc.o -o jigqc ${JIG_OBJECTS} -g -lm /usr/lib/libncurses.a -static
@@ -75,31 +75,21 @@ jigqc : $(JIG_OBJECTS) jigqc.o
 oneside : $(AGS_OBJECTS) oneside.o
 	$(CC) oneside.o -o oneside ${AGS_OBJECTS} fork.CTB.o SensorSearch.o -g -lm /usr/lib/libncurses.a -static
 
-%.o: %.c
+%.o: %.c BoardComm.h $(LNXHDRDIR)/include/linux/laser_api.h
 	$(CC) -c -o $@ $(CFLAGS) $(EXTRA_CFLAGS) $<
-
-Main.o:  Main.c
-	$(CC) -c -o Main.o $(CFLAGS) $(EXTRA_CFLAGS) Main.c
-
-Files.o: Files.c
-	$(CC) -c -o Files.o $(CFLAGS) $(EXTRA_CFLAGS) Files.c
 
 jigqc.o: jigqc.c
 	$(CC) -c -o jigqc.o $(CFLAGS) $(EXTRA_CFLAGS) jigqc.c
 
 oneside.o: oneside.c
 	$(CC) -c -o oneside.o $(CFLAGS) $(EXTRA_CFLAGS) oneside.c
-oclean:
-	rm -f *.o agsd
-
 clean:
 	rm -f *.o agsd
 install:
 	chmod 777 agsd
-	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/
 	cp agsd $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
-	cp *.c $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
-	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
+	cp *.c $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
+	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/.gdbinit
 	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
@@ -111,6 +101,7 @@ burnusb:
 	sudo umount /dev/sdb1
 	sudo mount /dev/sdb1 /mnt/stick
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
+	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/stick
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick/boot

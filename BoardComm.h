@@ -11,10 +11,33 @@
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
 #define PARSE_HOBBS_LASER 4
+#define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
+#define MAX_DOSENSE_RETRIES 10
+#define DOSENSE_LEVEL       30
+#define DOSENSE_MAX       0x3F0
+#define DOSENSE_MID       0x300
 #define kMaxUnsigned      0xFFFF
 #define kMaxSigned        0x7FFF
-#define kMinSigned        -kMaxSigned
+#define kMinSigned        (-kMaxSigned)
 #define kBinaryCenter	   0.50
+#define kCoarseFactorDef   8
+#define kCoarseFactorMin   1
+#define kCoarseSrchStpDef  8
+#define kCoarseSrchStpMin  1
+#define kHatchFactorDef    100
+#define kCoarseFactor      8
+#define kSIX	0
+#define kFOUR	0
+#define	kMaxNumberOfCALIBAngles	4000
+#define	kGridPointsX	61
+#define	kGridPointsY	61
+#define	kGridOriginX	-30.0
+#define	kGridStepX		1.0
+#define	kGridOriginY	-30.0
+#define	kGridStepY		1.0
+#define	kDefaultDeltaMirror .50
+#define kXMirrorAngularRange  30.0	
+#define kYMirrorAngularRange  30.0	
 
 extern  uint32_t  gRespondToWhom;
 struct displayData
@@ -78,7 +101,7 @@ struct lg_master {
   unsigned char   *gRawBuffer;
   unsigned char   *gParametersBuffer;
   unsigned char   *theResponseBuffer;
-  int16_t         *gScan;
+  uint16_t         *gScan;
   uint16_t        *coarsedata;
   uint16_t        *gLsort;
   int             af_serial;
@@ -88,6 +111,7 @@ struct lg_master {
   int             serial_ether_flag;
   unsigned long   gProjectorSerialNumber;
   uint32_t        gHEX;
+  uint32_t        rcvdStopCmd;
   uint32_t        enet_retry_count;
   uint32_t        gotA1;
   uint32_t        gDataChunksLength;
@@ -99,8 +123,15 @@ struct lg_master {
   uint32_t        gBestTargetNumber;
   uint32_t        gPlysToDisplay;
   uint32_t        gPlysReceived;
+  uint32_t        LongOrShortThrowSearch;
+  uint32_t        gNumberOfSpirals;
+  uint32_t        gSpiralFactor;
+  uint32_t        gDwell;
+  uint32_t        gMultipleSweeps;
   int32_t         gQCcount;
-  int32_t         gCoarse2SearchStep;
+  int32_t         gCoarse2Factor;
+  int32_t         gHatchFactor;
+  int16_t         gCoarse2SearchStep;
   int16_t         gXcheck;
   int16_t         gYcheck;
   uint16_t        seqNo;
@@ -127,7 +158,6 @@ void ClearROIsearch(void);
 int CheckStopFlag(void);
 void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char * data,
 		 uint32_t respondToWhom);
-int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster);
 void SetHighBeam(struct lg_xydata *pDevXYData);
 void SetLowBeam(struct lg_xydata *pDevXYData);
 void SetDarkBeam(struct lg_xydata *pDevXYData);
@@ -164,7 +194,7 @@ void doClearLinkLED(struct lg_master *pLgMaster);
 void doSetLinkLED(struct lg_master *pLgMaster);
 int doSetShutterENB(struct lg_master *pLgMaster);
 int doLoadWriteNum(struct lg_master *pLgMaster, uint32_t write_count);
-int doLoadReadNum(struct lg_master *pLgMaster, uint32_t read_count);
+int doLoadTGFindNum(struct lg_master *pLgMaster, uint32_t read_count);
 int doSetPulseOff(struct lg_master *pLgMaster, uint32_t pulse_off);
 int doSetPulseOn(struct lg_master *pLgMaster, uint32_t pulse_on);
 int doSetClock(struct lg_master *pLgMaster, uint32_t clock_rate);
@@ -175,14 +205,17 @@ void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData);
 void GoToPulse(struct lg_master *pLgMaster, struct lg_xydata *pPulseData,
 	       int32_t pulseoffvalue, int32_t pulseonvalue);
 int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
+int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 void ResumeDisplay(struct lg_master *pLgMaster);
 int32_t GetQCflag(struct lg_master *pLgMaster);
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydelta *pDeltaData, int16_t n, int16_t *c_out);
+		  struct lg_xydelta *pDeltaData, uint32_t nPoints, uint16_t *c_out,uint32_t minlevel);
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		 struct lg_xydelta *pDeltaData, int16_t n, unsigned char *c_out);
+		 struct lg_xydelta *pDeltaData, uint32_t nPoints);
 void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, int32_t do_response, uint32_t respondToWhom);
 void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData);
 void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom);
-
+void limitXY(int16_t currentX, int16_t currentY, int16_t *eolXNeg, int16_t *eolXPos, int16_t *eolYNeg,
+	     int16_t * eolYPos, int16_t delta);
+void AdjustXYLimit(int16_t *eolXPos, int16_t *eolXNeg, int16_t *eolYPos, int16_t *eolYNeg, int16_t delta);
 #endif // BOARDCOMM_H

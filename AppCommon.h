@@ -16,7 +16,7 @@
 #define GQCCOUNT_DEFAULT -1
 #define GBEAMLNRNG_DEF 100.L
 #define GBAUD_DEFAULT 115200
-#define MAX_LGDEV_BUFF    262144  /* maximum size of lg_data_out[] for laser-dev */
+
 enum {
         false,
         true

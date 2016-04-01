@@ -201,8 +201,8 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
 	/*
 	 *  allow for a variable speed search, in needed
 	 */
-	gCoarse2Factor     = gCoarseFactor;
-	pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+	pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
+	pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
 	while (j--)
 	  {
 	    pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
@@ -211,9 +211,11 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
                         if ( useTarget[i] == 1 ) {
 			  searchResult = SearchForASensor ( pLgMaster, ptX,
 							    ptY, &fndX, &fndY );
-			  if ( searchResult == kStopWasDone ) {
-                                fndX = 0;
-                                fndY = 0;
+			  if (searchResult == kStopWasDone)
+			    {
+			      SearchBeamOff(pLgMaster);
+			      fndX = 0;
+			      fndY = 0;
                             }
                         } else {
                             searchResult = 99;
@@ -227,14 +229,14 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
 			if (!searchResult)
 			  break;
 		        pLgMaster->gCoarse2SearchStep /= 2;
-		        gCoarse2Factor     /= 2; 
-			if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
-		        	pLgMaster->gCoarse2SearchStep = 0x00010000;
-		        	gCoarse2Factor     = 1;
+		        pLgMaster->gCoarse2Factor     /= 2; 
+			if (pLgMaster->gCoarse2SearchStep < kCoarseSrchStpMin) {
+		        	pLgMaster->gCoarse2SearchStep = kCoarseSrchStpMin;
+		        	pLgMaster->gCoarse2Factor     = kCoarseFactorMin;
 			}
 		}
-		gCoarse2Factor     = gCoarseFactor;
-		pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+		pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
+		pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
 		
 		if ( searchResult ) {
 			lostSensors += 1U << i;

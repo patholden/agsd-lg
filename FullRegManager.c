@@ -76,8 +76,6 @@ void PerformAndSendFullReg(struct lg_master *pLgMaster, struct lg_xydata *pXYdat
 	/*
 	 *  allow for a variable speed search, in needed
 	 */
-	gCoarse2Factor     = gCoarseFactor;
-	pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 	while (j--)
 	  {
 	    pCurXY = (struct lg_xydata *)((char *)pXYdata + (sizeof(struct lg_xydata) * i));
@@ -87,19 +85,21 @@ void PerformAndSendFullReg(struct lg_master *pLgMaster, struct lg_xydata *pXYdat
 	    Xarr[i] = fndX;
 	    Yarr[i] = fndY;
 	    if (searchResult == kStopWasDone)
-	      return;
+	      {
+		SearchBeamOff(pLgMaster);
+		return;
+	      }
 	    if (!searchResult)
 	      break;
 	    pLgMaster->gCoarse2SearchStep /= 2;
-	    gCoarse2Factor /= 2; 
+	    pLgMaster->gCoarse2Factor /= 2; 
 	    if (pLgMaster->gCoarse2SearchStep <= 1)
 	      {
 		pLgMaster->gCoarse2SearchStep = 1;
-		gCoarse2Factor     = 1;
+		pLgMaster->gCoarse2Factor     = 1;
 	      }
 	  }
-	gCoarse2Factor     = gCoarseFactor;
-	pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+	pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
 	if (searchResult)
 	  lostSensors += 1 << i;
 	else

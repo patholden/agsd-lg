@@ -34,9 +34,6 @@ static	double	gYGeometricCoefficient;
 static	double	gXGeometricCenterAngle;
 static	double	gYGeometricCenterAngle;
 
-#define	kDefaultDeltaMirror .50
-#define kXMirrorAngularRange  30.0	
-#define kYMirrorAngularRange  30.0	
 double gDeltaMirror = -1.0;
 double gMirrorThickness = 0.050;
 enum
