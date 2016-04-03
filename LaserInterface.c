@@ -34,11 +34,6 @@ static	double	gYGeometricCoefficient;
 static	double	gXGeometricCenterAngle;
 static	double	gYGeometricCenterAngle;
 
-#define	kDefaultDeltaMirror .50
-//#define kBinaryCenter	   -.50
-#define kBinaryCenter	   0.50
-#define kXMirrorAngularRange  30.0	
-#define kYMirrorAngularRange  30.0	
 double gDeltaMirror = -1.0;
 double gMirrorThickness = 0.050;
 enum
@@ -128,16 +123,13 @@ void XYFromGeometricAnglesAndZ(struct lg_master *pLgMaster, double xa, double ya
 void ConvertBinaryToMirrorAngles(int16_t xIn, int16_t yIn, double *xOut, double *yOut)
 {
     if (xIn < 0)
-      *xOut = (double)(xIn * kXMirrorAngularRange / gBinarySpanEachDirection) - kBinaryCenter;
+      *xOut = kXMirrorAngularRange * ((double)xIn - kBinaryCenter) / gBinarySpanEachDirection;
     else
-      *xOut = (double)(xIn * kXMirrorAngularRange / gBinarySpanEachDirection) + kBinaryCenter;
+      *xOut = kXMirrorAngularRange * ((double)xIn + kBinaryCenter) / gBinarySpanEachDirection;
     if (yIn < 0)
-      *yOut = (double)(yIn * kYMirrorAngularRange / gBinarySpanEachDirection) - kBinaryCenter;
+      *yOut = kXMirrorAngularRange * ((double)yIn - kBinaryCenter) / gBinarySpanEachDirection;
     else
-      *yOut = (double)(yIn * kYMirrorAngularRange / gBinarySpanEachDirection) - kBinaryCenter;
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"CNVRTBINTOMIRANGL: x=%f, y=%f,span%f",*xOut, *yOut,gBinarySpanEachDirection);
-#endif
+      *yOut = kXMirrorAngularRange * ((double)xIn + kBinaryCenter) / gBinarySpanEachDirection;
     return;
 }
 uint32_t ConvertMirrorAnglesToBinary(double xIn, double yIn,
@@ -147,44 +139,43 @@ uint32_t ConvertMirrorAnglesToBinary(double xIn, double yIn,
   
   if ( xIn >kXMirrorAngularRange )
     {
-      *xOut = (int16_t)gBinarySpanEachDirection;
+      *xOut = kMaxSigned;
       theResult = kXTooLarge;
     }
   else
     {
       if (xIn < -kXMirrorAngularRange)
 	{
-	  *xOut = (int16_t)-gBinarySpanEachDirection;
+	  *xOut = kMinSigned;
 	  theResult = kXTooSmall;
 	}
       else
 	{
-	  (xIn > 0) ? (xIn += kBinaryCenter) : (xIn -= kBinaryCenter);
-	  *xOut = (int16_t)(xIn * gBinarySpanEachDirection / kXMirrorAngularRange);
+	  (xIn > 0) ?
+	    (*xOut = (int16_t)((double)(xIn * gBinarySpanEachDirection / kXMirrorAngularRange) + kBinaryCenter))
+	    : (*xOut = (int16_t)((double)(xIn * gBinarySpanEachDirection / kXMirrorAngularRange) - kBinaryCenter));
 	}
     }
 
   if (yIn > kYMirrorAngularRange)
     {
-      *yOut = (int16_t)gBinarySpanEachDirection;
+      *yOut = kMaxSigned;
       theResult += kYTooLarge;
     }
   else
     {
       if (yIn < -kYMirrorAngularRange)
 	{
-	  *yOut = (int16_t)-gBinarySpanEachDirection;
+	  *yOut = kMinSigned;
 	  theResult += kYTooSmall;
 	}
       else
 	{
-	  (yIn > 0) ? (yIn += kBinaryCenter) : (yIn -= kBinaryCenter);
-	  *yOut = (int16_t)(yIn * gBinarySpanEachDirection / kYMirrorAngularRange);
+	  (yIn > 0) ?
+	    (*yOut = (int16_t)((yIn * gBinarySpanEachDirection / kYMirrorAngularRange) + kBinaryCenter))
+	    : (*yOut = (int16_t)((yIn * gBinarySpanEachDirection / kYMirrorAngularRange) - kBinaryCenter));
 	}
     }
-#ifdef AGS_DEBUG
-  syslog(LOG_DEBUG,"MIRANGL2BIN: x=%x,y=%x,span=%f",*xOut,*yOut,gBinarySpanEachDirection);
-#endif
   return(theResult);
 }
 /*********************************************************/
@@ -393,7 +384,7 @@ unsigned char InitLaserInterface (struct lg_master *pLgMaster)
 	gQuarterPi = M_PI * .250;
 	gSqrtOfTwo = sqrt ( 2.L );
         gAPTunitsPerInch = 1.0;
-	gBinarySpanEachDirection = (double)(1 << 16) - .50;
+	gBinarySpanEachDirection = (double)(1 << 15) - .50;
 	gMaxPiledPts = 9;
 	gCoarseBabies = 1U << 3;
 	gFineBabies = 1U << 2;

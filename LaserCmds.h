@@ -5,6 +5,7 @@
 void ResetPlyCounter(struct lg_master *pLgMaster);
 void ResetFlexPlyCounter(struct lg_master *pLgMaster);
 void DoStopCmd( struct lg_master *pLgMaster, uint32_t respondToWhom );
+int  IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster);
 void DoGoAngle(struct lg_master *pLgMaster,struct parse_goangle_parms *pInp, uint32_t respondToWhom);
 void DoEtherAngle(struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom);
 void DarkAngle(struct lg_master *pLgMaster, double x, double y, uint32_t respondToWhom);

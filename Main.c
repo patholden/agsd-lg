@@ -62,15 +62,8 @@ unsigned char                   gHeaderSpecialByte = 0;
 struct lg_master *pConfigMaster=0;
 
 int  gSearchCurrentSensor;
-uint32_t gCoarseSearchStep  = 0x8;
-int           gCoarseFactor = 8;
-int           gCoarse2Factor= 8;
-int gNumberOfSpirals = 128;
-int gSpiralFactor   = 512;
-int gHatchFactor    = 100;
 int gSuperFineCount = 256;
 int gSuperFineSkip = 1;
-int32_t gDwell = 0;
 
 int gVideoCount = 0;
 int gVideoCheck = 0;
@@ -162,9 +155,7 @@ int main ( int argc, char **argv )
   gFastExponent = 11;
   gSlowBabies = 1U << gSlowExponent;
   gFastBabies = 1U << gFastExponent;
-  gDwell      = 0;
   gFOM        = -1;
-  gCentroid   = 1;
   gMaxPiledPts= 9;
 //
 //  try board initialization here
@@ -238,13 +229,13 @@ int main ( int argc, char **argv )
   syslog(LOG_NOTICE, " baud %d\n",  GBAUD_DEFAULT);
   syslog(LOG_NOTICE, "   gSearchStepPeriod %d", pConfigMaster->gSrchStpPeriod);
   syslog(LOG_NOTICE, "   gTargetDrift %d\n",  gTargetDrift );
-  syslog(LOG_NOTICE, " coarse step 0x%x",   gCoarseSearchStep );
-  syslog(LOG_NOTICE, " spirals %d",   gNumberOfSpirals );
-  syslog(LOG_NOTICE, " factor %d",   gCoarseFactor );
+  syslog(LOG_NOTICE, " coarse step 0x%x",   pConfigMaster->gCoarse2SearchStep );
+  syslog(LOG_NOTICE, " spirals %d",   pConfigMaster->gNumberOfSpirals );
+  syslog(LOG_NOTICE, " factor %d",   pConfigMaster->gCoarse2Factor );
   syslog(LOG_NOTICE, " attempt %d\n",   gNumberOfSensorSearchAttempts );
   SensorInitLog();
-  syslog(LOG_NOTICE, " factor spiral %d",   gSpiralFactor );
-  syslog(LOG_NOTICE, " hatch %d\n",           gHatchFactor );
+  syslog(LOG_NOTICE, " factor spiral %d",   pConfigMaster->gSpiralFactor );
+  syslog(LOG_NOTICE, " hatch %d\n",           pConfigMaster->gHatchFactor );
   syslog(LOG_NOTICE, " SuperFineCount %d",   gSuperFineCount );
   syslog(LOG_NOTICE, " SuperFineSkip %d",   gSuperFineSkip );
   syslog(LOG_NOTICE, " SuperFineFactor %d\n",   gSuperFineFactor );
@@ -252,8 +243,7 @@ int main ( int argc, char **argv )
   syslog(LOG_NOTICE, " (expo %d), ",       gFastExponent );
   syslog(LOG_NOTICE, "slow %x",   gSlowBabies );
   syslog(LOG_NOTICE, " (expo %d) ",       gSlowExponent );
-  syslog(LOG_NOTICE, "dwell %d ",   gDwell );
-  syslog(LOG_NOTICE, "gCentroid %d \n",   gCentroid );
+  syslog(LOG_NOTICE, "dwell %d ",   pConfigMaster->gDwell );
   syslog(LOG_NOTICE, "MaxPiledPts %d ",   gMaxPiledPts );
   syslog(LOG_NOTICE, "MaxCos %f ",   gMaxCos );
   syslog(LOG_NOTICE, "LongToShort %f \n",   gLongToShort );
@@ -261,7 +251,7 @@ int main ( int argc, char **argv )
   syslog(LOG_NOTICE, "QuickCheck %d ",   gQuickCheck );
   syslog(LOG_NOTICE, "MaxQuickSearches %d \n", gMaxQuickSearches);
   syslog(LOG_NOTICE, "MaxDiffMag %f ",   gMaxDiffMag );
-  syslog(LOG_NOTICE, "MultipleSweeps %d ",   gMultipleSweeps );
+  syslog(LOG_NOTICE, "MultipleSweeps %d ", pConfigMaster->gMultipleSweeps );
 
   doClearLinkLED(pConfigMaster);
   StopPulse(pConfigMaster); 

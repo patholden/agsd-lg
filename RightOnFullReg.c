@@ -133,12 +133,11 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 	    /*
 	     *  allow for a variable speed search, in needed
 	     */
-	    gCoarse2Factor     = gCoarseFactor;
-	    pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+	    pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
 	    while (j--)
 	      {
-		ptX = theAngleBuffer[2*i  ] & kMaxUnsigned;
-		ptY = theAngleBuffer[2*i+1] & kMaxUnsigned;
+		ptX = theAngleBuffer[2*i  ];
+		ptY = theAngleBuffer[2*i+1];
 		if (useTarget[i] == 1)
 		  searchResult = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
 		else
@@ -150,18 +149,19 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 		Xarr[i] = fndX;
 		Yarr[i] = fndY;
 		if (searchResult == kStopWasDone)
-		  return;
+		  {
+		    SearchBeamOff(pLgMaster);
+		    return;
+		  }
 		if (!searchResult)
 		  break;
 		pLgMaster->gCoarse2SearchStep /= 2;
-		gCoarse2Factor     /= 2; 
-		if (pLgMaster->gCoarse2SearchStep <= 0x00010000 ) {
-		  pLgMaster->gCoarse2SearchStep = 0x00010000;
-		  gCoarse2Factor     = 1;
+		pLgMaster->gCoarse2Factor     /= 2; 
+		if (pLgMaster->gCoarse2SearchStep <= 1) {
+		  pLgMaster->gCoarse2SearchStep = 1;
+		  pLgMaster->gCoarse2Factor     = 1;
 		}
 	      }
-	    gCoarse2Factor     = gCoarseFactor;
-	    pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
 	    if (searchResult)
 	      lostSensors += 1U << i;
 	    else

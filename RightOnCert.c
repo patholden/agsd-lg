@@ -111,33 +111,28 @@ void RightOnCert(struct lg_master *pLgMaster,
    switch(pLgMaster->gHeaderSpecialByte)
      {
      case 0:
-       gCoarse2Factor     = gCoarseFactor;
-       pLgMaster->gCoarse2SearchStep = gCoarseSearchStep;
+       pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
+       pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
        break;
      case 1:
-       gCoarse2Factor     = 1;
-       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
+       pLgMaster->gCoarse2Factor     = kCoarseFactorMin;
+       pLgMaster->gCoarse2SearchStep = kCoarseFactorDef;
        break;
      case 2:
-       gCoarse2Factor     = 2;
-       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
+       pLgMaster->gCoarse2Factor     = 2;
+       pLgMaster->gCoarse2SearchStep = pLgMaster->gCoarse2Factor;
        break;
      case 3:
-       gCoarse2Factor     = 4;
-       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
+       pLgMaster->gCoarse2Factor     = 4;
+       pLgMaster->gCoarse2SearchStep = pLgMaster->gCoarse2Factor;
        break;
      case 4:
-       gCoarse2Factor     = 8;
-       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
+       pLgMaster->gCoarse2Factor     = 8;
+       pLgMaster->gCoarse2SearchStep = pLgMaster->gCoarse2Factor;
        break;
      default:
-       gCoarse2Factor     = 1;
-       //       pLgMaster->gCoarse2SearchStep = gCoarse2Factor *  0x00010000;
-       pLgMaster->gCoarse2SearchStep = gCoarse2Factor;
+       pLgMaster->gCoarse2Factor     = kCoarseFactorMin;
+       pLgMaster->gCoarse2SearchStep = pLgMaster->gCoarse2Factor;
        break;
      }
    status = SearchForASensor(pLgMaster, bXe, bYe, &bXf, &bYf);

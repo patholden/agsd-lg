@@ -288,9 +288,24 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
     return;
 }
 
+int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster)
+{
+  //FIXME---PAH---RETURN 0 FOR NOW
+  return(0);
+    // If we received a stop command, flag caller but clear master flag since we're done now
+    // and caller will return to comm-loop to look for new commands.
+    if (pLgMaster->rcvdStopCmd)
+      {
+	pLgMaster->rcvdStopCmd = 0;
+	return(1);
+      }
+    return(0);
+}
+
 void DoStopCmd(struct lg_master *pLgMaster, uint32_t respondToWhom)
 {
     PostCommand(pLgMaster, kStop, 0, respondToWhom);
+    pLgMaster->rcvdStopCmd = 1;
     return;
 }
 
@@ -318,6 +333,7 @@ void DoGoAngle (struct lg_master *pLgMaster, struct parse_goangle_parms *pInp, u
       pResp->hdr.status1 = RESPFAIL;
       pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+      return;
     }
   else
     {

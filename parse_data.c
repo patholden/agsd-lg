@@ -51,9 +51,13 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   unsigned char *pInp;
   uint32_t       index;
   uint32_t       i,cmdSize;
-  uint32_t dataLength=0;
-  uint32_t dataOffset;
-  uint32_t number;
+  uint32_t       dataLength=0;
+  uint32_t       dataOffset;
+  uint32_t       number;
+#ifdef SPECIAL
+  struct timeval  tv;
+  struct timezone tz;
+#endif
   //  FIXME--PAH  int magic, magic_too, flag;
 
   if (!pLgMaster || !pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer || !pLgMaster->theResponseBuffer || !data || (data_len > kMaxDataLength))
@@ -140,9 +144,9 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   pLgMaster->gHeaderSpecialByte = pLgMaster->gInputBuffer[1];
   pLgMaster->seqNo    =  (pLgMaster->gInputBuffer[2] << 8) + pLgMaster->gInputBuffer[3];
 
-#ifdef AGS_DEBUG
-  syslog(LOG_DEBUG, "newCommand %02x  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
-#endif
+  // Track all commands incoming
+  syslog(LOG_NOTICE, "PARSEDATA:  newCommand rcvd %02x,  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
+
   switch(pLgMaster->newCommand) {
     // 0x02  kSTOP
   case kStop:

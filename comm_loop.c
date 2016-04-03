@@ -279,7 +279,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
       total_count+= data_len;
       if (!total_count || (total_count >= COMM_RECV_MAX_SIZE))
 	{
-	  syslog(LOG_DEBUG, "Data not ready on receive");
+	  syslog(LOG_NOTICE, "Data not ready on receive");
 	  break;
 	}
       error = poll((struct pollfd *)&poll_fd, 1, 3);
@@ -483,32 +483,6 @@ pingClient(char* peerAddr )
    return(0);
 }
 
-int CheckInput(struct lg_master *pLgMaster)
-{
-        int read2socks;
-        struct timeval timeout;
-        fd_set socks;
-
-	// FIXME--PAH.  MAY NEED TO REVISIT FOR SERIAL COMM
-	if (!pLgMaster || (pLgMaster->socketfd < 0))
-	  return(-1);
-        timeout.tv_sec  = 0;
-        timeout.tv_usec = 0;
-        FD_ZERO( &socks );
-        if (pLgMaster->socketfd > 0)
-	  FD_SET(pLgMaster->socketfd, &socks);
-        if (pLgMaster->socketfd)
-	  read2socks = select(pLgMaster->socketfd+1, &socks, NULL, NULL, &timeout);
-        return( read2socks );
-}
-
-int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster)
-{
-    return(0);
-    if (CheckInput(pLgMaster))
-      return(-1);
-    return(0);
-}
 
 int DoProcEnetPackets(struct lg_master *pLgMaster)
 {

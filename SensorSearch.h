@@ -34,29 +34,19 @@ void CloseSensorSearch(void);
 void SensorInitLog(void);
 int SearchForASensor (struct lg_master *pLgMaster, int16_t startX, int16_t startY,
 		      int16_t *foundX, int16_t *foundY);
+void ClearSensorBuffers(void);
 
 extern int gTargetDrift;
 
 extern uint32_t gCoarseSearchStep;
-extern int           gCoarseFactor;
-extern int           gCoarse2Factor;
-extern int  gNumberOfSpirals;
-extern int  gSpiralFactor;
-extern int  gHatchFactor;
 extern int  gSuperFineCount;
 extern int  gSuperFineSkip;
 extern uint32_t gSuperFineFactor;
-extern int32_t gDwell;
-extern int  gCentroid;
 extern int  gNoFine;
 extern int  gMaxQuickSearches;
-extern int  LongOrShortThrowSearch;
 extern int  gNumberOfSensorSearchAttempts;
 
 extern int32_t   gLoutCount;
 extern int32_t   gLoutSize;
 extern char * gLoutBase;
-extern char * gLoutPtr;
-
-extern int gMultipleSweeps;
 #endif

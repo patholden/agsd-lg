@@ -148,7 +148,10 @@ void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
 		  Xarr[i] = fndX;
 		  Yarr[i] = fndY;
 		  if (searchResult == kStopWasDone)
-		    return;
+		    {
+		      SearchBeamOff(pLgMaster);
+		      return;
+		    }
 		  if (!searchResult)
 		    break;
 		  pLgMaster->gCoarse2SearchStep /= 2;
