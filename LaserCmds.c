@@ -149,7 +149,7 @@ void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *p
   
   index  = pLgMaster->gPlysReceived * kNumberOfRegPoints * 2 * sizeof(uint32_t);
   tmpPtr = (char *)((char *)pLgMaster->gSensorBuffer + index);
-  numberOfTargets = PARSE_MAX_TARGETSOLD;
+  numberOfTargets = MAX_TARGETSOLD;
   gQuickCheckTargetNumber[pLgMaster->gPlysReceived] = numberOfTargets;
 
   // Get angle pairs

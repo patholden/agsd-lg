@@ -19,8 +19,8 @@
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
-#include "comm_loop.h"
 #include "parse_data.h"
+#include "comm_loop.h"
 #include "AppCommon.h"
 #include "SystemMaint.h"
 #include "UserMaint.h"
@@ -28,7 +28,6 @@
 #include "LaserCmds.h"
 #include "LaserInterface.h"
 #include "LaserPattern.h"
-#include "BoardComm.h"
 #include "AngleCorrections.h"
 #include "SensorSearch.h"
 #include "Init.h"

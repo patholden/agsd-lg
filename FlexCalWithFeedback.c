@@ -15,6 +15,7 @@ static char rcsid[] = "$Id$";
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
+#include "parse_data.h"
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"
@@ -22,250 +23,163 @@ static char rcsid[] = "$Id$";
 #include "3DTransform.h"
 #include "Protocol.h"
 
-// FIXME---PAH---NEEDS CMD/RESP STRUCTS
-void FlexCalWithFeedback ( struct lg_master *pLgMaster,
-                           char * data,
-                           uint32_t respondToWhom )
+void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_parms *pInp, uint32_t respondToWhom)
 {
-	double foundAngles [ kNumberOfFlexPoints * 2 ];
-	uint16_t Xarr [ kNumberOfFlexPoints ];
-	uint16_t Yarr [ kNumberOfFlexPoints ];
-	int32_t target_status [ kNumberOfFlexPoints ];
-	double Xgeo;
-	double Ygeo;
-        int16_t Xbin, Ybin;
-        double theCoordinateBuffer[kNumberOfFlexPoints * 3];
-	uint32_t  resp_len = (sizeof(uint32_t)
-			      + (12 * kSizeOldLongDouble)
-			      +  (2 * kNumberOfFlexPoints * sizeof(uint32_t))
-			      +  (kNumberOfFlexPoints * sizeof(int32_t))
-			      +  (4 * sizeof(uint32_t))
-			      + kCRCSize);
-        unsigned char *ucPtr;
-	unsigned short i, j;
-	unsigned char theResult;
-	int index;
-        double *pExternalAngles;
-        int32_t offset;
-	double theTransformTolerance;
-	transform foundTransform;
-        double *currentData;
-        double xMirror;
-        double yMirror;
-        double angX;
-        double angY;
-        int32_t nTargets;
-        int32_t int32_tColinear;
-        int32_t int32_tPlanar;
-        double useTol;
+    struct k_xyz_double    theCoordinateBuffer[MAX_ANGLEPAIRS];
+    struct k_xy_double     foundAngles[MAX_ANGLEPAIRS];
+    struct k_xy_anglepair  XYarr[MAX_ANGLEPAIRS];
+    int32_t                target_status[MAX_ANGLEPAIRS];
+    transform              foundTransform;
+    struct parse_flexcalxfdbk_resp   *pResp;
+    struct parse_flexcalxfdbkexp_resp   *pRespExp;
+    double                 Xgeo, Ygeo;
+    double                 theTransformTolerance;
+    double                 angX, angY;
+    double                 useTol;
+    uint32_t               nTargets;
+    int32_t                intColinear=0;
+    int32_t                intPlanar=0;
+    int16_t                Xbin, Ybin;
+    uint16_t               i, j;
+    uint8_t                theResult;
 
-        int32_tColinear = 0;
-        int32_tPlanar = 0;
-	
-	memset(pLgMaster->theResponseBuffer, 0, resp_len);
-	
-	theTransformTolerance  = pLgMaster->gArgTol;
-		
-        for( i=0; i < kNumberOfFlexPoints; i++ ) {
-                        target_status[i] = 0;
-        }
+    // Zero for largest of 2 response buffers
+    pResp = (struct parse_flexcalxfdbk_resp *)pLgMaster->theResponseBuffer;
+    pRespExp = (struct parse_flexcalxfdbkexp_resp *)pLgMaster->theResponseBuffer;
+    memset(pRespExp, 0, sizeof(struct parse_flexcalxfdbkexp_resp));
 
-         // get number of targets
-        nTargets = *(int32_t *)(data);
+    // Get and validate number of targets, no sense continuing if not correct
+    nTargets = pInp->num_targets;
+    if ((nTargets < 4) || (nTargets > kNumberOfFlexPoints))
+      {
+	pResp->hdr.status = RESPFAIL;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
 
-        for( i=0; i < nTargets; i++ ) {
-                        target_status[i] = 1;
-        }
-	if ( (nTargets < 4) || (nTargets > kNumberOfFlexPoints) ) {
-		*(uint32_t *)pLgMaster->theResponseBuffer = kFail;
-		HandleResponse (pLgMaster, sizeof ( uint32_t ),
-			respondToWhom );
-		return;
-        }
-	
-        offset =  sizeof(int32_t) + sizeof(double) * kNumberOfFlexPoints * 3;
-        pExternalAngles = (double *)(&(data)[offset]);
-        
-        i = 0;
-        while ( i < nTargets ) {
-            gColinear[i] = 0;
-            foundTarget[i] = 1;
-            angX = pExternalAngles[2*i  ];
-            angY = pExternalAngles[2*i+1];
-            ConvertExternalAnglesToMirror ( angX, angY, &xMirror, &yMirror );
-            Xgeo = xMirror;
-            Ygeo = yMirror;
-            ConvertMirrorToGeometricAngles ( &Xgeo, &Ygeo );
-            foundAngles[2*i  ] = Xgeo;
-            foundAngles[2*i+1] = Ygeo;
-            ConvertExternalAnglesToBinary(pLgMaster, angX, angY, &Xbin, &Ybin);
-            Xarr[i] = Xbin;
-            Yarr[i] = Ybin;
-            i++;
-        } 
-
-        index = sizeof(int32_t);
-        currentData = (double *)(&data[index]);
-        i = 0;
-        while ( i < ( kNumberOfFlexPoints * 3 ) )
-        {
-          theCoordinateBuffer[i] = 0;
-          i++;
-        }
-        i = 0;
-        while ( i < ( nTargets * 3 ) )
-        {
-          theCoordinateBuffer[i] = currentData[i];
-          i++;
-        }
-        SaveFullRegCoordinates ( nTargets, theCoordinateBuffer );
-
-           //
-           // if gHeaderSpecialByte is NOT 0x40,
-           // then reject duplicate targets
-           //
-        if (!(pLgMaster->gHeaderSpecialByte & 0x40))
+    // Initialize variables & buffers to be used for command
+    memset((char *)&theCoordinateBuffer, 0, sizeof(theCoordinateBuffer));
+    memset((char *)&foundAngles, 0, sizeof(foundAngles));
+    memset((char *)&XYarr, 0, sizeof(XYarr));
+    memset((char *)&foundTransform, 0, sizeof(foundTransform));
+    memset(target_status, 1, (nTargets * sizeof(int32_t)));
+    theTransformTolerance  = pLgMaster->gArgTol;
+    for (i=0; i < nTargets; i++)
+      {
+	pLgMaster->gColinear[i] = 0;
+	pLgMaster->foundTarget[i] = 1;
+	angX = pInp->tgtAngle[i].Xangle;
+	angY = pInp->tgtAngle[i].Yangle;
+	ConvertExternalAnglesToMirror(angX, angY, &Xgeo, &Ygeo);
+	ConvertMirrorToGeometricAngles(&Xgeo, &Ygeo);
+	foundAngles[i].Xangle = Xgeo;
+	foundAngles[i].Yangle = Ygeo;
+	ConvertExternalAnglesToBinary(pLgMaster, angX, angY, &Xbin, &Ybin);
+	XYarr[i].xangle = Xbin;
+	XYarr[i].yangle = Ybin;
+      } 
+    for (i=0; i < nTargets; i++)
+      {
+	theCoordinateBuffer[i].Xtgt = pInp->target[i].Xtgt;
+	theCoordinateBuffer[i].Ytgt = pInp->target[i].Ytgt;
+	theCoordinateBuffer[i].Ztgt = pInp->target[i].Ztgt;
+      }
+    SaveFullRegCoordinates(nTargets, (double *)&theCoordinateBuffer);
+    //
+    // if gHeaderSpecialByte is NOT 0x40,
+    // then reject duplicate targets
+    //
+    if (!(pLgMaster->gHeaderSpecialByte & 0x40))
+      {
+	for (i = 0; i < nTargets; i++)
 	  {
-	    for (i = 0; i < nTargets; i++)
+	    for (j = i; j < nTargets; j++)
 	      {
-		for (j = i; j < nTargets; j++)
+		if (i != j)
 		  {
-		    if (i != j)
-		      {
-			if ((gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
-			  foundTarget[j] = 0;
-		      }
+		    if ((gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
+		      pLgMaster->foundTarget[j] = 0;
 		  }
 	      }
 	  }
-	theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror,
-                                        theTransformTolerance, foundAngles,
-                                        (double *)&foundTransform);
-	/* desperate attempt to get something */
-        if ((gSaved == 0) && gForceTransform)
+      }
+    theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, theTransformTolerance,
+				    (double *)&foundAngles, (double *)&foundTransform);
+    /* desperate attempt to get something */
+    if ((gSaved == 0) && gForceTransform)
+      {
+	pResp->hdr.status = RESPFAIL;
+	theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
+					(double *)&foundAngles, (double *)&foundTransform);
+	// redo with the suggested tolerance
+	// now in variable gWorstTolReg
+	if (theResult == true)
 	  {
- 	    *(uint32_t *)pLgMaster->theResponseBuffer = kFlexFail;
-            theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
-                                            foundAngles, (double *)&foundTransform);
-	    // redo with the suggested tolerance
-	    // now in variable gWorstTolReg
-            if (theResult == true)
-	      {
-                useTol = gWorstTolReg;
-                theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, useTol,
-						foundAngles, (double *)&foundTransform);
-            }
-            GnOfTrans = 0;
-            theResult = 0;
-        }
-        if ( (pLgMaster->gHeaderSpecialByte & 0x20) && gSaved == 0  ) {
- 	    *(uint32_t *)pLgMaster->theResponseBuffer = kFlexFail;
-            theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
-                                            foundAngles, (double *)&foundTransform);
-	    // redo with the suggested tolerance
-	    // now in variable gWorstTolReg
-            if (theResult == true)
-	      {
-                useTol = gWorstTolReg;
-                theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror,
-						useTol, foundAngles, (double *)&foundTransform);
-            }
-            theResult = 0;
-        }
+	    useTol = gWorstTolReg;
+	    theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, useTol,
+					    (double *)&foundAngles, (double *)&foundTransform);
+	  }
+	GnOfTrans = 0;
+	theResult = 0;
+      }
+    // FIXME---PAH---THIS MAY BE A BUG.  SHOULD ALWAYS LOAD UP RESP BUFF, JUST CHECK EXP VAL FOR
+    // LAST 3 DOUBLES.
+    //    if ((pLgMaster->gHeaderSpecialByte & 0x20) && gSaved == 0)
+    if (gSaved == 0)
+      {
+	pResp->hdr.status = RESPFAIL;
+	theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
+					(double *)&foundAngles, (double *)&foundTransform);
+	// redo with the suggested tolerance
+	// now in variable gWorstTolReg
+	if (theResult == true)
+	  {
+	    useTol = gWorstTolReg;
+	    theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, useTol,
+					    (double *)&foundAngles, (double *)&foundTransform);
+	  }
+	theResult = 0;
+      }
 
-        for ( i = 0; i < nTargets ; i++ ) {
-            if ( gColinear[i] > 0 ) {
-                 int32_tColinear = int32_tColinear | (1 << i);
-            }
-        }
+    for (i = 0; i < nTargets ; i++)
+      {
+	if (pLgMaster->gColinear[i] > 0)
+	  intColinear = intColinear | (1 << i);
+      }
 
-	if ( theResult ) {
-	        *(uint32_t *)pLgMaster->theResponseBuffer = kOK;
-	} else {
-		*(uint32_t *)pLgMaster->theResponseBuffer = kFlexFail;
-        }
-	index = sizeof(uint32_t);
-	ucPtr = (unsigned char *)&(pLgMaster->theResponseBuffer[index]);
+	if (theResult)
+	  pResp->hdr.status = RESPGOOD;
+	else
+	  pResp->hdr.status = RESPFAIL;
+	TransformIntoArray(&foundTransform, (double *)&pResp->transform[0]);
+	memset((char *)&pResp->anglepairs[0], 0xFF, ANGLEPAIRSLENFLEX);
+	memcpy((char *)&pResp->anglepairs[0], (char *)&XYarr[0], sizeof(XYarr));
+	pResp->num_xfrms = GnOfTrans;
+        pResp->num_tgts = nTargets;
+        pResp->colineartgt = intColinear;
+        pResp->coplanartgts = intPlanar;
+        for (i=0; i < MAX_ANGLEPAIRS; i++)
+	  {
+	    if (savePoint[i] > 0)
+	      target_status[i] = 2;
+	    pResp->tgt_status[i] = target_status[i];
+	  }
 
-	memset( ucPtr, 0, 12 * (kSizeOldLongDouble) );
-	TransformIntoArray( &foundTransform, (double *)ucPtr );
-
-	index = sizeof(uint32_t) + 12 * ( kSizeOldLongDouble );
-	ucPtr = (unsigned char *)&(pLgMaster->theResponseBuffer[index]);
-	for( i=0; i < kNumberOfFlexPoints; i++ ) {
-                        ((uint32_t *)ucPtr)[2*i  ] = 0xffffffff;
-                        ((uint32_t *)ucPtr)[2*i+1] = 0xffffffff;
-        }
-	for( i=0; i < nTargets; i++ ) {
-                        ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
-                        ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-        }
-	index = sizeof(uint32_t)
-                  + 12 * ( kSizeOldLongDouble )
-		  + 2 * kNumberOfFlexPoints * sizeof ( uint32_t )
-                  ;
-	ucPtr = (unsigned char *)&( pLgMaster->theResponseBuffer[index]);
-        // ((int32_t *)ucPtr)[0] = gSaved;
-        ((int32_t *)ucPtr)[0] = GnOfTrans;
-        ((int32_t *)ucPtr)[1] = nTargets;
-        ((int32_t *)ucPtr)[2] = int32_tColinear;
-        ((int32_t *)ucPtr)[3] = int32_tPlanar;
-	index = sizeof(uint32_t)
-                  + 12 * ( kSizeOldLongDouble )
-		  + 2 * kNumberOfFlexPoints * sizeof ( uint32_t )
-                  + 4 * sizeof( int32_t )
-                  ;
-	ucPtr = (unsigned char *)&( pLgMaster->theResponseBuffer[index]);
-        for( i=0; i < kNumberOfFlexPoints; i++ ) {
-                        if ( savePoint[i] > 0 ) {
-                               target_status[i] = 2;
-                        }
-                        ((int32_t *)ucPtr)[i] = target_status[i];
-        }
-
-        if (  gSaved > 0  ) {
-	    index = sizeof(uint32_t)
-                  + 12 * ( kSizeOldLongDouble )
-		  + 2 * kNumberOfFlexPoints * sizeof ( uint32_t )
-                  + 4 * sizeof( int32_t )
-		  +  kNumberOfFlexPoints * sizeof ( int32_t ) 
-                  ;
-	    ucPtr = (unsigned char *)&( pLgMaster->theResponseBuffer[index]);
-            ((double *)ucPtr)[0] = gBestTolAll;
-            ((double *)ucPtr)[1] = gWorstTolAll;
-            ((double *)ucPtr)[2] = gWorstTolReg;
-        } else {
-	    index = sizeof(uint32_t)
-                  + 12 * ( kSizeOldLongDouble )
-		  + 2 * kNumberOfFlexPoints * sizeof ( uint32_t )
-                  + 4 * sizeof( int32_t )
-		  +  kNumberOfFlexPoints * sizeof ( int32_t ) 
-                  ;
-	    ucPtr = (unsigned char *)&( pLgMaster->theResponseBuffer[index]);
-            ((double *)ucPtr)[0] = 0.0;
-            ((double *)ucPtr)[1] = 0.0;
-            ((double *)ucPtr)[2] = 0.0;
-        }
-
-        if ( pLgMaster->gHeaderSpecialByte & 0x20 ) {
-	    HandleResponse ( pLgMaster
-                        , ( sizeof ( uint32_t )
-                        + 12 * ( kSizeOldLongDouble  )
-			+ 2 * kNumberOfFlexPoints * sizeof ( uint32_t ) )
-                        + 4 * sizeof( int32_t )
-			+  kNumberOfFlexPoints * sizeof ( int32_t ) 
-                        + 3 * ( sizeof( double )  )
-                        , respondToWhom
-                        );
-             return;
-        }
-	HandleResponse ( pLgMaster
-                        , ( sizeof ( uint32_t )
-                        + 12 * ( kSizeOldLongDouble  )
-			+ 2 * kNumberOfFlexPoints * sizeof ( uint32_t ) )
-                        + 4 * sizeof( int32_t )
-			+  kNumberOfFlexPoints * sizeof ( int32_t ) 
-                        , respondToWhom
-                        );
-             return;
+        if (gSaved > 0)
+	  {
+	    pRespExp->bestTolerance = gBestTolAll;
+            pRespExp->worstTolOfAnyCalcXfrm = gWorstTolAll;
+            pRespExp->worstTolOfAnyInTolXfrm = gWorstTolReg;
+	  }
+        if (pLgMaster->gHeaderSpecialByte & 0x20)
+	  {
+	    HandleResponse(pLgMaster, (sizeof(struct parse_flexcalxfdbkexp_resp)-kCRCSize), respondToWhom);
+	    return;
+	  }
+	else
+	  {
+	    HandleResponse(pLgMaster, (sizeof(struct parse_flexcalxfdbk_resp)-kCRCSize), respondToWhom);
+	    return;
+	  }
+	return;
 }
