@@ -6,6 +6,7 @@ static char rcsid[] = "$Id$";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -86,6 +87,8 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
     int searchResult;
     unsigned char saveHeaderSpecialByte;
 
+    syslog(LOG_DEBUG, "PMA: in FlexFullRegWithFeedback");
+    
     // Stop display by driver that may be in progress
     SlowDownAndStop(pLgMaster);
 
@@ -167,11 +170,13 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
     i = 0;
     index = sizeof(int32_t) + sizeof(int32_t);
     currentData = (double *)(&parameters[index]);
+    syslog(LOG_DEBUG, "PMA: numberOfTargets:  %d", numberOfTargets);
     if ( numberOfTargets > 4 ) {
       while ( i < ( numberOfTargets * 3 ) )
 	{
 	  theCoordinateBuffer[i] = currentData[i];
 	  i++;
+	  syslog(LOG_DEBUG, "PMA: target data: %f", theCoordinateBuffer[i]);
 	}
       SaveFullRegCoordinates ( numberOfTargets, theCoordinateBuffer );
     } else {

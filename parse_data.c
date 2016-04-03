@@ -847,6 +847,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
       }
     break;
   case kFlexRegWithFeedback:
+    syslog(LOG_DEBUG, "PMA: RECEIVED kFlexRegWithFeedback");
     cmdSize = kSizeOfCommand + kSizeOfFlexRegWithFeedbackParameters;
     if (index >= cmdSize + 2)
       {
