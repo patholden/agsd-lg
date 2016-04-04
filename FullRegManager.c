@@ -54,12 +54,10 @@ void PerformAndSendFullReg(struct lg_master *pLgMaster, struct lg_xydata *pXYdat
     memset(RespBuff, 0, resp_len);
     memset((char *)&Xarr, 0, sizeof(Xarr));
     memset((char *)&Yarr, 0, sizeof(Yarr));
-
+    memset((char *)&pLgMaster->foundTarget, 0, sizeof(pLgMaster->foundTarget));
+    
     SlowDownAndStop(pLgMaster);
     theTransformTolerance  = pLgMaster->gArgTol;
-
-    for ( index = 0; index < kNumberOfRegPoints; index++)
-      foundTarget[index] = 0;
 
     gWorstTolReg = 1.0;
     numberOfFoundTargets = 0;
@@ -104,7 +102,7 @@ void PerformAndSendFullReg(struct lg_master *pLgMaster, struct lg_xydata *pXYdat
 	  lostSensors += 1 << i;
 	else
 	  {
-	    foundTarget[i] = 1;
+	    pLgMaster->foundTarget[i] = 1;
 	    ConvertBinaryToGeometricAngles(pLgMaster,fndX,fndY,curX,curY);
 	  }
 	
@@ -114,7 +112,7 @@ void PerformAndSendFullReg(struct lg_master *pLgMaster, struct lg_xydata *pXYdat
 
     for (i = 0; i < kNumberOfRegPoints; i++)
       {
-	if (foundTarget[i] == 1)
+	if (pLgMaster->foundTarget[i] == 1)
 	  numberOfFoundTargets++;
       }
 

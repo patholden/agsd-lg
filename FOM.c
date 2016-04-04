@@ -32,7 +32,7 @@ void DosuperFOM (struct lg_master *pLgMaster, uint32_t respondToWhom )
     *(double *)&(pLgMaster->theResponseBuffer[8]) = gChisqr;
     for (i=0; i<gNumberOfPoints; i++)
       {
-	if (foundTarget[i] == 1)
+	if (pLgMaster->foundTarget[i] == 1)
 	  {
 	    *(int32_t *)&(pLgMaster->theResponseBuffer[16+(i)*20]) = i;
 	    *(double *)&(pLgMaster->theResponseBuffer[16+(i)*20+ 4]) = gDiffX[i];

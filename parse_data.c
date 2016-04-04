@@ -877,7 +877,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfCalculateTransformParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kCalculateTransform);
-	    CalculateTransform(pLgMaster, (struct parse_clctrnsfrm_parms *)pLgMaster->gParametersBuffer,
+	    CalculateTransform(pLgMaster, (struct parse_clcxfrm_parms *)pLgMaster->gParametersBuffer,
 			     kRespondExtern );
 	  }
 	else
@@ -894,7 +894,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  {
 	    SendConfirmation(pLgMaster, kFlexCalculateTransform);
 	    FlexCalculateTransform(pLgMaster,
-				   (char *)pLgMaster->gParametersBuffer,
+				   (struct parse_flexcalxfrm_parms *)pLgMaster->gParametersBuffer,
 				   kRespondExtern);
 	  }
 	else
@@ -911,7 +911,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  {
 	    SendConfirmation(pLgMaster, kFlexCalWithFeedback);
 	    FlexCalWithFeedback(pLgMaster,
-				(char *)pLgMaster->gParametersBuffer,
+				(struct parse_flexcalxfdbk_parms *)pLgMaster->gParametersBuffer,
 				kRespondExtern);
 	  }
 	else

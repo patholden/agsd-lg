@@ -24,13 +24,6 @@ extern double chiZ[kNumberOfFlexPoints];
 extern double chiXfoundAngle[kNumberOfFlexPoints];
 extern double chiYfoundAngle[kNumberOfFlexPoints];
 
-extern int32_t gColinear[kNumberOfFlexPoints];
-extern int32_t gCoplanar[kNumberOfFlexPoints];
-extern int32_t gCoplanarCount;
-
-
-extern int  foundTarget[kNumberOfFlexPoints];
-
 extern int  gNPoints;
 
 extern double gDiffX[MAXTRANSNUM];

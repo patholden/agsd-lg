@@ -15,6 +15,7 @@ static char rcsid[] = "$Id: SensorRegistration.c,v 1.15 2007/04/02 08:42:12 pick
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
+#include "parse_data.h"
 #include "L3DTransform.h"
 #include "3DTransform.h"
 #include "SensorRegistration.h"
@@ -56,11 +57,7 @@ double chiZ[kNumberOfFlexPoints];
 double chiXfoundAngle[kNumberOfFlexPoints];
 double chiYfoundAngle[kNumberOfFlexPoints];
 
-int32_t gColinear[kNumberOfFlexPoints];
-int32_t gCoplanar[kNumberOfFlexPoints];
-int32_t gCoplanarCount;
 
-int  foundTarget[kNumberOfFlexPoints];
 
 static	unsigned char		gDontFindTranform = false;
 
@@ -199,7 +196,7 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
         gWorstTolReg = 0.0;
         gWorstTolAll = 0.0;
         gBestTolAll = 1.0;
-        gCoplanarCount = 0;
+        pLgMaster->gCoplanarCount = 0;
 
 
         ii = 3;
@@ -228,8 +225,8 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
  		tempPt[i].xRad = foundAngles[i*2];
  		tempPt[i].yRad = foundAngles[i*2 + 1];
 
-                gColinear[i] = 0;
-                gCoplanar[i]   = 0;
+                pLgMaster->gColinear[i] = 0;
+                pLgMaster->gCoplanar[i]   = 0;
 /*
  *  kludge  for demo, assume only one part
  */
@@ -271,23 +268,23 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
         maxCross = -1;
         while ( i-- )
         {
-                if ( foundTarget[i] == 0 ) continue;
+                if (pLgMaster->foundTarget[i] == 0 ) continue;
                 j = numberOfPoints - 1;
                 while ( --j > i )
                 {
-                        if ( foundTarget[j] == 0 ) continue;
+                        if (pLgMaster->foundTarget[j] == 0 ) continue;
                         k = numberOfPoints;
                         while ( --k > j )
                         {
-                                if ( foundTarget[k] == 0 ) continue;
+                                if (pLgMaster->foundTarget[k] == 0 ) continue;
                                 perpend = p3Dist(  &(tempPt[i])
                                                 ,  &(tempPt[j])
                                                 ,  &(tempPt[k])
                                                 );
                                 if ( perpend < minL3Distance ) {
-                                     gColinear[i] ++;
-                                     gColinear[j] ++;
-                                     gColinear[k] ++;
+                                     pLgMaster->gColinear[i]++;
+                                     pLgMaster->gColinear[j]++;
+                                     pLgMaster->gColinear[k]++;
                                 }
                                 cross = magCross(  &(tempPt[i])
                                                 ,  &(tempPt[j])
@@ -299,7 +296,7 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
                                 if ( cross > maxCross && cross > 0.000001 ) {
                                       maxCross = cross;
                                       for ( y = 0; y < numberOfPoints; y++ ) {
-                                          if ( foundTarget[y] != 0 ) {
+                                          if (pLgMaster->foundTarget[y] != 0 ) {
                                               foundCount++;
                                               plane = planeDist( &(tempPt[y])
                                                                , &(tempPt[j])
@@ -307,13 +304,13 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
                                                                );
                                               if ( plane < minL3Distance ) {
                                                    planeCount++;
-                                                   gCoplanar[y]++;
+                                                   pLgMaster->gCoplanar[y]++;
                                               }
                                           }
                                       }
                                 }
                                 if(foundCount == planeCount && planeCount > 3) {
-                                      gCoplanarCount++;
+                                      pLgMaster->gCoplanarCount++;
                                 }
                         }
                 }
@@ -322,7 +319,7 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
         combos = (permutes *)calloc( 200000, sizeof(permutes) );
         revdex = (int32_t *)calloc( 200000, sizeof(int32_t) );
 
-        area_order(numberOfPoints, tempPt, &numout, combos, revdex, foundTarget);
+        area_order(pLgMaster, numberOfPoints, tempPt, &numout, combos, revdex, pLgMaster->foundTarget);
 
         ntries = numout;
         if ( ntries > 100 ) ntries = 100;

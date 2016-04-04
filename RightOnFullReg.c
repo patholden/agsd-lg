@@ -68,7 +68,7 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 
     for (index = 0; index < kNumberOfRegPoints; index++)
       {
-	foundTarget[index] = 0;
+	pLgMaster->foundTarget[index] = 0;
 	useTarget[index] = 1;
       }
     gWorstTolReg = 1.0;
@@ -166,7 +166,7 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 	      lostSensors += 1U << i;
 	    else
 	      {
-		foundTarget[i] = 1;
+		pLgMaster->foundTarget[i] = 1;
 		ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY, &(XfoundAngles[i]), &(YfoundAngles[i]));
 		ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,  &(XExternalAngles[i]), &(YExternalAngles[i]));
 	      }
@@ -176,7 +176,7 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 	  {
 	    foundAngles[2*i  ] = XfoundAngles[i];
 	    foundAngles[2*i+1] = YfoundAngles[i];
-	    if (foundTarget[i] == 1)
+	    if (pLgMaster->foundTarget[i] == 1)
 	      numberOfFoundTargets ++;
           }
 	if (numberOfFoundTargets >= 4)

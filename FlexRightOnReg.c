@@ -16,7 +16,7 @@ static char rcsid[] = "$Id: FlexRightOnReg $";
 
 
 // FIXME---PAH---NEEDS CMD/RESP FIXES
-void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
+void FlexRightOnReg(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom)
 {
 	uint32_t ptX, ptY;
 	uint32_t fndX;
@@ -62,7 +62,7 @@ void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
 	theTransformTolerance  = pLgMaster->gArgTol;
 
         for ( index = 0; index < kNumberOfFlexPoints; index++ ) {
-               foundTarget[index] = 0;
+               pLgMaster->foundTarget[index] = 0;
                useTarget[index] = 1;
         }
         gWorstTolReg = 1.0;
@@ -168,7 +168,7 @@ void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
 		lostSensors += 1U << i;
 	      else
 		{
-		  foundTarget[i] = 1;
+		  pLgMaster->foundTarget[i] = 1;
 		  ConvertBinaryToGeometricAngles(
 						 fndX,
 						 fndY,
@@ -187,7 +187,7 @@ void FlexRightOnReg(char * parameters, uint32_t respondToWhom)
 	    {
 	      foundAngles[2*i  ] = XfoundAngles[i];
 	      foundAngles[2*i+1] = YfoundAngles[i];
-	      if (foundTarget[i] == 1)
+	      if (pLgMaster->foundTarget[i] == 1)
 		numberOfFoundTargets ++;
 	    }
           if ( numberOfFoundTargets >= 4)

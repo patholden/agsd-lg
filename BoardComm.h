@@ -7,6 +7,7 @@
 #define  MAX_NUM_THREADS 1
 #define STEPDELAY   500
 #define NUM_HOBBS_COUNTERS  4
+#define MAX_ANGLEPAIRS   24    // kNumberOfFlexPoints
 #define PARSE_HOBBS_HOBBS 1
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
@@ -81,6 +82,9 @@ struct version_info {
 };
 
 struct lg_master {
+  int32_t            foundTarget[MAX_ANGLEPAIRS];
+  int32_t            gColinear[MAX_ANGLEPAIRS];
+  int32_t            gCoplanar[MAX_ANGLEPAIRS];
   struct sockaddr_in webhost_addr;
   struct hobbs_ctrs hobbs;
   struct version_info   vers_data;
@@ -131,6 +135,7 @@ struct lg_master {
   int32_t         gQCcount;
   int32_t         gCoarse2Factor;
   int32_t         gHatchFactor;
+  int32_t         gCoplanarCount;
   int16_t         gCoarse2SearchStep;
   int16_t         gXcheck;
   int16_t         gYcheck;

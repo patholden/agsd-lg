@@ -17,8 +17,8 @@
 #include "area_order.h"
 #include "heap.h"
 
-void area_order(int  numin, doubleInputPoint *inPt, int *num_out, permutes *Combos,
-		int32_t * reversedex, int * found)
+void area_order(struct lg_master *pLgMaster, int  numin, doubleInputPoint *inPt, int *num_out, permutes *Combos,
+		int32_t * reversedex, int32_t * found)
 {
     double x[4], y[4];
     int count, i, j, k, l;

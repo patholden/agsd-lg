@@ -84,7 +84,7 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
     memset(pLgMaster->gBestTargetArray, 0, sizeof(pLgMaster->gBestTargetArray));
         for ( i = 0; i < kFeedbackNumber; i++ ) {
                target_status[i] = 0;
-               foundTarget[i]  = 0;
+               pLgMaster->foundTarget[i]  = 0;
                savePoint[i] = 0;
                XExternalAngles[i] = 0;
                YExternalAngles[i] = 0;
@@ -218,7 +218,7 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
 		else
 		  {
 		    target_status[i] = 1;
-		    foundTarget[i]   = 1;
+		    pLgMaster->foundTarget[i]   = 1;
 		    ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
 						   &(XfoundAngles[i]),
 						   &(YfoundAngles[i]) );
@@ -233,7 +233,7 @@ void FullRegWithFeedback (struct lg_master *pLgMaster,
 	      {
 		foundAngles[2*i  ] = XfoundAngles[i];
 		foundAngles[2*i+1] = YfoundAngles[i];
-		if (foundTarget[i] == 1)
+		if (pLgMaster->foundTarget[i] == 1)
 		  numberOfFoundTargets ++;
 	      }
           if (numberOfFoundTargets >= 4)

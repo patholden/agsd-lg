@@ -81,8 +81,8 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
     uint32_t *pRawAngles;
     double *pGeometricAngles;
     int32_t offset;
-    int32_t int32_tColinear;
-    int32_t int32_tPlanar;
+    int32_t intColinear;
+    int32_t intPlanar;
     double useTol;
     int searchResult;
     unsigned char saveHeaderSpecialByte;
@@ -95,8 +95,8 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
     // Initialize variables
     saveHeaderSpecialByte = pLgMaster->gHeaderSpecialByte;
     theTransformTolerance  = pLgMaster->gArgTol;
-    int32_tColinear = 0;
-    int32_tPlanar = 0;
+    intColinear = 0;
+    intPlanar = 0;
     pLgMaster->gBestTargetNumber = 0;
     gWorstTolReg = 1.0;
     i = 0;
@@ -105,15 +105,15 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
     memset(RespBuff, 0, resp_len);
     memset(pLgMaster->gBestTargetArray, 0, sizeof(pLgMaster->gBestTargetArray));
     memset((char *)&target_status, 0, sizeof(target_status));
-    memset((char *)&foundTarget, 0, sizeof(foundTarget));
+    memset((char *)&pLgMaster->foundTarget, 0, sizeof(pLgMaster->foundTarget));
     memset((char *)&savePoint, 0, sizeof(savePoint));
     memset((char *)&XExternalAngles, 0, sizeof(XExternalAngles));
     memset((char *)&YExternalAngles, 0, sizeof(YExternalAngles));
     memset((char *)&Xarr, 0, sizeof(Xarr));
     memset((char *)&Yarr, 0, sizeof(Yarr));
     memset((char *)&useTarget, 0, sizeof(useTarget));
-    memset((char *)&gColinear, 0, sizeof(gColinear));
-    memset((char *)&gCoplanar, 0, sizeof(gCoplanar));
+    memset((char *)&pLgMaster->gColinear, 0, sizeof(pLgMaster->gColinear));
+    memset((char *)&pLgMaster->gCoplanar, 0, sizeof(pLgMaster->gCoplanar));
 
 
     //FIXME---PAH---NEED TO DO CMD/RESP HERE	
@@ -249,7 +249,7 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
                         YfoundAngles[i] = 0;
 		} else {
                         target_status[i] = 1;
-                        foundTarget[i]   = 1;
+                        pLgMaster->foundTarget[i]   = 1;
 			ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
 						       &(XfoundAngles[i]),
 						       &(YfoundAngles[i]) );
@@ -262,11 +262,13 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
 	  }
 	
 	  numberOfFoundTargets = 0;
-          for ( i = 0; i < numberOfTargets ; i++ ) {
-             foundAngles[2*i  ] = XfoundAngles[i];
-             foundAngles[2*i+1] = YfoundAngles[i];
-             if ( foundTarget[i] == 1 )  numberOfFoundTargets ++;
-          }
+          for (i = 0; i < numberOfTargets ; i++)
+	    {
+	      foundAngles[2*i  ] = XfoundAngles[i];
+	      foundAngles[2*i+1] = YfoundAngles[i];
+	      if (pLgMaster->foundTarget[i] == 1)
+		numberOfFoundTargets ++;
+	    }
           if ( numberOfFoundTargets >= 4 ) {
 	    theResult = FindTransformMatrix(pLgMaster, numberOfTargets,
 					    gDeltaMirror, theTransformTolerance,
@@ -333,11 +335,11 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
  *   finally prepare and send response
  */
         for ( i = 0; i < numberOfTargets ; i++ ) {
-            if ( savePoint[i] > 0 && gColinear[i] > 0 ) {
-                 int32_tColinear = int32_tColinear | (1 << i);
+            if ( savePoint[i] > 0 && pLgMaster->gColinear[i] > 0 ) {
+                 intColinear = intColinear | (1 << i);
             }
-            if ( gCoplanarCount > 0 && gCoplanar[i] > 0 ) {
-                 int32_tPlanar = int32_tPlanar | (1 << i);
+            if (pLgMaster->gCoplanarCount > 0 && pLgMaster->gCoplanar[i] > 0 ) {
+                 intPlanar = intPlanar | (1 << i);
             }
         }
 
@@ -357,10 +359,10 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
                 gWorstTolReg = 0.0;
 	        index = sizeof(uint32_t);
 	        ucPtr = (unsigned char *)(RespBuff + index);
-                *(uint32_t *)ucPtr = int32_tColinear;
+                *(uint32_t *)ucPtr = intColinear;
 	        index = 2 * sizeof(uint32_t);
 	        ucPtr = (unsigned char *)(RespBuff + index);
-                *(uint32_t *)ucPtr = int32_tPlanar;
+                *(uint32_t *)ucPtr = intPlanar;
 
                         // zero out unused bytes
 	        index = 3 * sizeof(uint32_t);
@@ -503,12 +505,12 @@ void FlexFullRegWithFeedback ( struct lg_master *pLgMaster,
 		     +  kNumberOfFlexPoints * ( sizeof ( int32_t ) )
                      ;
 	ucPtr = (unsigned char *)(RespBuff + index);
-        ((int32_t *)ucPtr)[0] = int32_tColinear;
+        ((int32_t *)ucPtr)[0] = intColinear;
         ((int32_t *)ucPtr)[1] = 0;
             // for kOK response, only report the coplanar targets
             // if the average error is greater than 0.025
         if ( gFOMavg > 0.025 ) {
-            ((int32_t *)ucPtr)[1] = int32_tPlanar;
+            ((int32_t *)ucPtr)[1] = intPlanar;
         }
 
 	memcpy(RespBuff, &return_code, sizeof(uint32_t));

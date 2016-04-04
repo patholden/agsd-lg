@@ -75,7 +75,7 @@ jigqc : $(JIG_OBJECTS) jigqc.o
 oneside : $(AGS_OBJECTS) oneside.o
 	$(CC) oneside.o -o oneside ${AGS_OBJECTS} fork.CTB.o SensorSearch.o -g -lm /usr/lib/libncurses.a -static
 
-%.o: %.c BoardComm.h $(LNXHDRDIR)/include/linux/laser_api.h
+%.o: %.c BoardComm.h parse_data.h $(LNXHDRDIR)/include/linux/laser_api.h
 	$(CC) -c -o $@ $(CFLAGS) $(EXTRA_CFLAGS) $<
 
 jigqc.o: jigqc.c
