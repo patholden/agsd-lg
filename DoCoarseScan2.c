@@ -74,7 +74,7 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
           xydelta.ydata = lsstep;
           nSteps = lscount;
           theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
-				    (struct lg_xydelta *)&xydelta, nSteps, pLgMaster->gScan,testlevel);
+				    (struct lg_xydelta *)&xydelta, nSteps, pLgMaster->gScan,1);
           if ( theResult == kStopWasDone ) {
 	    SearchBeamOff(pLgMaster);
                    return theResult;
@@ -119,7 +119,7 @@ int DoCoarseScan2(struct lg_master *pLgMaster,
           nSteps = lscount;
           theResult = DoLevelSearch(pLgMaster, (struct lg_xydata *)&xydata,
 				    (struct lg_xydelta *)&xydelta,
-				    nSteps, pLgMaster->gScan,DCS2minlevel);
+				    nSteps, pLgMaster->gScan,0);
           if (theResult == kStopWasDone)
 	    {
 	      SearchBeamOff(pLgMaster);

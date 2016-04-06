@@ -457,8 +457,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
     }
     break;
-#if 0
-// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
   case kDarkAngle:
     cmdSize = kSizeOfCommand + kSizeOfDarkAngleParameters;
     if (index >= cmdSize + 2)
@@ -468,17 +466,12 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfDarkAngleParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kDarkAngle);
-	    //FIXME---PAH---CMD/RESP BUFFERS NEED TO BE ADDED
-	    DarkAngle(pLgMaster, DoubleFromCharConv ( pLgMaster->gParametersBuffer ),
-		      DoubleFromCharConv
-		      (&pLgMaster->gParametersBuffer[sizeof(double)]),
-		      kRespondExtern );
+	    DarkAngle(pLgMaster, (struct parse_dkangle_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	  }
 	else
 	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
       }
     break;
-#endif
   case kFindOneTarget:
     cmdSize = kSizeOfCommand + kSizeOfFindOneTargetParameters;
     if (index >= cmdSize + 2)
@@ -580,7 +573,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfQuickCheckParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kQuickCheck);
-	    DoQuickCheck (pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern);
+	    DoQuickCheck (pLgMaster, (struct parse_qkcheck_parms *)pLgMaster->gParametersBuffer, kRespondExtern);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -623,7 +616,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfCalibrateXYParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kCalibrateXY);
-	    CalibXY(pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern);
+	    CalibXY(pLgMaster, (struct parse_calibxy_parms *)pLgMaster->gParametersBuffer, kRespondExtern);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -796,7 +789,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
 	  {
 	    SendConfirmation(pLgMaster, kChangeTransformTolerance);
-	    DoChangeTransformTolerance(pLgMaster, (char *)pLgMaster->gParametersBuffer);
+	    DoChangeTransformTolerance(pLgMaster, (struct parse_chngxfrmtol_parms *)pLgMaster->gParametersBuffer);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -969,8 +962,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
       }
     break;
-#if 0
-// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
   case kDimAngle:
     cmdSize = kSizeOfCommand + kSizeOfDimAngleParameters;
     if (index >= cmdSize + 2)
@@ -979,14 +970,13 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
 				(kSizeOfCommand + kSizeOfDimAngleParameters)))
 	  {
-	    DimAngle (pLgMaster, (char *)pLgMaster->gParametersBuffer );
+	    DimAngle(pLgMaster, (struct parse_dimangle_parms *)pLgMaster->gParametersBuffer, kRespondExtern);
 	    SendConfirmation(pLgMaster, kDimAngle);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
       }
     break;
-#endif
   default:
     cmdState = 1;
     break;

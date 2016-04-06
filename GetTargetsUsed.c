@@ -30,7 +30,7 @@ void GetTargetsUsed(struct lg_master *pLgMaster, uint32_t respondToWhom)
   memset((char *)pResp, 0, sizeof(struct parse_tgtsused_resp));
   
   pResp->tgtCount = pLgMaster->gBestTargetNumber;
-  for (i=0; i < 4; i++)
+  for (i=0; i < pLgMaster->gBestTargetNumber; i++)
     pResp->tgtNumber[i] = pLgMaster->gBestTargetArray[i];
 
   HandleResponse(pLgMaster, (sizeof(struct parse_tgtsused_resp)-kCRCSize), respondToWhom);

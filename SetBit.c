@@ -38,7 +38,6 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	case 1:
 	  // unblank intensity
 	  doLGSTOP(pLgMaster);
-	  doStopPulse(pLgMaster);
 	  ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
 	  doClearSearchBeam(pLgMaster);
 	  if (bitValue == 0)
@@ -53,7 +52,6 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	case 2:
 	  // search intensity
           doLGSTOP(pLgMaster);
-	  doStopPulse(pLgMaster);
 	  ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
 	  if (bitValue == 0)
 	    {

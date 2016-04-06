@@ -15,6 +15,7 @@ static char rcsid[] = "$Id$";
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
+#include "parse_data.h"
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"

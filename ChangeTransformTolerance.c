@@ -15,39 +15,38 @@ static char rcsid[] = "$Id$";
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
-#include "Protocol.h"
-#include "comm_loop.h"
 #include "AppCommon.h"
+#include "comm_loop.h"
+#include "parse_data.h"
+#include "Protocol.h"
 #include "ChangeTransformTolerance.h"
 
-// FIXME---PAH NEEDS CMD/RESP STRUCTS
-void DoChangeTransformTolerance (struct lg_master *pLgMaster, char * parameters )
+void DoChangeTransformTolerance(struct lg_master *pLgMaster, struct parse_chngxfrmtol_parms *pInp)
 {
-  char        *RespBuff=(char *)pLgMaster->theResponseBuffer;
-  uint32_t    resp_len=(sizeof(uint32_t) + sizeof(double) + kCRCSize);
-  uint32_t    return_code=0;
-  double      newTol;
+    struct parse_chngxfrmtol_resp *pResp=(struct parse_chngxfrmtol_resp *)pLgMaster->theResponseBuffer;
+    double      newTol;
   
-  memset(RespBuff, 0, resp_len);
-  newTol = *((double *)&(parameters[0]));
-  syslog(LOG_NOTICE,"change display  %f", newTol );
+    memset(pResp, 0, sizeof(struct parse_chngxfrmtol_resp));
+    newTol = pInp->new_tolerance;
+    syslog(LOG_NOTICE,"change display  %f", newTol );
 
-  if ((newTol >= 1.0e-10) && (newTol < 1.0))
-    {
-      return_code = kOK;
-      pLgMaster->gArgTol = newTol;
-    }
-  else if (fabs(newTol+1.0) < 0.00001)
-    return_code = kOK;
-  else if (fabs(newTol) < 1.0e-30)
-    {
-      pLgMaster->gArgTol = GARGTOL_DEFAULT;
-      return_code = kOK;
-    }
-  else
-    return_code = kFail;
-  memcpy(RespBuff, &return_code, sizeof(uint32_t));
-  memcpy((char *)(RespBuff+4), &pLgMaster->gArgTol, sizeof(double));
-  HandleResponse(pLgMaster, resp_len, kRespondExtern);
-  return;
+    if ((newTol >= 1.0e-10) && (newTol < 1.0))
+      {
+	pResp->hdr.status = RESPGOOD;
+	pLgMaster->gArgTol = newTol;
+      }
+    else if (fabs(newTol+1.0) < 0.00001)
+      pResp->hdr.status = RESPFAIL;
+    else if (fabs(newTol) < 1.0e-30)
+      {
+	pLgMaster->gArgTol = GARGTOL_DEFAULT;
+	pResp->hdr.status = RESPGOOD;
+      }
+    else
+      pResp->hdr.status = RESPFAIL;
+
+    // Send new value back to caller
+    pResp->new_tolerance = pLgMaster->gArgTol;
+    HandleResponse(pLgMaster, (sizeof(struct parse_chngxfrmtol_resp)-kCRCSize), kRespondExtern);
+    return;
 }

@@ -16,6 +16,7 @@ static char rcsid[] = "$Id: FullRegWithFeedback.c,v 1.1 2006/06/05 18:40:30 ags-
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
+#include "parse_data.h"
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"

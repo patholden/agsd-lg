@@ -5,6 +5,9 @@
 #define  MAXTRANSNUM  11000
 
 
+uint32_t get_number_of_points(void);
+double get_chisquare_val(void);
+void get_target_info(struct k_targetinfo *pTgtInfo, uint32_t tgt_num);
 unsigned char FindTransformMatrix(struct lg_master *pLgMaster, uint16_t numberOfPoints, 
 				  double deltaMirror, double tolerance, double *foundAngles,
 				  double *theTransform);

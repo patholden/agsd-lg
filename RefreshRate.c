@@ -25,7 +25,7 @@ void DoRefreshRate (struct lg_master *pLgMaster, uint32_t respondToWhom )
   pResp = (struct parse_rfrshrt_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_rfrshrt_resp));
   pResp->hdr.status = RESPGOOD;
-  pResp->num_points = 0;
+  pResp->num_points = get_num_disp_points();
   pResp->laser_period = pLgMaster->gPeriod;
   HandleResponse(pLgMaster, (sizeof(struct parse_rfrshrt_resp)-kCRCSize), respondToWhom);
   return;

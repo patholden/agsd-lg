@@ -86,7 +86,7 @@ static int main_capture_signals(void)
   memset(&sigact, 0, sizeof(struct sigaction));
 
   sigact.sa_handler = (void *)&sigact_handler;
-  sigact.sa_flags  = SA_RESTART;
+  sigact.sa_flags  = SA_SIGINFO;
   sigfillset(&sigact.sa_mask);
   
   if (((sigaction(SIGINT, &sigact, 0)) < 0) || 

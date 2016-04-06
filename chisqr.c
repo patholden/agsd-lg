@@ -14,6 +14,7 @@
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
+#include "parse_data.h"
 #include "Protocol.h"
 #include "3DTransform.h"
 #include "SensorRegistration.h"
