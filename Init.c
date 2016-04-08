@@ -110,7 +110,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	  }
       }
 
-        // default mode is "VISION"
+    // default mode is "VISION"
     pLgMaster->projector_mode    = PROJ_VISION;
     
     token = localBuff; 
@@ -216,8 +216,6 @@ int ConfigDataInit(struct lg_master* pLgMaster)
             pLgMaster->projector_mode    = PROJ_VISION;       
           }                                                  
         }                                                    
-                                                             
-
 #if 0
 	strcpy( testStr, "commtype =" );
 	if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {

@@ -611,7 +611,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
             DoTakePicture (pLgMaster, (struct parse_takepic_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
             }
 
-
 #ifdef SPECIAL
 	  gettimeofday( &tv, &tz );
 	  syslog(LOG_NOTICE, "parse678 tv %d %d\n", tv.tv_sec, tv.tv_usec);

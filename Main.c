@@ -199,7 +199,6 @@ int main ( int argc, char **argv )
       syslog(LOG_ERR,"\nInitVision: Can't get vision data, err %d", error);
     }
 
-
   // start background thread for doing updates
 #if 0
   if ((pthread_mutex_init(&lock, NULL)) != 0)
