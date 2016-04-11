@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <syslog.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -23,7 +24,7 @@
 #include "3DTransform.h"
 #include "Protocol.h"
 #include "CRCHandler.h"
-#include "DoTakePicture.h"
+#include "DoAutoFocusCmd.h"
 
 #include "RemoteSerial.h"
 
@@ -43,16 +44,16 @@ static char outbuff[BUFFSIZE];
 
 void RemoteSerial ( struct lg_master *pLgMaster
                   , char * buffer
+                  , uint32_t respondToWhom
                   )
 {
 
         int index, i;
         char * tmpPtr;
-        double partPoint[3];
         int             fd;
         uint32_t   inaddr;
         int             port = 1234;
-        int             n, count;
+        int             n, count, count0;
         char            linebuff[MAXLINE];
         int length;
         int incount;
@@ -62,14 +63,16 @@ void RemoteSerial ( struct lg_master *pLgMaster
         int highsock = 0;
         struct timeval timeout;
         int hexcount;
+        struct parse_autofocus_resp *pResp = (struct parse_autofocus_resp *)pLgMaster->theResponseBuffer;
+
 
 
 #ifdef ZDEBUG
      for ( i = 0; i < 32 ; i++ ) {
-          fprintf( stderr, "remoteserial %2d %02x ", i, 0xff&buffer[i] );
+          syslog( LOG_NOTICE, "remoteserial %2d %02x ", i, 0xff&buffer[i] );
           if ( isalnum( buffer[i] ) )
-             fprintf( stderr, " %c ",  buffer[i] );
-          fprintf( stderr, "\n" );
+             syslog( LOG_NOTICE, " %c ",  buffer[i] );
+          syslog( LOG_NOTICE, "\n" );
      }
 #endif
 
@@ -80,51 +83,49 @@ void RemoteSerial ( struct lg_master *pLgMaster
 
   
 
-  bzero((char *) &tcp_srv_addr, sizeof(tcp_srv_addr));
-  tcp_srv_addr.sin_family = AF_INET; 
+        bzero((char *) &tcp_srv_addr, sizeof(tcp_srv_addr));
+        tcp_srv_addr.sin_family = AF_INET; 
 
-  tcp_srv_addr.sin_port = htons(port);
+        tcp_srv_addr.sin_port = htons(port);
 
 #ifdef ZDEBUG
-fprintf(stderr, "about to inet_addr\n" );
+syslog( LOG_NOTICE, "about to inet_addr\n" );
 #endif
 
-  if( (inaddr = inet_addr(pLgMaster->visionhost)) != INADDR_NONE) {
-      bcopy((char *) &inaddr, (char *) &tcp_srv_addr.sin_addr, sizeof(inaddr));
-      tcp_host_info.h_name = NULL;
-  } else {
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+        if( (inaddr = inet_addr(pLgMaster->visionhost)) != INADDR_NONE) {
+            bcopy((char *) &inaddr, (char *) &tcp_srv_addr.sin_addr, sizeof(inaddr));
+            tcp_host_info.h_name = NULL;
+        } else {
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+
                 return;
-  }
+        }
 
 #ifdef ZDEBUG
-fprintf(stderr, "about socket\n" );
+syslog( LOG_NOTICE, "about socket\n" );
 #endif
 
   if( (fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      fprintf( stderr, "can't create TCP socket\n");
-      close (fd);
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                syslog( LOG_ERR, "can't create TCP socket\n");
+                close (fd);
+
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+
                 return;
   }
 
 #ifdef ZDEBUG
-fprintf(stderr, "about connect\n" );
+syslog( LOG_NOTICE, "about connect\n" );
 #endif
    
         if( connect(fd,(struct sockaddr *)&tcp_srv_addr,sizeof(tcp_srv_addr)) < 0 ) {
-      fprintf( stderr, "can't connect to server\n");
-      close (fd);
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                syslog( LOG_NOTICE, "can't connect to server\n");
+                close (fd);
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+
                 return;
   }
 
@@ -132,13 +133,13 @@ fprintf(stderr, "about connect\n" );
   memset( hexbuff, 0, BUFFSIZE );
 
         inbuff[0] = 0x64;
+        inbuff[1] = 0xff & pLgMaster->gHeaderSpecialByte;
         index  = sizeof(int32_t);
         tmpPtr = &(inbuff[index]);
 
         for( i=0; i<32; i++ ) {
                 tmpPtr[i] = buffer[i];
         }
-        *(double *)(&(tmpPtr[16])) = partPoint[2];
 
         length = sizeof(int32_t) + 32;
         AppendCRC( (unsigned char *)inbuff, length );
@@ -158,7 +159,7 @@ fprintf(stderr, "about connect\n" );
         }
         for ( i=0; i<hexcount; i++ ) {
 #ifdef ZDEBUG
-fprintf(stderr, "about write %x  hex %d\n", 0xff&hexbuff[i],i );
+syslog( LOG_NOTICE, "about write %x  hex %d\n", 0xff&hexbuff[i],i );
 #endif
         }
 
@@ -167,22 +168,22 @@ fprintf(stderr, "about write %x  hex %d\n", 0xff&hexbuff[i],i );
         n = 1;
         while ( total < hexcount && n > 0 ) {
 #ifdef ZDEBUG
-fprintf(stderr, "about write %d  total %d\n", hexcount, total );
+syslog( LOG_NOTICE, "about write %d  total %d\n", hexcount, total );
 #endif
             n = write( fd, &(hexbuff[total]), (hexcount-total) );
             if ( n < 0 ) {
                 close( fd );
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+
                 return;
             }
             total += n;
         }
         count = 0;
 #ifdef ZDEBUG
-fprintf(stderr, "about read \n" );
+syslog( LOG_NOTICE, "about read \n" );
 #endif
         FD_ZERO( &socks );
         FD_SET( fd, &socks );
@@ -198,51 +199,85 @@ fprintf(stderr, "about read \n" );
                           );
 
 #ifdef ZDEBUG
-fprintf(stderr, "gHeaderSpecialByte  %02x \n", 0xff & pLgMaster->gHeaderSpecialByte );
+syslog( LOG_NOTICE, "gHeaderSpecialByte  %02x \n", 0xff & pLgMaster->gHeaderSpecialByte );
 #endif
         memset( linebuff, 0, MAXLINE );
         memset( hexbuff, 0, MAXLINE );
         if ( pLgMaster->gHeaderSpecialByte & 0x02 ) {
           usleep( 200000 );
 
-
+          count = 0;
+          memset( linebuff, 0, MAXLINE );
+               // try first read, which may be just a response
           if ( readsocks > 0 && FD_ISSET( fd, &socks ) ) {
 #ifdef ZDEBUG
-fprintf(stderr, "about readsocks %d \n", readsocks );
+syslog( LOG_NOTICE, "about readsocks %d \n", readsocks );
 #endif
             n = read(fd,linebuff,MAXLINE);
-            // strncpy( &(outbuff[count]), linebuff, n );
+            memcpy( &(outbuff[count]), linebuff, n );
             count += n;
-          }
-          count = 0;
-          for ( i = 0; i < n; i++ ) {
 #ifdef ZDEBUG
-fprintf(stderr, "hexread %3d %2x  ", i, 0xff & linebuff[i] );
-if ( isalnum( linebuff[i] ) )
-             fprintf( stderr, " %c ",  linebuff[i] );
-fprintf(stderr, "\n" );
+syslog( LOG_NOTICE, "1st read %d bytes  count %d \n", n, count );
 #endif
-             if ( (unsigned char)(linebuff[i]) == 0x80 ) {
-                  hexbuff[count] = linebuff[i+1] + 0x80;
+          }
+
+          if ( n <= 20 ) {
+              FD_ZERO( &socks );
+              FD_SET( fd, &socks );
+              highsock = fd;
+              timeout.tv_sec  = 1;
+              timeout.tv_usec = 200000;
+
+              readsocks = select( highsock+1
+                                , &socks
+                                , (fd_set *)0
+                                , (fd_set *)0
+                                , &timeout
+                                );
+              if ( readsocks > 0 && FD_ISSET( fd, &socks ) ) {
+                  memset( linebuff, 0, MAXLINE );
+                  // too few bytes received
+                  usleep( 200000 );
+                  n = read(fd,linebuff,MAXLINE);
+                  memcpy( &(outbuff[count]), linebuff, n );
+                  count += n;
+              }
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "2nd read %d bytes   count %d \n", n, count );
+#endif
+          }
+
+
+
+          count0 = 0;
+          for ( i = 0; i < count; i++ ) {
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
+if ( isalnum( outbuff[i] ) )
+             syslog( LOG_NOTICE, " %c ",  outbuff[i] );
+syslog( LOG_NOTICE, "\n" );
+#endif
+             if ( (unsigned char)(outbuff[i]) == 0x80 ) {
+                  hexbuff[count0] = outbuff[i+1] + 0x80;
                   i++;
 #ifdef ZDEBUG
-fprintf(stderr, "hexread %3d %2x  ", i, 0xff & linebuff[i] );
-if ( isalnum( linebuff[i] ) )
-             fprintf( stderr, " %c ",  linebuff[i] );
-fprintf(stderr, "\n" );
+syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
+if ( isalnum( outbuff[i] ) )
+             syslog( LOG_NOTICE, " %c ",  outbuff[i] );
+syslog( LOG_NOTICE, "\n" );
 #endif
              } else {
-                  hexbuff[count] = linebuff[i];
+                  hexbuff[count0] = outbuff[i];
              }
-             count++;
+             count0++;
           } 
 
 #ifdef ZDEBUG
           for ( i = 0; i < count; i++ ) {
-fprintf(stderr, "unhexread %3d %2x  ", i, 0xff & hexbuff[i] );
+syslog( LOG_NOTICE, "unhexread %3d %2x  ", i, 0xff & hexbuff[i] );
           if ( isalnum( hexbuff[i] ) )
-             fprintf( stderr, " %c ",  hexbuff[i] );
-fprintf(stderr, "\n" );
+             syslog( LOG_NOTICE, " %c ",  hexbuff[i] );
+syslog( LOG_NOTICE, "\n" );
           } 
 #endif
             // skip over the six byte confirmation in hexbuff
@@ -250,10 +285,10 @@ fprintf(stderr, "\n" );
           memcpy( &(outbuff[0]), &(hexbuff[6]), 32 );
 
 #ifdef ZDEBUG
-fprintf(stderr, "about close  read %d   count %d\n", n, count );
+syslog( LOG_NOTICE, "about close  read %d   count %d\n", n, count );
 for ( i = 0; i < 40; i++ ) {
-fprintf(stderr, "outbuff %3d %2x  ", i, 0xff & outbuff[i] );
-fprintf(stderr, "\n" );
+syslog( LOG_NOTICE, "outbuff %3d %2x  ", i, 0xff & outbuff[i] );
+syslog( LOG_NOTICE, "\n" );
 }
 #endif
         }
@@ -263,19 +298,23 @@ fprintf(stderr, "\n" );
 
        if ( pLgMaster->gHeaderSpecialByte & 0x02 ) {
 
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kAutoFocusCmd;
-// skip over header
-          memcpy( &(pLgMaster->theResponseBuffer[4]), &(outbuff[4]), 32 );
+                pResp->hdr.status  = kAutoFocusCmd;
+                            // skip over header
+                memcpy( &(pLgMaster->theResponseBuffer[4]), &(outbuff[4]), 32 );
+
 #ifdef ZDEBUG
-fprintf(stderr, "about close  read %d   count %d\n", n, count );
+syslog( LOG_NOTICE, "about close  read %d   count %d\n", n, count );
 for ( i = 0; i < 40; i++ ) {
-fprintf(stderr, "response %3d %2x  ", i, 0xff & theResponseBuffer[i] );
-fprintf(stderr, "\n" );
+syslog( LOG_NOTICE, "response %3d %2x  ", i, 0xff & pLgMaster->theResponseBuffer[i] );
+syslog( LOG_NOTICE, "\n" );
 }
 #endif
-          HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ) + 32, kRespondExtern );
+
+                HandleResponse( pLgMaster
+                              , (sizeof(struct parse_autofocus_resp) - kCRCSize)
+                              , respondToWhom
+                              );
+
        }
        return;
 
