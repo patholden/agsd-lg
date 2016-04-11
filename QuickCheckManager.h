@@ -7,7 +7,7 @@
 #include "L3DTransform.h"
 #include "Protocol.h"
 
-void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_parms *pInp, uint32_t nTargets);
+void PerformAndSendQuickCheck(struct lg_master *pLgMaster, int32_t *pInp, uint32_t nTargets);
 
 extern void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char * data,
                                        uint32_t nTargets, uint32_t nThresh);

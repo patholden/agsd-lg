@@ -440,7 +440,7 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
       break;
 #if 0
       //FIXME---PAH---need to do separate function for this one.
-      case kQuickCheck:
+    case kQuickCheck:
       PerformAndSendQuickCheck (pLgMaster, data, gRespondToWhom );
       break;
 #endif

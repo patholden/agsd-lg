@@ -47,7 +47,7 @@ static	void		InitQuickCheckHistory ( void );
 static	void		AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom );
 
 
-void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_parms *pInp, uint32_t nTargets )
+void PerformAndSendQuickCheck(struct lg_master *pLgMaster, int32_t *anglepairs, uint32_t nTargets )
 {
   char localdata[ 1024 ];
   uint32_t *ptrX, *ptrY;
@@ -63,7 +63,7 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_
   // initialize array to invalid angles
   memset(localdata, 0xFF, sizeof(localdata));
 
-  memcpy(localdata, pInp->anglepairs, (sizeof(int32_t) * 2 * nTargets));
+  memcpy(localdata, anglepairs, (sizeof(int32_t) * 2 * nTargets));
   lostSensors = 0;
   lostSum = 0;
 

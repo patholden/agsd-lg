@@ -27,7 +27,6 @@ static char rcsid[] = "$Id: LaserFlex.c,v 1.18 2003/04/25 10:40:04 ags-sw Exp ag
 #include "LaserInterface.h"
 #include "LaserPattern.h"
 #include "APTParser.h"
-#include "FullRegManager.h"
 #include "Video.h"
 #include "QuickCheckManager.h"
 
@@ -89,7 +88,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	return;
       }
     numberOfTargets = parameters->inp_numTargets;
-    if (numberOfTargets > MAX_ANGLEPAIRS)
+    if (numberOfTargets > MAX_TARGETSFLEX)
       {
 	pResp->hdr.status1 = RESPFAIL;
 	pResp->hdr.errtype1 = RESPTOOMANYPLIES;
@@ -361,12 +360,12 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 
 
 
-void DoFlexQuickCheck ( struct lg_master *pLgMaster, struct parse_flexquickcheck_parms* data, uint32_t respondToWhom )
+void DoFlexQuickCheck ( struct lg_master *pLgMaster, struct parse_flexquickcheck_parms *data, uint32_t respondToWhom )
 {
         uint32_t nTargets;
 
         nTargets = data->inp_numTargets;
-        PerformAndSendQuickCheck ( pLgMaster, (char *)data->inp_anglepairs, nTargets );
+        PerformAndSendQuickCheck ( pLgMaster, (int32_t *)data->inp_anglepairs, nTargets);
 }
 
 

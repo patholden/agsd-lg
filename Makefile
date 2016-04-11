@@ -36,7 +36,6 @@ AGS_OBJECTS = Main.o \
               BoardComm.o Events.o \
               SensorRegistration.o \
               3DTransform.o \
-	      FullRegManager.o \
               QuickCheckManager.o \
 	      SystemSpecifics.o Video.o Web.o \
 	      Init.o Net.o FOM.o \

@@ -6,12 +6,22 @@ static char rcsid[] = "$Id: FullRegWithFeedback.c,v 1.1 2006/06/05 18:40:30 ags-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <time.h>
+#include <math.h>
+#include <assert.h>
+#include <sys/io.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <sys/ioctl.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
@@ -20,361 +30,408 @@ static char rcsid[] = "$Id: FullRegWithFeedback.c,v 1.1 2006/06/05 18:40:30 ags-
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"
-#include "FullRegManager.h"
 #include "3DTransform.h"
 #include "L3DTransform.h"
 #include "BoardComm.h"
+#include "parse_data.h"
 
-#define OLD_RETURN
+#define	kNumberOfSensorSearchAttempts 3
 
-#define	kNumberOfSensorSearchAttempts				3
+void LogFullRegWithFeedbackCommand(struct parse_rightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster);
 
-#define OutputPadding   2
-// FIXME---PAH---NEEDS CMD/RESP STRUCT FIXES
-void FullRegWithFeedback (struct lg_master *pLgMaster,
-			  char * parameters,
-			  uint32_t respondToWhom )
+void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_resp *pRespBuf, uint32_t respLen);
+
+void FullRegWithFeedback(struct lg_master *pLgMaster,
+			 struct parse_rightondofullregwithfeedback_parms *param,
+			 uint32_t respondToWhom)
 {
-    int16_t fndX, fndY;
-    double XfoundAngles [ kFeedbackNumber ];
-    double YfoundAngles [ kFeedbackNumber ];
-    double XExternalAngles [ kFeedbackNumber ];
-    double YExternalAngles [ kFeedbackNumber ];
-    double foundAngles [ kFeedbackNumber * 2 ];
-    int16_t Xarr[kFeedbackNumber];
-    int16_t Yarr[kFeedbackNumber];
-    int32_t target_status [ kFeedbackNumber ];
-    int numberOfFoundTargets;
-    int useTarget [ kFeedbackNumber ];
-    char *RespBuff=(char *)pLgMaster->theResponseBuffer;
-    uint32_t    resp_len=(sizeof ( uint32_t )
-			  + 12 * ( sizeof ( double )  )
-			  +        sizeof ( double ) 
-			  +        sizeof ( double ) 
-			  +        sizeof ( double ) 
-			  +        sizeof ( int32_t ) 
-			  +        sizeof ( int32_t ) 
-			  +  2 * kFeedbackNumber * sizeof ( uint32_t )
-			  +  2 * kFeedbackNumber * sizeof ( double )
-			  +      kFeedbackNumber * sizeof ( int32_t )
-			  +  OutputPadding
-			  +  1024
-			  +  kCRCSize);
-    uint32_t    return_code=0;
-    unsigned char *ucPtr;
-    unsigned short i, j;
-    uint32_t lostSensors;
-    unsigned char theResult;
-    int32_t numberOfTargets;
-    int32_t RawGeomFlag;
-    double theCoordinateBuffer[kFeedbackNumber * 3];
-    int32_t theAngleBuffer[kFeedbackNumber * 2];
-    double *currentData;
-    struct lg_xydata *pCurXY;
-    int index;
-    double theTransformTolerance;
-    transform foundTransform;
-    uint32_t *pRawAngles;
-    double *pGeometricAngles;
-    int32_t offset;
-    int searchResult;
+    struct parse_rightondofullregwithfeedback_resp *pRespBuf;
+    struct lg_xydata theAngleBuffer[MAX_TARGETSOLD];
+    transform        foundTransform;
+    double           foundAngles[MAX_TARGETSOLD * 2];
+    double           theCoordinateBuffer[MAX_TARGETSOLD * 3];
+    double           theTransformTolerance;
+    double           XExternalAngles[MAX_TARGETSOLD];
+    double           YExternalAngles[MAX_TARGETSOLD];
+    double           XfoundAngles[MAX_TARGETSOLD];
+    double           YfoundAngles[MAX_TARGETSOLD];
+    int32_t          numberOfTargets;
+    int32_t          RawGeomFlag;
+    int32_t          target_status[MAX_TARGETSOLD];
+    int              numberOfFoundTargets = 0;
+    int              searchResult;
+    int              useTarget[MAX_TARGETSOLD];
+    uint32_t         respLen = (sizeof(struct parse_rightondofullregwithfeedback_resp));
+    uint32_t         rc = 0;
+    uint32_t         lostSensors;
+    int16_t          fndX, fndY;
+    int16_t          Xarr[MAX_TARGETSOLD];
+    int16_t          Yarr[MAX_TARGETSOLD];
+    int16_t          ptX, ptY;
+    unsigned short   i, j;
+    unsigned char    theResult;
+   
+    syslog(LOG_DEBUG, "Entered Routine: FullRegWithFeedback");
+
+    LogFullRegWithFeedbackCommand(param, pLgMaster);
     
     SlowDownAndStop(pLgMaster);
+
+    pRespBuf = (struct parse_rightondofullregwithfeedback_resp *)pLgMaster->theResponseBuffer;
+    
     theTransformTolerance  = pLgMaster->gArgTol;
+    
     pLgMaster->gBestTargetNumber = 0;
+    
+    //Initialize buffers
+    memset(pRespBuf, 0, respLen);
     memset(pLgMaster->gBestTargetArray, 0, sizeof(pLgMaster->gBestTargetArray));
-        for ( i = 0; i < kFeedbackNumber; i++ ) {
-               target_status[i] = 0;
-               pLgMaster->foundTarget[i]  = 0;
-               savePoint[i] = 0;
-               XExternalAngles[i] = 0;
-               YExternalAngles[i] = 0;
-               Xarr[i] = 0;
-               Yarr[i] = 0;
-               useTarget[i] = 1;
-        }
-        gWorstTolReg = 1.0;
+    memset((char *)&target_status, 0, sizeof(target_status));
+    memset((char *)&pLgMaster->foundTarget, 0, sizeof(pLgMaster->foundTarget));
+    memset((char *)&savePoint, 0, sizeof(savePoint));
+    memset((char *)&XExternalAngles, 0, sizeof(XExternalAngles));
+    memset((char *)&YExternalAngles, 0, sizeof(YExternalAngles));
+    memset((char *)&Xarr, 0, sizeof(Xarr));
+    memset((char *)&Yarr, 0, sizeof(Yarr));
 
-
-	i = 0U;
+    for (i = 0; i < MAX_TARGETSFLEX; i++)
+      {
+        useTarget[i] = 1;
+      }
+				      
+    gWorstTolReg = 1.0;
 	
-        RawGeomFlag = *(int32_t *)(&(parameters)[0]);
+    RawGeomFlag = param->angleflag;
 
-          /*
-           * for RawGeomFlag:
-           *   1 -> raw binary angles
-           *   2 -> Geometric angles
-           */
-        offset =    sizeof(int32_t); 
-        numberOfTargets = *(int32_t *)(&(parameters)[offset]);
+    numberOfTargets = param->num_targets;  // 1: raw binary angles, 2: Geometric angles
 
-        offset =    sizeof(int32_t) 
-                  + sizeof(int32_t)
-                  + sizeof(double) * kFeedbackNumber * 3;
-        pGeometricAngles = (double *)(&(parameters)[offset]);
-        offset =    sizeof(int32_t) 
-                  + sizeof(int32_t)
-                  + sizeof(double) * kFeedbackNumber * 3
-                  + sizeof(double) * kFeedbackNumber * 2;
-        pRawAngles = (uint32_t *)(&(parameters)[offset]);
-
-        if ( RawGeomFlag == 1)
+    if (RawGeomFlag == 1)
+      {
+        for (i = 0; i < numberOfTargets; i++)
 	  {
-	    for ( i = 0; i <  kFeedbackNumber ; i++)
+	    theAngleBuffer[i].xdata = param->target_raw_angle[i].xangle & kMaxUnsigned;
+	    theAngleBuffer[i].ydata = param->target_raw_angle[i].yangle & kMaxUnsigned;
+	  }
+      }
+    else if (RawGeomFlag == 2)
+	  {
+	    for (i = 0; i < numberOfTargets; i++)
 	      {
-		theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
-		theAngleBuffer[2*i+1] = pRawAngles[2*i+1];
+		rc = ConvertExternalAnglesToBinary(pLgMaster,
+						   param->target_geo_angle[i].Xangle,
+						   param->target_geo_angle[i].Yangle,
+						   &theAngleBuffer[i].xdata,
+						   &theAngleBuffer[i].ydata);
+	      }
+          }
+
+    for (i = 0; i < numberOfTargets; i++)
+      {
+        theCoordinateBuffer[(3*i)+0] = param->target[i].Xtgt;
+	theCoordinateBuffer[(3*i)+1] = param->target[i].Ytgt;
+	theCoordinateBuffer[(3*i)+2] = param->target[i].Ztgt;
+      }
+
+    SaveFullRegCoordinates (numberOfTargets, theCoordinateBuffer);
+
+    for (i = 0; i < numberOfTargets; i++)
+      {
+        for (j = i; j < numberOfTargets; j++)
+	  {
+            if ( i != j )
+	      {
+                if ((gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
+		  useTarget[j] = 0;
 	      }
 	  }
-	else if (RawGeomFlag == 2)
-	  {
-	    for ( i = 0; i <  kFeedbackNumber ; i++)
-	      {
-		pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
-		return_code = ConvertExternalAnglesToBinary (pLgMaster,
-							     pGeometricAngles[2*i],
-							     pGeometricAngles[2*i+1],
-							     &pCurXY->xdata,
-							     &pCurXY->ydata);
-		memcpy(RespBuff, &return_code, sizeof(uint32_t));
-	      }
-        }
-        i = 0;
-        index = sizeof(int32_t) + sizeof(int32_t);
-        currentData = (double *)(&parameters[index]);
-        while (i < (kFeedbackNumber * 3))
-	  {
-	    theCoordinateBuffer[i] = currentData[i];
-	    i++;
-	  }
-        SaveFullRegCoordinates ( numberOfTargets, theCoordinateBuffer );
+      }
+    
+    lostSensors = 0;
 
-        for ( i = 0; i < numberOfTargets; i++ )
+    if (rc == 0)
+      {
+	for (i = 0; i < numberOfTargets; i++)
 	  {
-            for ( j = i; j < numberOfTargets; j++)
+	    j = gNumberOfSensorSearchAttempts;
+	    gSearchCurrentSensor = i;
+
+	    /*
+	     *  allow for a variable speed search, in needed
+	     */
+	    pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
+	    pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
+
+	    while (j--)
 	      {
-                if ( i != j )
+		if (useTarget[i] == 1)
 		  {
-                    if ( (gX[i]==gX[j]) && (gY[i]==gY[j]) && (gZ[i]==gZ[j]))
-		      useTarget[j] = 0;
-		  }
-	      }
-	  }
-	lostSensors = 0;
-	i = 0;
-        if (return_code == 0)
-	  {
-	    while (i < numberOfTargets)
-	      {
-		j = gNumberOfSensorSearchAttempts;
-		gSearchCurrentSensor = i;
+		    ptX = theAngleBuffer[i].xdata;
+		    ptY = theAngleBuffer[i].ydata;
 
-		/*
-		 *  allow for a variable speed search, in needed
-		 */
-		pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
-		pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
-		while (j--)
-		  {
-		    pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
-		    if (useTarget[i] == 1)
-		      {
-			searchResult = SearchForASensor ( pLgMaster, pCurXY->xdata, pCurXY->ydata,
-							  &fndX, &fndY );
-			if ( searchResult == kStopWasDone )
-			  {
-			    SearchBeamOff(pLgMaster);
-			    fndX = 0;
-			    fndY = 0;
-			  }
-		      }
-		    else
-		      {
-			searchResult = 99;
-			fndX = 0;
-			fndY = 0;
-		      }
-		    Xarr[i] = fndX;
-		    Yarr[i] = fndY;
+		    searchResult = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY );
 		    if (searchResult == kStopWasDone)
-		      return;
-		    if (!searchResult)
-		      break;
-		    pLgMaster->gCoarse2SearchStep /= 2;
-		    pLgMaster->gCoarse2Factor     /= 2; 
-		    if (pLgMaster->gCoarse2SearchStep < 1)
 		      {
-			pLgMaster->gCoarse2SearchStep = 1;
-			pLgMaster->gCoarse2Factor     = 1;
+		        SearchBeamOff(pLgMaster);
+		        fndX = 0;
+		        fndY = 0;
 		      }
 		  }
-		pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
-		pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
-		if (searchResult)
+		  else
 		  {
-		    lostSensors += 1U << i;
-		    XfoundAngles[i] = 0;
-		    YfoundAngles[i] = 0;
+		    searchResult = 99;
+		    fndX = 0;
+		    fndY = 0;
 		  }
-		else
-		  {
-		    target_status[i] = 1;
-		    pLgMaster->foundTarget[i]   = 1;
-		    ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY,
-						   &(XfoundAngles[i]),
-						   &(YfoundAngles[i]) );
-		    ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,
-						  &(XExternalAngles[i]),
-						  &(YExternalAngles[i]) );
+		    
+		Xarr[i] = fndX;
+		Yarr[i] = fndY;
+
+		if (searchResult == kStopWasDone)
+		  return;
+
+		if (!searchResult)
+		  break;
+
+		pLgMaster->gCoarse2SearchStep /= 2;
+   	        pLgMaster->gCoarse2Factor     /= 2;   
+	        if (pLgMaster->gCoarse2SearchStep < 1)
+	          {
+	    	    pLgMaster->gCoarse2SearchStep = 1;
+		    pLgMaster->gCoarse2Factor     = 1;
 		  }
-		i++;
 	      }
-	    numberOfFoundTargets = 0;
-	    for (i = 0; i < numberOfTargets ; i++)
+
+	    pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
+	    pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
+
+	    if (searchResult)
 	      {
-		foundAngles[2*i  ] = XfoundAngles[i];
-		foundAngles[2*i+1] = YfoundAngles[i];
-		if (pLgMaster->foundTarget[i] == 1)
-		  numberOfFoundTargets ++;
+	        lostSensors += 1U << i;
+	        XfoundAngles[i] = 0;
+	        YfoundAngles[i] = 0;
 	      }
+	    else
+	      {
+	        target_status[i] = 1;
+
+		pLgMaster->foundTarget[i] = 1;
+
+		ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY, &(XfoundAngles[i]), &(YfoundAngles[i]) );
+
+		ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY, &(XExternalAngles[i]), &(YExternalAngles[i]) );
+	      }
+	  }
+
+	  numberOfFoundTargets = 0;
+	  
+	  for (i = 0; i < numberOfTargets; i++)
+	    {
+	      foundAngles[2*i+0] = XfoundAngles[i];
+	      foundAngles[2*i+1] = YfoundAngles[i];
+
+	      if (pLgMaster->foundTarget[i] == 1)
+		  numberOfFoundTargets ++;
+	    }
+	  
           if (numberOfFoundTargets >= 4)
 	    {
 	      theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror,
 					      theTransformTolerance, foundAngles,
 					      (double *)&foundTransform);
 	    }
-          for (i = 0; i < numberOfTargets ; i++)
+
+          for (i = 0; i < numberOfTargets; i++)
 	    {
               if (savePoint[i] > 0)
 		target_status[i] = 2;
 	    }
-	  }
-	else
-          theResult = false;
+      }
+    else
+      theResult = false;
 
-        if (gTargetDrift)
-	  InitDrift(Xarr, Yarr);
-        /* 
-         *  last desperate attempt to find transform
-         *  provided that at least four targets have been found
-         */
-        if ((gSaved == 0) && (numberOfFoundTargets >= 4) && gForceTransform)
-	  {
-	    theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror, 0.001,
-					    foundAngles, (double *)&foundTransform);
-	  }
+      if (gTargetDrift)
+	InitDrift(Xarr, Yarr);
 
-	/*
-	 *   finally prepare and send response
-	 */
-	ucPtr = (unsigned char *)(RespBuff);
-        memset( ucPtr, 0, resp_len);
+      /* 
+       *  last desperate attempt to find transform
+       *  provided that at least four targets have been found
+       */
+      if ((gSaved == 0) && (numberOfFoundTargets >= 4) && gForceTransform)
+	{
+	  theResult = FindTransformMatrix(pLgMaster, numberOfTargets, gDeltaMirror, 0.001,
+			  	          foundAngles, (double *)&foundTransform);
+	}
+
+      /*
+       *   finally prepare and send response
+       */
 
         if (theResult == true)
 	  {
-	    return_code = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
-	    memcpy(RespBuff, &return_code, sizeof(uint32_t));
+	    rc = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
+	    memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
 	  }
 	else
 	  {
-            return_code = kFail;
-	    memcpy(RespBuff, &return_code, sizeof(uint32_t));
-            HandleResponse ( pLgMaster, sizeof(uint32_t), respondToWhom );
+            rc = kFail;
+	    memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
+	    LogFullRegWithFeedbackResponse(pRespBuf, sizeof(pRespBuf->hdr));
+            HandleResponse (pLgMaster, sizeof(pRespBuf->hdr), respondToWhom);
             return;
 	  }
 
-	index = sizeof(uint32_t);
-	ucPtr = (unsigned char *)(RespBuff + index);
+        TransformIntoArray( &foundTransform, (double *)pRespBuf->transform);
 
-        TransformIntoArray( &foundTransform, (double *)ucPtr );
+        pRespBuf->besttolerance = gBestTolAll;
 
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-        *(double *)ucPtr = gBestTolAll;
+        pRespBuf->worsttoleranceofanycalculatedtransform = gWorstTolAll;
 
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-        *(double *)ucPtr = gWorstTolAll;
+        if ( gWorstTolReg > 0 )
+	  {
+            pRespBuf->worsttoleranceofanyintolerancetransform = gWorstTolReg;
+          }
+	else
+	  {
+             pRespBuf->worsttoleranceofanyintolerancetransform = 1.0;
+          }
 
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-        if ( gWorstTolReg > 0 ) {
-            *(double *)ucPtr = gWorstTolReg;
-        } else {
-            *(double *)ucPtr = 1.0;
-        }
+        pRespBuf->numberoftransforms = gSaved;
 
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-        *(int32_t *)ucPtr = gSaved;
+	pRespBuf->numberoftargets = numberOfTargets;
 
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( int32_t ) 
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-        *(int32_t *)ucPtr = numberOfTargets;
+	for (i = 0; i < numberOfTargets; i++)
+	  {
+	    ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0] = Xarr[i];
+	    ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1] = Yarr[i];
+	  }
 
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( int32_t ) 
-                     +        sizeof ( int32_t ) 
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
+	for (i = 0; i < numberOfTargets; i++)
+	  {
+	    pRespBuf->target_geo_angle[2*i+0].Xangle = XExternalAngles[i];
+	    pRespBuf->target_geo_angle[2*i+1].Yangle = YExternalAngles[i];
+	  }
 
-	for( i=0; i < kFeedbackNumber; i++ ) {
-                        ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
-                        ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-        }
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( int32_t ) 
-                     +        sizeof ( int32_t ) 
-		     +  2 * kFeedbackNumber * ( sizeof ( uint32_t ) )
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-	for( i=0; i < kFeedbackNumber; i++ ) {
-                        ((double *)ucPtr)[2*i  ] = XExternalAngles[i];
-                        ((double *)ucPtr)[2*i+1] = YExternalAngles[i];
-        }
-	index = sizeof(uint32_t)
-                     + 12 * ( sizeof ( double ) )
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( double ) 
-                     +        sizeof ( int32_t ) 
-                     +        sizeof ( int32_t ) 
-		     +  2 * kFeedbackNumber * ( sizeof ( uint32_t ) )
-		     +  2 * kFeedbackNumber * ( sizeof ( double ) )
-                     ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-	for( i=0; i < kFeedbackNumber; i++ ) {
-                        ((int32_t *)ucPtr)[i] = target_status[i];
-        }
+	for (i = 0; i < numberOfTargets; i++)
+	  {
+	    pRespBuf->target_status[i] = target_status[i];
+	  }
 
-	HandleResponse (pLgMaster, resp_len, respondToWhom );
+	LogFullRegWithFeedbackResponse(pRespBuf, respLen);
+
+	HandleResponse (pLgMaster, respLen, respondToWhom);
+
 	return;
+}
+
+
+void LogFullRegWithFeedbackCommand(struct parse_rightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster)
+{
+    int32_t          i;
+    int32_t          numberOfTargets;
+    int32_t          RawGeomFlag;
+
+    syslog(LOG_DEBUG, "CMD: HeaderSpecialByte: %02x", pLgMaster->gHeaderSpecialByte);
+    
+    RawGeomFlag = param->angleflag;
+    syslog(LOG_DEBUG, "CMD: angleflag: %d", param->angleflag);
+
+    numberOfTargets = param->num_targets;
+    syslog(LOG_DEBUG, "CMD: num_targets: %d", param->num_targets);
+
+    for (i = 0; i < numberOfTargets; i++)
+      {
+        syslog(LOG_DEBUG, "CMD: target #%d: target[%d].Xtgt: %f   target[%d].Ytgt: %f   target[%d].Ztgt: %f",
+               i + 1,
+	       i,
+  	       param->target[i].Xtgt,
+	       i,
+	       param->target[i].Ytgt,
+	       i,
+	       param->target[i].Ztgt);
+	}
+
+    if (RawGeomFlag == 2)
+      {
+	for (i = 0; i < numberOfTargets; i++)
+	  {
+	    syslog(LOG_DEBUG, "CMD: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].Yangle: %f",
+		   i + 1,
+		   i,
+		   param->target_geo_angle[i].Xangle,
+		   i,
+		   param->target_geo_angle[i].Yangle);
+	  }
+      }
+    
+    if (RawGeomFlag == 1)
+      {
+	for (i = 0; i < numberOfTargets; i++)
+	  {
+	    syslog(LOG_DEBUG, "CMD: target #%d: target_raw_angle[%d].xangle: %d   target_raw_angle[%d].yangle: %d",
+		   i + 1,
+		   i,
+		   param->target_raw_angle[i].xangle & kMaxUnsigned,
+		   i,
+		   param->target_raw_angle[i].yangle & kMaxUnsigned);
+	  }
+      }
+
+    return;    
+}
+
+
+void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_resp *pRespBuf, uint32_t respLen)
+{
+    double           transform[MAX_NEW_TRANSFORM_ITEMS];
+    int32_t          i;
+    int32_t          numberOfTargets;
+    
+    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+
+    if (respLen <= sizeof(pRespBuf->hdr.hdr))
+      return;
+
+    memcpy(transform, pRespBuf->transform, sizeof(transform));
+    for (i = 0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
+      {
+	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
+      }
+
+    syslog(LOG_DEBUG, "RSP: besttolerance: %f", pRespBuf->besttolerance);
+
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %f", pRespBuf->worsttoleranceofanycalculatedtransform);
+
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %f", pRespBuf->worsttoleranceofanyintolerancetransform);
+
+    syslog(LOG_DEBUG, "RSP: numberoftransforms: %d", pRespBuf->numberoftransforms);
+
+    numberOfTargets = pRespBuf->numberoftargets;
+    syslog(LOG_DEBUG, "RSP: numberoftargets: %d", pRespBuf->numberoftargets);
+
+    for (i = 0; i < numberOfTargets; i++)
+      {
+        syslog(LOG_DEBUG, "RSP: target #%d: anglepairsX[%d]: %d   anglepairsY[%d]: %d",
+	       i + 1,
+	       2*i+0,
+	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
+	       2*i+1,
+  	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
+      }
+
+    for (i = 0; i < numberOfTargets; i++)
+      {
+        syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
+	       i + 1,
+	       2*i+0,
+	       pRespBuf->target_geo_angle[2*i+0].Xangle,
+	       2*i+1,
+  	       pRespBuf->target_geo_angle[2*i+0].Yangle);
+      }
+
+    for (i = 0; i < numberOfTargets; i++)
+      {
+	syslog(LOG_DEBUG, "RSP: target #%d: target_status[%d]: %d", i + 1, i, pRespBuf->target_status[i]);
+      }
+
+    return;
 }

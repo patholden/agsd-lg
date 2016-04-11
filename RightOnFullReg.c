@@ -5,13 +5,22 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <time.h>
-#include <sys/time.h>
+#include <math.h>
+#include <assert.h>
+#include <sys/io.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <sys/ioctl.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "comm_loop.h"
@@ -20,100 +29,98 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"
-#include "FullRegManager.h"
 #include "3DTransform.h"
 #include "Protocol.h"
 
-#define	kNumberOfSensorSearchAttempts				3
+#define	kNumberOfSensorSearchAttempts 3
 
-//FIXME---PAH---needs cmd/resp cleanup
-void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t respondToWhom)
+void LogRightOnFullRegCommand(struct parse_rightondofullreg_parms *param, struct lg_master *pLgMaster);
+
+void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uint32_t respLen);
+
+void RightOnFullReg(struct lg_master *pLgMaster,
+		    struct parse_rightondofullreg_parms *param,
+		    uint32_t respondToWhom)
 {
-    int16_t ptX, ptY, fndX, fndY;
-    double XfoundAngles [ kNumberOfRegPoints ];
-    double YfoundAngles [ kNumberOfRegPoints ];
-    double XExternalAngles [ kNumberOfRegPoints ];
-    double YExternalAngles [ kNumberOfRegPoints ];
-    double foundAngles [ kNumberOfRegPoints * 2 ];
-    int16_t Xarr[kNumberOfRegPoints];
-    int16_t Yarr[kNumberOfRegPoints];
-    int numberOfFoundTargets;
-    int useTarget [ kFeedbackNumber ];
-    unsigned char *RespBuff=pLgMaster->theResponseBuffer;
-    uint32_t       resp_len=(sizeof(uint32_t) + (12 * kSizeOldLongDouble) +
-			     (2 * kNumberOfRegPoints * sizeof(uint32_t)) +
-			     (2 * kNumberOfRegPoints * sizeof(double)) +
-			     kCRCSize);
-    uint32_t       return_code=0;
-    unsigned char *ucPtr;
-    unsigned short i, j;
-    uint32_t lostSensors;
-    unsigned char theResult;
-    int32_t RawGeomFlag;
-    double theCoordinateBuffer[kNumberOfRegPoints * 3];
-    int32_t theAngleBuffer[kNumberOfRegPoints * 2];
-    double *currentData;
-    struct  lg_xydata *pCurXY;
-    int index;
-    double theTransformTolerance;
-    transform foundTransform;
-    int32_t *pRawAngles;
-    double *pGeometricAngles;
-    int32_t offset;
-    int searchResult;
+    struct parse_rightondofullreg_resp *pRespBuf;
+    struct lg_xydata theAngleBuffer[MAX_TARGETSOLD];
+    transform        foundTransform;
+    double           foundAngles[MAX_TARGETSOLD * 2];
+    double           theCoordinateBuffer[MAX_TARGETSOLD * 3];
+    double           theTransformTolerance;
+    double           XExternalAngles[MAX_TARGETSOLD];
+    double           YExternalAngles[MAX_TARGETSOLD];
+    double           XfoundAngles[MAX_TARGETSOLD];
+    double           YfoundAngles[MAX_TARGETSOLD];
+    int32_t          RawGeomFlag;
+    int32_t          tmpAngle;
+    int              numberOfFoundTargets = 0;
+    int              searchResult;
+    int              useTarget[MAX_TARGETSOLD];
+    uint32_t         respLen = (sizeof(struct parse_rightondofullreg_resp));
+    uint32_t         rc = 0;
+    uint32_t         lostSensors;
+    int16_t          Xarr[MAX_TARGETSOLD];
+    int16_t          Yarr[MAX_TARGETSOLD];
+    int16_t          ptX, ptY, fndX, fndY;
+    unsigned short   i, j;
+    unsigned char    theResult;
+				
+    syslog(LOG_DEBUG, "Entered Routine: RighOnFullReg");
 
-    memset(RespBuff, 0, resp_len);
+    LogRightOnFullRegCommand(param, pLgMaster);
+
     SlowDownAndStop(pLgMaster);
+ 
+    pRespBuf = (struct parse_rightondofullreg_resp *)pLgMaster->theResponseBuffer;
+
+    memset(pRespBuf, 0, respLen);
+				
     theTransformTolerance  = pLgMaster->gArgTol;
 
-    for (index = 0; index < kNumberOfRegPoints; index++)
+    for (i = 0; i < MAX_TARGETSOLD; i++)
       {
-	pLgMaster->foundTarget[index] = 0;
-	useTarget[index] = 1;
+	pLgMaster->foundTarget[i] = 0;
+	useTarget[i] = 1;
       }
+				
     gWorstTolReg = 1.0;
-    numberOfFoundTargets = 0;
-    i = 0;
-    RawGeomFlag = *(int32_t *)(&(parameters)[0]);
-    /*
-     * for RawGeomFlag:
-     *   1 -> raw binary angles
-     *   2 -> Geometric angles
-     */
-    offset =    sizeof(int32_t) 
-      + sizeof(double) * kNumberOfRegPoints * 3;
-    pGeometricAngles = (double *)(&(parameters)[offset]);
-    offset =    sizeof(int32_t) 
-      + sizeof(double) * kNumberOfRegPoints * 3
-      + sizeof(double) * kNumberOfRegPoints * 2;
-    pRawAngles = (int32_t *)(&(parameters)[offset]);
-    if ( RawGeomFlag == 1 ) {
-      for ( i = 0; i <  kNumberOfRegPoints ; i++ ) {
-	theAngleBuffer[2*i  ] = pRawAngles[2*i  ];
-	theAngleBuffer[2*i+1] = pRawAngles[2*i+1];
-      }
-    } else if ( RawGeomFlag == 2 ) {
-      for ( i = 0; i <  kNumberOfRegPoints ; i++ ) {
-	pCurXY = (struct lg_xydata *)((char *)&theAngleBuffer[0] + (sizeof(struct lg_xydata) * i));
-	return_code = ConvertExternalAnglesToBinary (pLgMaster,
-						     pGeometricAngles[2*i],
-						     pGeometricAngles[2*i+1],
-						     &pCurXY->xdata,
-						     &pCurXY->ydata);
-      }
-    }
-    i = 0;
-    index = sizeof(int32_t);
-    currentData = (double *)(&parameters[index]);
-    while (i < (kNumberOfRegPoints * 3))
+				
+    RawGeomFlag = param->angleflag;  // 1: raw binary angles, 2: geometric angles
+
+    if (RawGeomFlag == 1)
       {
-	theCoordinateBuffer[i] = currentData[i];
-	i++;
-      }
-    SaveFullRegCoordinates ( kNumberOfRegPoints, theCoordinateBuffer );
-    for (i = 0; i < kNumberOfRegPoints; i++)
+	for (i = 0; i < MAX_TARGETSOLD; i++ )
+	  {
+	    theAngleBuffer[i].xdata = (int16_t)param->target_raw_angle[i].xangle & kMaxUnsigned;
+	    theAngleBuffer[i].ydata = (int16_t)param->target_raw_angle[i].yangle & kMaxUnsigned;
+	  }
+      } else if (RawGeomFlag == 2)
       {
-	for (j = i; j < kNumberOfRegPoints; j++)
+	for ( i = 0; i < MAX_TARGETSOLD; i++ )
+	  {
+	    rc = ConvertExternalAnglesToBinary (pLgMaster,
+					        param->target_geo_angle[i].Xangle,
+					        param->target_geo_angle[i].Yangle,
+					        &theAngleBuffer[i].xdata,
+					        &theAngleBuffer[i].ydata);
+	  }
+      }
+				
+    // save target coordinates
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+	theCoordinateBuffer[(3*i)+0] = param->target[i].Xtgt;
+	theCoordinateBuffer[(3*i)+1] = param->target[i].Ytgt;
+	theCoordinateBuffer[(3*i)+2] = param->target[i].Ztgt;
+      }
+
+    SaveFullRegCoordinates(MAX_TARGETSOLD, theCoordinateBuffer);
+
+    // check for duplicates
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+	for (j = i; j < MAX_TARGETSOLD; j++)
 	  {
 	    if (i != j)
 	      {
@@ -122,22 +129,27 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 	      }
 	  }
       }
+				
     lostSensors = 0;
-    i = 0;
-    if (return_code == 0)
+				
+    if (rc == 0)
       {
-	while (i < kNumberOfRegPoints)
+	for (i = 0; i < MAX_TARGETSOLD; i++)
 	  {
 	    j = gNumberOfSensorSearchAttempts;
+
 	    gSearchCurrentSensor = i;
+
 	    /*
 	     *  allow for a variable speed search, in needed
 	     */
 	    pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
+
 	    while (j--)
 	      {
-		ptX = theAngleBuffer[2*i  ];
-		ptY = theAngleBuffer[2*i+1];
+		ptX = theAngleBuffer[i].xdata;
+		ptY = theAngleBuffer[i].ydata;
+
 		if (useTarget[i] == 1)
 		  searchResult = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
 		else
@@ -146,22 +158,28 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 		    fndX = 0;
 		    fndY = 0;
 		  }
+
 		Xarr[i] = fndX;
 		Yarr[i] = fndY;
+
 		if (searchResult == kStopWasDone)
 		  {
 		    SearchBeamOff(pLgMaster);
 		    return;
 		  }
+
 		if (!searchResult)
 		  break;
+
 		pLgMaster->gCoarse2SearchStep /= 2;
 		pLgMaster->gCoarse2Factor     /= 2; 
-		if (pLgMaster->gCoarse2SearchStep <= 1) {
-		  pLgMaster->gCoarse2SearchStep = 1;
-		  pLgMaster->gCoarse2Factor     = 1;
-		}
+		if (pLgMaster->gCoarse2SearchStep <= 1)
+		  {
+		    pLgMaster->gCoarse2SearchStep = 1;
+		    pLgMaster->gCoarse2Factor     = 1;
+		  }
 	      }
+	    
 	    if (searchResult)
 	      lostSensors += 1U << i;
 	    else
@@ -170,60 +188,158 @@ void RightOnFullReg(struct lg_master *pLgMaster, char *parameters, uint32_t resp
 		ConvertBinaryToGeometricAngles(pLgMaster, fndX, fndY, &(XfoundAngles[i]), &(YfoundAngles[i]));
 		ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,  &(XExternalAngles[i]), &(YExternalAngles[i]));
 	      }
-	    i++;
 	  }
-	for (i = 0; i < kNumberOfRegPoints ; i++)
+	
+	for (i = 0; i < MAX_TARGETSOLD; i++)
 	  {
-	    foundAngles[2*i  ] = XfoundAngles[i];
+	    foundAngles[2*i+0] = XfoundAngles[i];
 	    foundAngles[2*i+1] = YfoundAngles[i];
 	    if (pLgMaster->foundTarget[i] == 1)
 	      numberOfFoundTargets ++;
           }
+
 	if (numberOfFoundTargets >= 4)
 	  {
-	    theResult = FindTransformMatrix(pLgMaster, kNumberOfRegPoints,
+	    theResult = FindTransformMatrix(pLgMaster, MAX_TARGETSOLD,
 					    gDeltaMirror, theTransformTolerance, foundAngles,
 					    (double *)&foundTransform );
           }
         }
     else
       theResult = 0;
+
     if (theResult)
       {
-	return_code = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
-	memcpy(RespBuff, &return_code, sizeof(uint32_t));
+	rc = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
+	memcpy(pRespBuf, &rc, sizeof(uint32_t));
+	
 	if (gTargetDrift)
 	  InitDrift(Xarr, Yarr);
-	index = sizeof(uint32_t);
-	ucPtr = (unsigned char *)(RespBuff + index);
+	
+	memset(pRespBuf->transform, 0, OLDTRANSFORMLEN);
+	TransformIntoArray(&foundTransform, (double *)&pRespBuf->transform);
 
-	memset( ucPtr, 0, 12 * (kSizeOldLongDouble) );
-	TransformIntoArray( &foundTransform, (double *)ucPtr );
+	for (i = 0; i < MAX_TARGETSOLD; i++)
+	  {
+	    tmpAngle = Xarr[i];
+	    memcpy(&pRespBuf->anglepairs[8*i+0], &tmpAngle, sizeof(int32_t));
+	    tmpAngle = Yarr[i];
+	    memcpy(&pRespBuf->anglepairs[8*i+4], &tmpAngle, sizeof(int32_t));
+	  }
+	     
+	for (i = 0; i < MAX_TARGETSOLD; i++)
+	  {
+	    pRespBuf->target_geo_angle[i].Xangle = XExternalAngles[i];
+	    pRespBuf->target_geo_angle[i].Yangle = YExternalAngles[i];
+	  }
 
-	index = sizeof(uint32_t) + 12 * ( kSizeOldLongDouble );
-	ucPtr = (unsigned char *)(RespBuff + index);
-	for (i=0; i < kNumberOfRegPoints; i++)
-	  {
-	    ((uint32_t *)ucPtr)[2*i  ] = Xarr[i];
-	    ((uint32_t *)ucPtr)[2*i+1] = Yarr[i];
-	  }
-	index = sizeof(uint32_t)
-	  + 12 * ( kSizeOldLongDouble )
-	  +  2 * kNumberOfRegPoints * ( sizeof ( uint32_t ) ) ;
-	ucPtr = (unsigned char *)(RespBuff + index);
-	for (i=0; i < kNumberOfRegPoints; i++)
-	  {
-	    ((double *)ucPtr)[2*i  ] = XExternalAngles[i];
-	    ((double *)ucPtr)[2*i+1] = YExternalAngles[i];
-	  }
-	HandleResponse (pLgMaster, resp_len, respondToWhom );
+	LogRightOnFullRegResponse(pRespBuf, respLen);
+	
+	HandleResponse (pLgMaster, respLen, respondToWhom );
       }
     else
       {
-	return_code = kFail | lostSensors;
-	memcpy(RespBuff, &return_code, sizeof(uint32_t));
-	HandleResponse (pLgMaster, sizeof(uint32_t), respondToWhom );
+	rc = kFail | lostSensors;
+
+	memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr.hdr));
+
+	HandleResponse (pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom );
+
 	return;
       }
+				
+    return;
+}
+
+
+void LogRightOnFullRegCommand(struct parse_rightondofullreg_parms *param, struct lg_master *pLgMaster)
+{
+    int32_t          i;
+    int32_t          RawGeomFlag;
+
+    syslog(LOG_DEBUG, "CMD: HeaderSpecialByte: %02x", pLgMaster->gHeaderSpecialByte);
+
+    RawGeomFlag = param->angleflag;
+
+    syslog(LOG_DEBUG, "CMD: angleflag: %d", param->angleflag);
+
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+        syslog(LOG_DEBUG, "CMD: target #%d: target[%d].Xtgt: %f   target[%d].Ytgt: %f   target[%d].Ztgt: %f",
+               i + 1,
+	       i,
+  	       param->target[i].Xtgt,
+	       i,
+	       param->target[i].Ytgt,
+	       i,
+	       param->target[i].Ztgt);
+	}
+
+    if (RawGeomFlag == 2)
+      {
+	for (i = 0; i < MAX_TARGETSOLD; i++)
+	  {
+	    syslog(LOG_DEBUG, "CMD: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].Yangle: %f",
+		   i + 1,
+		   i,
+		   param->target_geo_angle[i].Xangle,
+		   i,
+		   param->target_geo_angle[i].Yangle);
+	  }
+      }
+    
+    if (RawGeomFlag == 1)
+      {
+	for (i = 0; i < MAX_TARGETSOLD; i++)
+	  {
+	    syslog(LOG_DEBUG, "CMD: target #%d: target_raw_angle[%d].xangle: %d   target_raw_angle[%d].yangle: %d",
+		   i + 1,
+		   i,
+		   param->target_raw_angle[i].xangle & kMaxUnsigned,
+		   i,
+		   param->target_raw_angle[i].yangle & kMaxUnsigned);
+	  }
+      }
+
+    return;    
+}
+
+
+void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uint32_t respLen)
+{
+    double           transform[MAX_NEW_TRANSFORM_ITEMS];
+    int32_t          i;
+    
+    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+
+    if (respLen <= sizeof(pRespBuf->hdr.hdr))
+	return;
+
+    memcpy(transform, pRespBuf->transform, sizeof(transform));
+    for (i = 0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
+      {
+	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
+      }
+
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+        syslog(LOG_DEBUG, "RSP: target #%d: anglepairsX[%d]: %d   anglepairsY[%d]: %d",
+	       i + 1,
+	       2*i+0,
+	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
+	       2*i+1,
+  	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
+      }
+
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+        syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
+	       i + 1,
+	       2*i+0,
+	       pRespBuf->target_geo_angle[2*i+0].Xangle,
+	       2*i+1,
+  	       pRespBuf->target_geo_angle[2*i+0].Yangle);
+      }
+
     return;
 }
