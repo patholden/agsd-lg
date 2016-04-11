@@ -647,11 +647,11 @@ void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number, uint32_t re
   return;
 }
 
-void DoQuickCheck (struct lg_master *pLgMaster, struct parse_qkcheck_parms * angles, uint32_t respondToWhom )
+void DoQuickCheck (struct lg_master *pLgMaster, struct parse_qkcheck_parms *inp_anglepairs, uint32_t respondToWhom )
 {
 
     gRespondToWhom = respondToWhom;
-    PerformAndSendQuickCheck (pLgMaster, angles, 6 );  // must now set target number
+    PerformAndSendQuickCheck (pLgMaster, (int32_t *)inp_anglepairs, 6);  // must now set target number
 }
 
 double DoubleFromCharConv ( unsigned char *theChar )

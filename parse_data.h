@@ -40,6 +40,7 @@ struct k_targetinfo
   double    xdev;
   double    ydev;
 } __attribute__ ((packed));
+
 struct k_xy_anglepair
 {
   int32_t   xangle;
@@ -148,6 +149,11 @@ struct parse_chunkflex_parms
   uint32_t         inp_numTargets;
   unsigned char    inp_anglepairs[ANGLEPAIRSLENFLEX];
   unsigned char    inp_transform[OLDTRANSFORMLEN];
+} __attribute__ ((packed));
+
+struct parse_qkcheck_parms
+{
+  unsigned char   inp_anglepairs[OLDANGLEPAIRSLEN];
 } __attribute__ ((packed));
 
 struct parse_flexquickcheck_parms
@@ -302,12 +308,6 @@ struct parse_dimangle_parms {
   uint32_t pulseon;
 } __attribute__ ((packed));
 
-struct parse_showtgt_parms
-{
-  uint32_t         inp_numpairs;
-  struct show_anglepair inp_targetpairs[MAX_ANGLEPAIRS];
-} __attribute__ ((packed));
-
 struct parse_chngxfrmtol_parms
 {
   double         new_tolerance;
@@ -320,11 +320,6 @@ struct parse_calibxy_parms
   double         inp_Z;
 } __attribute__ ((packed));
 
-struct parse_qkcheck_parms
-{
-  unsigned char   anglepairs[OLDANGLEPAIRSLEN];
-} __attribute__ ((packed));
-  
 /*********************************************************/
 /*                                                       */
 /*              CONFIRMATION structure                   */
@@ -531,24 +526,25 @@ struct parse_flexfail_resp {
   uint32_t           coplanartargets;
   uint32_t           fill[4];
   uint16_t           resp_crc;
+} __attribute__ ((packed));
 
 struct parse_chngxfrmtol_resp
 {
   struct k_header  hdr;
-  double         new_tolerance;
-  uint16_t     resp_crc;
+  double           new_tolerance;
+  uint16_t         resp_crc;
 } __attribute__ ((packed));
 
-  struct parse_superfom_resp
+struct parse_superfom_resp
 {
-  struct k_header  hdr;
-  uint32_t     num_targets;
-  double       chi_square;
-  struct k_targetinfo   tgt_info[MAX_ANGLEPAIRS];
-  uint16_t     resp_crc;
+  struct k_header      hdr;
+  uint32_t             num_targets;
+  double               chi_square;
+  struct k_targetinfo  tgt_info[MAX_TARGETSFLEX];
+  uint16_t             resp_crc;
 } __attribute__ ((packed));
 
-  struct parse_calibxy_resp
+struct parse_calibxy_resp
 {
   struct k_header  hdr;
   double           foundX;

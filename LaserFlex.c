@@ -360,12 +360,12 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 
 
 
-void DoFlexQuickCheck ( struct lg_master *pLgMaster, struct parse_flexquickcheck_parms* data, uint32_t respondToWhom )
+void DoFlexQuickCheck ( struct lg_master *pLgMaster, struct parse_flexquickcheck_parms *data, uint32_t respondToWhom )
 {
         uint32_t nTargets;
 
         nTargets = data->inp_numTargets;
-        PerformAndSendQuickCheck ( pLgMaster, (char *)data->inp_anglepairs, nTargets );
+        PerformAndSendQuickCheck ( pLgMaster, (int32_t *)data->inp_anglepairs, nTargets);
 }
 
 
