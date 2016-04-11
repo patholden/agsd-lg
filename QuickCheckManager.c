@@ -47,7 +47,7 @@ static	void		InitQuickCheckHistory ( void );
 static	void		AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom );
 
 
-void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_parms *pInp, uint32_t nTargets )
+void PerformAndSendQuickCheck(struct lg_master *pLgMaster, unsigned char *pAngles, uint32_t nTargets )
 {
   char localdata[ 1024 ];
   uint32_t *ptrX, *ptrY;
@@ -63,7 +63,7 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_
   // initialize array to invalid angles
   memset(localdata, 0xFF, sizeof(localdata));
 
-  memcpy(localdata, pInp->anglepairs, (sizeof(int32_t) * 2 * nTargets));
+  memcpy(localdata, pAngles, (sizeof(int32_t) * 2 * nTargets));
   lostSensors = 0;
   lostSum = 0;
 
@@ -110,10 +110,7 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_
   return;
 }
 
-void PerformThresholdQuickCheck ( struct lg_master *pLgMaster,
-				  char * data,
-				  uint32_t nTargets,
-				  uint32_t nThresh)
+void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char *data, uint32_t nTargets, uint32_t nThresh)
 {
 	uint32_t *ptrX, *ptrY;
 	uint32_t return_code;
@@ -131,19 +128,18 @@ void PerformThresholdQuickCheck ( struct lg_master *pLgMaster,
 	memset(localdata, 0xFF, sizeof(localdata));
 
         // Get data from caller
-	memcpy( localdata, data, sizeof(int32_t) * 2 * nTargets );
+	memcpy(localdata, data, sizeof(int32_t) * 2 * nTargets);
 
-	lostSensors = 0U;
+	lostSensors = 0;
 	lostSum = 0;
 
 	ptrX = (uint32_t *)localdata; ptrY = ptrX; ptrY++;
 	
-	i = 0;
 	if (pLgMaster->gQCcount == -2)
 	  theResult = 0;
         else
 	  {
-	    while ( i < nTargets )
+	    for (i=0; i < nTargets; i++)
 	      {
 		gCurrentQCSensor = i;
 		theResult = QuickCheckASensor (pLgMaster, *ptrX, *ptrY );
@@ -151,7 +147,7 @@ void PerformThresholdQuickCheck ( struct lg_master *pLgMaster,
 		  {
 		    if ( theResult == kSuperFineNotFound )
 		      {
-			lostSensors += 1U << i;
+			lostSensors += 1 << i;
 			lostSum++;
 			theResult = 0;
 			*ptrX = 0xFFFFFFFF;
@@ -163,7 +159,6 @@ void PerformThresholdQuickCheck ( struct lg_master *pLgMaster,
 		    else break;
 		  }
 		ptrX++; ptrX++; ptrY++, ptrY++;
-		i++;
 	      }
 	  }
 	

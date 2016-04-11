@@ -631,7 +631,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfFlexQuickCheckParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFlexQuickCheck);
-	    DoFlexQuickCheck (pLgMaster, (struct parse_flexquickcheck_parms *)pInp, kRespondExtern );
+	    DoFlexQuickCheck (pLgMaster, (struct parse_flexqkchk_parms *)pInp, kRespondExtern );
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -646,7 +646,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfThresholdQuickCheckParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kThresholdQuickCheck);
-	    DoThresholdQuickCheck (pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern );
+	    DoThresholdQuickCheck (pLgMaster, (struct parse_thqkchk_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);

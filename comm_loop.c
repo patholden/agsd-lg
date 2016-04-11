@@ -105,19 +105,23 @@ int CommInit(struct lg_master *pLgMaster)
     }
   syslog(LOG_NOTICE, "PC host comm port initialized");
 
+#if 0
+  // FIXME---KHH---ENABLE BOTH OPEN CALLS WHEN DRIVER IS DONE
+  // Try to open AutoFocus serial port
+  pLgMaster->af_serial = open("/dev/ttyS1", O_RDWR | O_NONBLOCK | O_NOCTTY);
+  if (pLgMaster->af_serial <= 0)
+    {
+      syslog(LOG_ERR,"open serial port /dev/ttyS1 failed");
+      return(-5);
+    }
   // Try to open AutoFocus serial port
   pLgMaster->af_serial = open("/dev/ttyS2", O_RDWR | O_NONBLOCK | O_NOCTTY);
   if (pLgMaster->af_serial <= 0)
     {
-      syslog(LOG_ERR,"open serial port 2 failed");
+      syslog(LOG_ERR,"open serial port /dev/ttyS2 failed");
       return(-5);
     }
-  // Need to zero struct, driver may not return all parms
-  memset(&term, 0, sizeof(term));
-  if( tcgetattr( pLgMaster->af_serial, &term) < 0 ){
-    syslog(LOG_ERR,"Unable to get serial port 2 attributes");
-    return(-6);
-  }
+  // FIXME---KHH---REMOVE THIS WHEN DRIVER DOES INITIALIZATION
   // Set up device to our settings
   term.c_cflag = (term.c_cflag & ~CSIZE) | CS8; // 8 bits
   term.c_cflag &= ~(PARENB | PARODD | CMSPAR);  // no parity 
@@ -126,41 +130,7 @@ int CommInit(struct lg_master *pLgMaster)
   term.c_iflag &= ~(IXON | IXOFF | IXANY);
   term.c_cflag |= CLOCAL;                       // ignore modem status lines  
   baud  = B115200;
-
-  // Disable canonical mode, and set buffer size to 1 byte
-  term.c_lflag &= ~ICANON;
-  term.c_lflag &= ~ECHO;
-  term.c_lflag &= ~ISIG;
-  term.c_cc[VMIN] = 1;
-  term.c_cc[VTIME] = 0;
-	
-  // Set input & output baud rate
-  cfsetispeed( &term, baud );
-  cfsetospeed( &term, baud );
-
-  // Enable the receiver and set local mode...
-  term.c_cflag |= ( CLOCAL | CREAD );
-  term.c_cflag &= ~PARENB;
-  term.c_cflag &= ~CSTOPB;
-  term.c_cflag &= ~CSIZE;
-  term.c_cflag |= CS8;
-
-  //Attempt to flush IO
-  if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-    {
-      syslog(LOG_ERR, "Can't Flush IO for /dev/ttyS2");
-      close(pLgMaster->af_serial);
-      return(-7);
-    }
-
-  //Set new term attributes
-  cfmakeraw(&term);
-  if( tcsetattr( pLgMaster->af_serial, TCSANOW, &term) < 0 )
-    {
-      syslog(LOG_ERR, "Can't set term attributes for /dev/ttyS2");
-      close(pLgMaster->af_serial);
-      return(-8);
-    }
+#endif
 
   syslog(LOG_NOTICE, "AutoFocus port initialized, baud %d", baud);
   // This sets the correct data presentation on send/recv from webhost
