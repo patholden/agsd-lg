@@ -1080,7 +1080,7 @@ void FindRotMatrix ( double iV1[3], double iV2[3],
 }
 
 void TransformIntoArray
-	( transform *theTransform, double theArray[12] )
+	( transform *theTransform, double *theArray )
 {
 	theArray[0] = theTransform->rotMatrix[0][0];
  	theArray[1] = theTransform->rotMatrix[0][1];

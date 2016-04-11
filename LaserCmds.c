@@ -29,7 +29,6 @@
 #include "LaserInterface.h"
 #include "LaserPattern.h"
 #include "APTParser.h"
-#include "FullRegManager.h"
 #include "Video.h"
 #include "QuickCheckManager.h"
 #include "Protocol.h"
@@ -386,89 +385,7 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
     }
   return;
 }
-void DoFullReg (struct lg_master *pLgMaster, 
-		struct parse_dofullreg_parms *pInp, 
-		uint32_t respondToWhom )
-{
-	double theCoordinateBuffer[kNumberOfRegPoints * 3];
-	struct lg_xydata theAngleBuffer[kNumberOfRegPoints * 2];
-	struct lg_xydata *pXYData;
-	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-	double    *currentData;
-	int       return_val;
-	short     i;
-	unsigned char dontBother;
 
-	memset(pResp, 0, sizeof(struct parse_basic_resp));
-	memset((char *)&theAngleBuffer, 0, sizeof(theAngleBuffer));
-	
-	currentData = (double *)pInp->inp_tgt_angles;
-	i = 0;
-	while ( i++ < kNumberOfRegPoints )
-	{
-	  pXYData = (struct lg_xydata *)&theAngleBuffer[i];
-	  return_val = ConvertExternalAnglesToBinary(pLgMaster, currentData[0],
-						     currentData[1],
-						     &pXYData->xdata,
-						     &pXYData->ydata);
-	  if (return_val)
-	    {
-	      pResp->hdr.status1 = RESPFAIL;
-	      pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
-	      switch ( i )
-		{
-		case 1:
-		  pResp->hdr.errtype2 = kFirstSensor;
-		  break;
-		case 2:
-		  pResp->hdr.errtype2 = kSecondSensor;
-		  break;
-		case 3:
-		  pResp->hdr.errtype2 = kThirdSensor;
-		  break;
-		case 4:
-		  pResp->hdr.errtype2 = kFourthSensor;
-		  break;
-		case 5:
-		  pResp->hdr.errtype2 = kFifthSensor;
-		  break;
-		case 6:
-		  pResp->hdr.errtype2 = kSixthSensor;
-		  break;
-		}
-	      pResp->hdr.errtype2 = htons(pResp->hdr.errtype2);
-	      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	      return;
-	    }
-	  SetHighBeam(pXYData);
-	  currentData += 2;
-	}
-	currentData = (double *)pInp->inp_targets;
-	i = 0;
-	dontBother = true;
-	while ( i < ( kNumberOfRegPoints * 3 ) )
-	{
-		if ( dontBother )
-			dontBother = false;
-		theCoordinateBuffer[i] = (double)DoubleFromCharConv
-			( (unsigned char *)currentData++ );
-		FromAPTtoInch ( &theCoordinateBuffer[i++] );
-	}
-	DontFindTransform ( dontBother );
-	if ( dontBother ) return;
-	SaveFullRegCoordinates ( kNumberOfRegPoints, theCoordinateBuffer );
-
-        gRespondToWhom = respondToWhom;
-
-        if ( (CDRHflag(pLgMaster) )  ) {
-	  pResp->hdr.status1 = RESPFAIL;
-	  pResp->hdr.errtype1 = RESPE1BOARDERROR;
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), gRespondToWhom);
-	  return;
-        }
-        PerformAndSendFullReg( pLgMaster, (struct lg_xydata *)theAngleBuffer, gRespondToWhom );
-	return;
-}
 void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 			unsigned char *otherParameters, char *patternData,
 			uint32_t respondToWhom)

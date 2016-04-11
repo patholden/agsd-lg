@@ -7,7 +7,7 @@
 #define  MAX_NUM_THREADS 1
 #define STEPDELAY   500
 #define NUM_HOBBS_COUNTERS  4
-#define MAX_ANGLEPAIRS   24    // kNumberOfFlexPoints
+#define MAX_TARGETSFLEX   24    // kNumberOfFlexTargets
 #define PARSE_HOBBS_HOBBS 1
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
@@ -73,18 +73,21 @@ struct k_header {
       unsigned char errtype1;
       uint16_t      errtype2;
     };
+    struct {
+      uint32_t      hdr;
+    };
   };
 } __attribute__ ((packed));
 struct version_info {
-  char      *pVersions;
+  char       *pVersions;
   uint32_t   version_size;
   uint32_t   isVersInit;
 };
 
 struct lg_master {
-  int32_t            foundTarget[MAX_ANGLEPAIRS];
-  int32_t            gColinear[MAX_ANGLEPAIRS];
-  int32_t            gCoplanar[MAX_ANGLEPAIRS];
+  int32_t            foundTarget[MAX_TARGETSFLEX];
+  int32_t            gColinear[MAX_TARGETSFLEX];
+  int32_t            gCoplanar[MAX_TARGETSFLEX];
   struct sockaddr_in webhost_addr;
   struct hobbs_ctrs hobbs;
   struct version_info   vers_data;

@@ -541,23 +541,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
       }
     break;
-  case kDoFullReg:
-    cmdSize = kSizeOfCommand + kSizeOfDoFullRegParameters;
-    if (index >= cmdSize + 2)
-      {
-	cmdState = 1;
-	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
-	  {
-	    SendConfirmation(pLgMaster, kDoFullReg);
-	    DoFullReg(pLgMaster,
-		      (struct parse_dofullreg_parms *)pLgMaster->gParametersBuffer,
-		      kRespondExtern);
-	  }
-	else
-	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
-      }
-    break;
-  case kSetBit:
+   case kSetBit:
     cmdSize = kSizeOfCommand + kSizeOfSetBitParameters;
     if (index >= cmdSize + 2)
       {
@@ -826,7 +810,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  {
 	    SendConfirmation(pLgMaster, kRightOnReg);
 	    RightOnFullReg ( pLgMaster,
-			     (char *)pLgMaster->gParametersBuffer,
+			     (struct parse_rightondofullreg_parms *)pLgMaster->gParametersBuffer,
 			     kRespondExtern );
 	  }
 	else
@@ -851,7 +835,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
       }
     break;
   case kFlexRegWithFeedback:
-    syslog(LOG_DEBUG, "PMA: RECEIVED kFlexRegWithFeedback");
     cmdSize = kSizeOfCommand + kSizeOfFlexRegWithFeedbackParameters;
     if (index >= cmdSize + 2)
       {
@@ -949,7 +932,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfRightOnCertParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kRightOnCert);
-	    RightOnCert(pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern );
+	    RightOnCert(pLgMaster, (struct parse_rtoncert_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	  }
       else
 	SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
