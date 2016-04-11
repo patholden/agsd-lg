@@ -47,33 +47,32 @@ static	void		InitQuickCheckHistory ( void );
 static	void		AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom );
 
 
-void PerformAndSendQuickCheck(struct lg_master *pLgMaster, char *data, uint32_t nTargets )
+void PerformAndSendQuickCheck(struct lg_master *pLgMaster, struct parse_qkcheck_parms *pInp, uint32_t nTargets )
 {
-  uint32_t *ptrX, *ptrY;
-  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  uint32_t return_code;
-  uint32_t lostSensors;
-  int theResult;
-  unsigned short lostSum, i;
   char localdata[ 1024 ];
+  uint32_t *ptrX, *ptrY;
+  struct parse_basic_resp *pResp;
+  uint16_t lostSensors;
+  int theResult;
+  uint16_t lostSum, i;
 
   // Zero out area for response
+  pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   memset(pResp, 0, sizeof(struct parse_basic_resp));
 
   // initialize array to invalid angles
   memset(localdata, 0xFF, sizeof(localdata));
 
-  memcpy( localdata, data, sizeof(int32_t) * 2 * nTargets );
+  memcpy(localdata, pInp->anglepairs, (sizeof(int32_t) * 2 * nTargets));
   lostSensors = 0;
   lostSum = 0;
 
   ptrX = (uint32_t *)localdata; ptrY = ptrX; ptrY++;
 	
-  i = 0;
   if (pLgMaster->gQCcount == -2)
     theResult = 0;
   else {
-    while ( i < kNumberOfFlexPoints )
+    for (i = 0; i < kNumberOfFlexPoints; i++)
       {
 	gCurrentQCSensor = i;
 	theResult = QuickCheckASensor(pLgMaster, *ptrX, *ptrY );
@@ -88,26 +87,23 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, char *data, uint32_t 
 	    else break;
 	  }
 	ptrX++; ptrX++; ptrY++, ptrY++;
-	i++;
       }
   }
   SlowDownAndStop(pLgMaster);
 
-  if ( theResult )
-    {
+  if (theResult)
       pResp->hdr.status = RESPFAIL;
-    }
   else
     {
-      if ( lostSum >= gQuickFailNumber)
+      if (lostSum >= gQuickFailNumber)
 	{
-	  return_code = htonl(kFail | lostSensors);
-	  memcpy(pResp, &return_code, sizeof(uint32_t));
+	  pResp->hdr.status = RESPFAIL;
+	  pResp->hdr.errtype = lostSensors;
 	}
       else
 	{
-	  return_code = htonl(kOK | lostSensors);
-	  memcpy(pResp, &return_code, sizeof(uint32_t));
+	  pResp->hdr.status = RESPGOOD;
+	  pResp->hdr.errtype = lostSensors;
 	}
     }
   HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), kRespondExtern);

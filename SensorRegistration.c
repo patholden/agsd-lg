@@ -15,6 +15,7 @@ static char rcsid[] = "$Id: SensorRegistration.c,v 1.15 2007/04/02 08:42:12 pick
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
+#include "comm_loop.h"
 #include "parse_data.h"
 #include "L3DTransform.h"
 #include "3DTransform.h"
@@ -37,15 +38,11 @@ enum {
 
 int       gNPoints;
 int       gSaved;
-
 double    gWorstTolReg;
 double    gWorstTolAll;
 double    gBestTolAll;
-
 double gMaxDiffMag = 0.0;
-
 doubleTransform gBestOfAllTransform;
-
 double gX[kNumberOfFlexPoints];
 double gY[kNumberOfFlexPoints];
 double gZ[kNumberOfFlexPoints];
@@ -56,37 +53,11 @@ double chiY[kNumberOfFlexPoints];
 double chiZ[kNumberOfFlexPoints];
 double chiXfoundAngle[kNumberOfFlexPoints];
 double chiYfoundAngle[kNumberOfFlexPoints];
-
-
-
-static	unsigned char		gDontFindTranform = false;
-
-static
-double
-magCross ( doubleInputPoint *iPt0
-         , doubleInputPoint *iPt1
-         , doubleInputPoint *iPt2
-         , doubleInputPoint *Pnorm
-         )
-;
-
-static
-double
-planeDist ( doubleInputPoint *point
-          , doubleInputPoint *iPt0
-          , doubleInputPoint *pPerpend
-          )
-;
-
-
-int
-dblsort( const void *elem1, const void *elem2 );
-
+static unsigned char gDontFindTranform = false;
 double gDiffX[MAXTRANSNUM];
 double gDiffY[MAXTRANSNUM];
 double gDiffMag[MAXTRANSNUM];
 int savePoint[MAXTRANSNUM];
-
 doubleInputPoint gSavePt[MAXTRANSNUM];
 
 double gTolInch = 0.05;
@@ -99,8 +70,28 @@ short GnOfTrans;
 
 double gFOM;
 double gFOMavg;
-	
 
+static double magCross(doubleInputPoint *iPt0, doubleInputPoint *iPt1,
+		       doubleInputPoint *iPt2, doubleInputPoint *Pnorm);
+static double planeDist(doubleInputPoint *point, doubleInputPoint *iPt0,
+			doubleInputPoint *pPerpend);
+static int dblsort(const void *elem1, const void *elem2);
+
+uint32_t get_number_of_points(void)
+{
+    return(gNumberOfPoints);
+}
+double get_chisquare_val(void)
+{
+    return(gChisqr);
+}
+void get_target_info(struct k_targetinfo *pTgtInfo, uint32_t tgt_num)
+{
+    pTgtInfo->tgt_number = tgt_num;
+    pTgtInfo->xdev       = gDiffX[tgt_num];
+    pTgtInfo->ydev       = gDiffY[tgt_num];
+    return;
+}
 void SaveFullRegCoordinates(uint16_t numberOfPoints, double *theOriginalCoordinates)
 {
 	uint16_t i = numberOfPoints;

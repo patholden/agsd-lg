@@ -8,14 +8,16 @@
 #define STEPDELAY   500
 #define NUM_HOBBS_COUNTERS  4
 #define MAX_TARGETSFLEX   24    // kNumberOfFlexTargets
+#define MAX_TARGETSUSED   128
 #define PARSE_HOBBS_HOBBS 1
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
 #define PARSE_HOBBS_LASER 4
+#define PROJ_VISION  1
+#define PROJ_LASER   2
 #define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
 #define MAX_DOSENSE_RETRIES 10
 #define DOSENSE_LEVEL       30
-#define DOSENSE_MAX       0x3F0
 #define DOSENSE_MID       0x300
 #define kMaxUnsigned      0xFFFF
 #define kMaxSigned        0x7FFF
@@ -95,7 +97,9 @@ struct lg_master {
   struct lg_xydata gSaveXY;
   struct lg_xydata gCheckXY;
   char            webhost[128];
-  unsigned char   gBestTargetArray[128];
+  char            visionhost[128];
+  unsigned char   gBestTargetArray[MAX_TARGETSUSED];
+  double          l2vtransform[12];
   double          gArgTol;
   double          ping_count;
   double          gTolerance;
@@ -116,6 +120,7 @@ struct lg_master {
   int             datafd;
   int             fd_laser;
   int             serial_ether_flag;
+  int             projector_mode;
   unsigned long   gProjectorSerialNumber;
   uint32_t        gHEX;
   uint32_t        rcvdStopCmd;
@@ -190,9 +195,8 @@ int setROIlength(struct lg_master *pLgMaster, int32_t half_pattern);
 int ROIoff(struct lg_master *pLgMaster);
 int doLGSTOP(struct lg_master *pLgMaster);
 int doROIOff(struct lg_master *pLgMaster);
-int doDevDisplay(struct lg_master *pLgMaster);
-int doStopPulse(struct lg_master *pLgMaster);
-int doStartPulse(struct lg_master *pLgMaster);
+int doDevDisplay(struct lg_master *pLgMaster, struct lg_disp_data *lg_display);
+int doStartPulse(struct lg_master *pLgMaster, struct lg_pulse_data *lg_pulsedata);
 int doSetROI(struct lg_master *pLgMaster, uint32_t write_val);
 int doSetReadyLED(struct lg_master *pLgMaster);
 int doClearReadyLED(struct lg_master *pLgMaster);
@@ -201,29 +205,27 @@ int doClearSearchBeam(struct lg_master *pLgMaster);
 void doClearLinkLED(struct lg_master *pLgMaster);
 void doSetLinkLED(struct lg_master *pLgMaster);
 int doSetShutterENB(struct lg_master *pLgMaster);
-int doLoadWriteNum(struct lg_master *pLgMaster, uint32_t write_count);
-int doLoadTGFindNum(struct lg_master *pLgMaster, uint32_t read_count);
-int doSetPulseOff(struct lg_master *pLgMaster, uint32_t pulse_off);
-int doSetPulseOn(struct lg_master *pLgMaster, uint32_t pulse_on);
-int doSetClock(struct lg_master *pLgMaster, uint32_t clock_rate);
 int doSetXOffset(struct lg_master *pLgMaster, uint32_t xoff);
 int doSetYOffset(struct lg_master *pLgMaster, uint32_t yoff);
 void ZeroLGoffset(struct lg_master *pLgMaster);
 void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData);
 void GoToPulse(struct lg_master *pLgMaster, struct lg_xydata *pPulseData,
-	       int32_t pulseoffvalue, int32_t pulseonvalue);
+	       uint32_t pulseoffvalue, uint32_t pulseonvalue);
 int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 void ResumeDisplay(struct lg_master *pLgMaster);
 int32_t GetQCflag(struct lg_master *pLgMaster);
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
-		  struct lg_xydelta *pDeltaData, uint32_t nPoints, uint16_t *c_out,uint32_t minlevel);
+		  struct lg_xydelta *pDeltaData, uint32_t nPoints, uint16_t *c_out,uint32_t do_coarse);
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		 struct lg_xydelta *pDeltaData, uint32_t nPoints);
 void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata, int32_t do_response, uint32_t respondToWhom);
 void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData);
 void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, uint32_t respondToWhom);
+void PostCmdDarkAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData);
 void limitXY(int16_t currentX, int16_t currentY, int16_t *eolXNeg, int16_t *eolXPos, int16_t *eolYNeg,
 	     int16_t * eolYPos, int16_t delta);
 void AdjustXYLimit(int16_t *eolXPos, int16_t *eolXNeg, int16_t *eolYPos, int16_t *eolYNeg, int16_t delta);
+uint32_t  get_num_disp_points(void);
+int doSTOPCMD(struct lg_master *pLgMaster);
 #endif // BOARDCOMM_H

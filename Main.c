@@ -38,6 +38,7 @@
 #include "3DTransform.h"
 #include "APTParser.h"
 #include "DoAutoFocusCmd.h"
+#include "Files.h"
 
 //Statics for this file
 struct ags_bkgd_thread_struct thread_data[MAX_NUM_THREADS];
@@ -86,7 +87,7 @@ static int main_capture_signals(void)
   memset(&sigact, 0, sizeof(struct sigaction));
 
   sigact.sa_handler = (void *)&sigact_handler;
-  sigact.sa_flags  = SA_RESTART;
+  sigact.sa_flags  = SA_SIGINFO;
   sigfillset(&sigact.sa_mask);
   
   if (((sigaction(SIGINT, &sigact, 0)) < 0) || 
@@ -192,6 +193,12 @@ int main ( int argc, char **argv )
       exit(EXIT_FAILURE);
     }
 
+  error = InitVision(pConfigMaster);
+  if (error)
+    {
+      syslog(LOG_ERR,"\nInitVision: Can't get vision data, err %d", error);
+    }
+
   // start background thread for doing updates
 #if 0
   if ((pthread_mutex_init(&lock, NULL)) != 0)
@@ -261,6 +268,13 @@ int main ( int argc, char **argv )
       closelog();
       exit(EXIT_FAILURE);
     }
+  syslog(LOG_NOTICE, " projector_mode %d \n", pConfigMaster->projector_mode );
+  if ( pConfigMaster->projector_mode == PROJ_LASER ) {
+      syslog(LOG_NOTICE, " projector_mode %d - laser \n", pConfigMaster->projector_mode );
+  }
+  if ( pConfigMaster->projector_mode == PROJ_VISION ) {
+      syslog(LOG_NOTICE, " projector_mode %d - vision \n", pConfigMaster->projector_mode );
+  }
   SlowDownAndStop (pConfigMaster);
   SetQCcounter(pConfigMaster, 0);
   SearchBeamOff(pConfigMaster);
@@ -274,7 +288,8 @@ int main ( int argc, char **argv )
       exit(EXIT_FAILURE);
     }
   // The main loop should never really exit.
-  syslog(stderr, "\nWaiting to Accept packets");
+  syslog(stderr, " \n");
+  syslog(stderr, "Waiting to Accept packets");
   // Before jumping into main loop, start background thread
   // will is only used for updating hobbs counters once every 2 hours
   thread_data[0].pLgMaster = pConfigMaster;

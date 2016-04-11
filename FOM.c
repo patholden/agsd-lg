@@ -11,47 +11,42 @@
 #include <arpa/inet.h>
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
+#include "BoardComm.h"
+#include "AppCommon.h"
+#include "comm_loop.h"
+#include "parse_data.h"
 #include "FOM.h"
 #include "Protocol.h"
 #include "comm_loop.h"
 #include "SensorRegistration.h"
 
-// FIXME---PAH---NEEDS CMD/RESP FIXES
 void DosuperFOM (struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
-    uint32_t    resp_len=(sizeof ( uint32_t ) 
-			+ sizeof ( int32_t )
-			+ sizeof ( double )
-			+ (64 * (sizeof(int32_t) + 2*sizeof(double)))
-			+ kCRCSize);
+    struct parse_superfom_resp   *pResp;
+    struct k_targetinfo          tgt_info;
     int i;
 
-    memset(pLgMaster->theResponseBuffer, 0, resp_len);
-    *(uint32_t *)pLgMaster->theResponseBuffer = kOK;
-    *(int32_t *)&(pLgMaster->theResponseBuffer[4]) = gNumberOfPoints;
-    *(double *)&(pLgMaster->theResponseBuffer[8]) = gChisqr;
+    pResp = (struct parse_superfom_resp *)pLgMaster->theResponseBuffer;
+    memset((char *)pResp, 0, sizeof(struct parse_superfom_resp));
+    pResp->hdr.status = RESPGOOD;
+    pResp->num_targets = get_number_of_points();
+    pResp->chi_square = get_chisquare_val();
     for (i=0; i<gNumberOfPoints; i++)
       {
 	if (pLgMaster->foundTarget[i] == 1)
 	  {
-	    *(int32_t *)&(pLgMaster->theResponseBuffer[16+(i)*20]) = i;
-	    *(double *)&(pLgMaster->theResponseBuffer[16+(i)*20+ 4]) = gDiffX[i];
-	    *(double *)&(pLgMaster->theResponseBuffer[16+(i)*20+12]) = gDiffY[i];
+	    get_target_info(&tgt_info, i);
+	    pResp->tgt_info[i].tgt_number = tgt_info.tgt_number;
+	    pResp->tgt_info[i].xdev    = tgt_info.xdev;
+	    pResp->tgt_info[i].ydev    = tgt_info.ydev;
 	  }
 	else
 	  {
-	    *(int32_t *)&(pLgMaster->theResponseBuffer[16+(i)*20]) = -1;
-	    *(double *)&(pLgMaster->theResponseBuffer[16+(i)*20+ 4]) = 0;
-	    *(double *)&(pLgMaster->theResponseBuffer[16+(i)*20+12]) = 0;
+	    pResp->tgt_info[i].tgt_number = -1;
+	    pResp->tgt_info[i].xdev    = 0.0;
+	    pResp->tgt_info[i].ydev    = 0.0;
 	  }
       }
-    HandleResponse (pLgMaster,
-			(
-			 sizeof ( uint32_t )
-			 + sizeof ( int32_t )
-			 + sizeof ( double )
-			 + gNumberOfPoints * ( sizeof(int32_t) + 2*sizeof(double) )
-			 ),
-			respondToWhom );
-       return;
+    HandleResponse(pLgMaster, (sizeof(struct parse_superfom_resp)-kCRCSize), respondToWhom);
+    return;
 }

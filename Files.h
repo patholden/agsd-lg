@@ -36,5 +36,5 @@ void DoFileGetStart(struct lg_master *pLgMaster, char * parameters, uint32_t res
 void DoFileGetData(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
 void DoFilePutDone(struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom);
 int InitCheckVersion(struct lg_master *pLgMaster);
-
+int InitVision(struct lg_master *pLgMaster);
 #endif // FILES_H

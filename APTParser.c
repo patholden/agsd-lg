@@ -16,6 +16,7 @@
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
+#include "parse_data.h"
 #include "APTParser.h"
 #include "AppErrors.h"
 #include "LaserPattern.h"

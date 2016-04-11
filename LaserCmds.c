@@ -386,6 +386,59 @@ void DoEtherAngle (struct lg_master *pLgMaster, struct parse_ethangle_parms *pIn
   return;
 }
 
+void DarkAngle(struct lg_master *pLgMaster, struct parse_dkangle_parms *pInp, uint32_t respondToWhom)
+{
+    struct lg_xydata xydata;
+    struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+    double Xin, Yin;
+    int    return_val;
+
+    memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
+    memset((char *)&xydata, 0, sizeof(struct lg_xydata));
+
+    if (!pInp)
+      return;
+
+    // both X & Y inputs come in reversed
+    Xin = ArrayToDouble(pInp->x.xData);
+    Yin = ArrayToDouble(pInp->y.yData);
+    return_val =  ConvertExternalAnglesToBinary(pLgMaster, Xin, Yin, &xydata.xdata, &xydata.ydata);
+  if (return_val)
+    {
+      pResp->hdr.status1 = RESPFAIL;
+      pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
+      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+      return;
+    }
+  PostCmdDarkAngle(pLgMaster, &xydata);
+  return;
+}
+
+void DimAngle(struct lg_master *pLgMaster, struct parse_dimangle_parms *pInp, uint32_t respondToWhom)
+{
+    struct lg_xydata xydata;
+    struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+    double      Xin, Yin;
+    int         return_val;
+    uint32_t    pulseoffvalue;
+    uint32_t    pulseonvalue;
+
+    Xin = pInp->xData;
+    Yin = pInp->yData;
+    pulseoffvalue = pInp->pulseoff;
+    pulseonvalue = pInp->pulseon;
+    return_val =  ConvertExternalAnglesToBinary(pLgMaster, Xin, Yin, &xydata.xdata, &xydata.ydata);
+    if (return_val)
+      {
+	pResp->hdr.status1 = RESPFAIL;
+	pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
+    GoToPulse(pLgMaster, &xydata, pulseoffvalue, pulseonvalue);
+    return;
+}
+
 void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 			unsigned char *otherParameters, char *patternData,
 			uint32_t respondToWhom)
@@ -594,7 +647,7 @@ void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number, uint32_t re
   return;
 }
 
-void DoQuickCheck (struct lg_master *pLgMaster, char * angles, uint32_t respondToWhom )
+void DoQuickCheck (struct lg_master *pLgMaster, struct parse_qkcheck_parms * angles, uint32_t respondToWhom )
 {
 
     gRespondToWhom = respondToWhom;

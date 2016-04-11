@@ -11,7 +11,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 //        k_header and CRC.
 #define MAX_DATA         4096
 #define MAX_INPUT_DATA   8192
-#define MAX_TGTS_USED    128
 #define MAX_NEW_TRANSFORM_ITEMS  12
 #define MAX_TGTS_PER_PROJ_OLD    18   // kNumberOfRegPoints * 3
 #define OLDTRANSFORMLEN  144   // 12 * kSizeOldLongDouble
@@ -35,11 +34,17 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 #define MAX_TARGETSOLD 6
 #define MAX_TGTANGLEOLD 6
 
+struct k_targetinfo
+{
+  uint32_t  tgt_number;
+  double    xdev;
+  double    ydev;
+} __attribute__ ((packed));
 struct k_xy_anglepair
 {
   int32_t   xangle;
   int32_t   yangle;
-};
+} __attribute__ ((packed));
 
 struct k_xyz_double
 {
@@ -61,6 +66,12 @@ struct show_anglepair
   uint32_t flag;
 } __attribute__ ((packed));
 
+/*********************************************************/
+/*                                                       */
+/*   PARM INPUT Structures                               */
+/*   NOTE:  MUST EXCLUDE kheader & CRC                   */
+/*                                                       */
+/*********************************************************/
 struct parse_dispsev_parms {
   uint32_t         num_seq;
 } __attribute__ ((packed));
@@ -273,6 +284,53 @@ struct parse_showtgt_parms
 };
 
 // Send Confirm
+struct parse_dkangle_parms {
+  union {
+    double   xData;
+    uint8_t xchar[8];
+  }x;
+  union {
+    double   yData;
+    uint8_t  ychar[8];
+  }y;
+} __attribute__ ((packed));
+
+struct parse_dimangle_parms {
+  double   xData;
+  double   yData;
+  uint32_t pulseoff;
+  uint32_t pulseon;
+} __attribute__ ((packed));
+
+struct parse_showtgt_parms
+{
+  uint32_t         inp_numpairs;
+  struct show_anglepair inp_targetpairs[MAX_ANGLEPAIRS];
+} __attribute__ ((packed));
+
+struct parse_chngxfrmtol_parms
+{
+  double         new_tolerance;
+} __attribute__ ((packed));
+
+struct parse_calibxy_parms
+{
+  double         steerX;
+  double         steerY;
+  double         inp_Z;
+} __attribute__ ((packed));
+
+struct parse_qkcheck_parms
+{
+  unsigned char   anglepairs[OLDANGLEPAIRSLEN];
+} __attribute__ ((packed));
+  
+/*********************************************************/
+/*                                                       */
+/*              CONFIRMATION structure                   */
+/*                                                       */
+/*********************************************************/
+
 struct send_cnfm {
   unsigned char   cmd;
   unsigned char   flags;
@@ -280,7 +338,13 @@ struct send_cnfm {
   uint16_t        crc;
 } __attribute__ ((packed));
 
-// Response output structures
+/*********************************************************/
+/*                                                       */
+/*   Response output structures                          */
+/*   NOTE:  MUST include kheader & CRC                   */
+/*                                                       */
+/*********************************************************/
+
 struct parse_basic_resp {
   struct   k_header  hdr;
   uint16_t   resp_crc;
@@ -360,7 +424,7 @@ struct parse_findonetgt_resp {
 struct parse_tgtsused_resp {
   struct k_header  hdr;
   uint32_t         tgtCount;
-  unsigned char    tgtNumber[MAX_TGTS_USED];
+  unsigned char    tgtNumber[MAX_TARGETSUSED];
   uint16_t         resp_crc;
 } __attribute__ ((packed));
 
@@ -467,6 +531,29 @@ struct parse_flexfail_resp {
   uint32_t           coplanartargets;
   uint32_t           fill[4];
   uint16_t           resp_crc;
+
+struct parse_chngxfrmtol_resp
+{
+  struct k_header  hdr;
+  double         new_tolerance;
+  uint16_t     resp_crc;
+} __attribute__ ((packed));
+
+  struct parse_superfom_resp
+{
+  struct k_header  hdr;
+  uint32_t     num_targets;
+  double       chi_square;
+  struct k_targetinfo   tgt_info[MAX_ANGLEPAIRS];
+  uint16_t     resp_crc;
+} __attribute__ ((packed));
+
+  struct parse_calibxy_resp
+{
+  struct k_header  hdr;
+  double           foundX;
+  double           foundY;
+  uint16_t         resp_crc;
 } __attribute__ ((packed));
 
 #endif
