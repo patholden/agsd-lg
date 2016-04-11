@@ -652,7 +652,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 	  if (pLgMaster->gAbortDisplay || (pLgMaster->gPlysReceived < pLgMaster->gPlysToDisplay))
 	    {
 #if defined(ZDEBUG) || defined(KITDEBUG)
-	      syslog(LOG_NOTICE, "1574 plys rcvd %d  disp %d", gPlysReceived, gPlysToDisplay);
+	      syslog(LOG_NOTICE, "1574 plys rcvd %d  disp %d", pLgMaster->gPlysReceived, pLgMaster->gPlysToDisplay);
 #endif
 	      pResp->hdr.status = RESPGOOD;
 	      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
