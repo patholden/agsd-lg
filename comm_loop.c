@@ -86,8 +86,6 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
 
 int CommInit(struct lg_master *pLgMaster)
 {
-  struct termios term;
-  speed_t        baud;
   int            error=0;
   
   // Always check integrity of master struct
@@ -132,7 +130,7 @@ int CommInit(struct lg_master *pLgMaster)
   baud  = B115200;
 #endif
 
-  syslog(LOG_NOTICE, "AutoFocus port initialized, baud %d", baud);
+  syslog(LOG_NOTICE, "AutoFocus port initialized");
   // This sets the correct data presentation on send/recv from webhost
   pLgMaster->gHEX = 1;
   return(0);

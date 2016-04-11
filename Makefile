@@ -36,7 +36,6 @@ AGS_OBJECTS = Main.o \
               BoardComm.o Events.o \
               SensorRegistration.o \
               3DTransform.o \
-	      FullRegManager.o \
               QuickCheckManager.o \
 	      SystemSpecifics.o Video.o Web.o \
 	      Init.o Net.o FOM.o \
@@ -63,6 +62,9 @@ AGS_OBJECTS = Main.o \
 	      segtest.o segpoly.o pnpoly.o tan_init.o \
 	      area_order.o heap.o allace4.o shoelace4.o \
 	      CalculateTransform.o \
+	      ParseVision.o \
+	      RemoteSerial.o \
+	      L2VtakePicture.o \
 	      SensorSearch.o  Files.o
 #
 #

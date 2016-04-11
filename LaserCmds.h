@@ -9,8 +9,6 @@ void DoGoAngle(struct lg_master *pLgMaster,struct parse_goangle_parms *pInp, uin
 void DoEtherAngle(struct lg_master *pLgMaster, struct parse_ethangle_parms *pInp, uint32_t respondToWhom);
 void DarkAngle(struct lg_master *pLgMaster, struct parse_dkangle_parms *pInp, uint32_t respondToWhom);
 void DoSearchForASensor(double x, double y, uint32_t respondToWhom);
-void DoFullReg(struct lg_master *pLgMaster, struct parse_dofullreg_parms* pInp,
-				uint32_t respondToWhom);
 void DoDisplay(struct lg_master *pLgMaster, uint32_t dataLength, char *otherParameters, char *patternData);
 void DoNewDisplay(uint32_t dataLength, char *otherParameters, char *patternData,
 		  uint32_t respondToWhom);

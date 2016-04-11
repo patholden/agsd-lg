@@ -25,10 +25,10 @@ static char rcsid[] = "$Id$";
 
 void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_parms *pInp, uint32_t respondToWhom)
 {
-    struct k_xyz_double    theCoordinateBuffer[MAX_ANGLEPAIRS];
-    struct k_xy_double     foundAngles[MAX_ANGLEPAIRS];
-    struct k_xy_anglepair  XYarr[MAX_ANGLEPAIRS];
-    int32_t                target_status[MAX_ANGLEPAIRS];
+    struct k_xyz_double    theCoordinateBuffer[MAX_TARGETSFLEX];
+    struct k_xy_double     foundAngles[MAX_TARGETSFLEX];
+    struct k_xy_anglepair  XYarr[MAX_TARGETSFLEX];
+    int32_t                target_status[MAX_TARGETSFLEX];
     transform              foundTransform;
     struct parse_flexcalxfdbk_resp   *pResp;
     struct parse_flexcalxfdbkexp_resp   *pRespExp;
@@ -158,7 +158,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
         pResp->num_tgts = nTargets;
         pResp->colineartgt = intColinear;
         pResp->coplanartgts = intPlanar;
-        for (i=0; i < MAX_ANGLEPAIRS; i++)
+        for (i=0; i < MAX_TARGETSFLEX; i++)
 	  {
 	    if (savePoint[i] > 0)
 	      target_status[i] = 2;

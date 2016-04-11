@@ -32,6 +32,7 @@
 #include "SensorSearch.h"
 #include "ParseVisionFocus.h"
 #include "ParseAutoFocus.h"
+#include "ParseVision.h"
 
 #define  BIG_SIZE   AGS_SIZE
 #define  HOBBS_BUFF_SIZE 128
@@ -761,7 +762,7 @@ static int ReadLevel ( char *buff, uint32_t * size, int32_t offset, int32_t requ
 
   memset( buff, 0, BIG_SIZE );
   memset( BIG_Buffer, 0, BIG_SIZE );
-  ptr = &(BIG_Buffer[0]);
+  ptr = BIG_Buffer;
 
   for ( y = 0x1U; y <= LSCNTSTEP; y += 0x1U ) {
          for ( x = 0x1U; x <= LSCNTSTEP; x += 0x1U ) {
@@ -962,4 +963,18 @@ int InitCheckVersion(struct lg_master *pLgMaster)
   // Set up versions struct
   ReadVersion(pLgMaster);
   return(0);
+}
+int InitVision(struct lg_master *pLgMaster)
+{
+    int err;
+    int size;
+
+    memset(BIG_Buffer, 0, CALIB_SIZE );
+    err = ReadFromFS(BIG_Buffer, "/etc/ags/conf/vision" , 0, CALIB_SIZE);
+    if (err == 0)
+      {
+	size = strlen(BIG_Buffer);
+	err = ParseVision( pLgMaster, (unsigned char *)BIG_Buffer, size );
+      }
+    return(err);
 }

@@ -40,22 +40,26 @@ struct k_targetinfo
   double    xdev;
   double    ydev;
 } __attribute__ ((packed));
+
 struct k_xy_anglepair
 {
   int32_t   xangle;
   int32_t   yangle;
 } __attribute__ ((packed));
+
 struct k_xyz_double
 {
   double   Xtgt;
   double   Ytgt;
   double   Ztgt;
 } __attribute__ ((packed));
+
 struct k_xy_double
 {
   double   Xangle;
   double   Yangle;
 } __attribute__ ((packed));
+
 struct show_anglepair
 {
   double   Xangle;
@@ -72,37 +76,46 @@ struct show_anglepair
 struct parse_dispsev_parms {
   uint32_t         num_seq;
 } __attribute__ ((packed));
+
 struct parse_hobbsget_parms {
   uint32_t         inp_hobbsid;
 } __attribute__ ((packed));
+
 struct parse_hobbsset_parms {
   uint32_t         inp_hobbsid;
   uint32_t         inp_hobbsval;
 } __attribute__ ((packed));
+
 struct parse_chunkstart_parms {
   uint32_t         apt_len;
 } __attribute__ ((packed));
+
 struct parse_chunkdata_parms {
   uint32_t        chunk_len;
   uint32_t        chunk_offset;
   unsigned char   chunk_apt_data[BUFF_SIZE];
 } __attribute__ ((packed));
+
 struct parse_chunksdo_parms {
   unsigned char   chunk_anglepairs[OLDANGLEPAIRSLEN];
   unsigned char   chunk_transform[OLDTRANSFORMLEN];
 } __attribute__ ((packed));
+
 struct parse_getdata_parms {
   char       inp_filename[LCNAME_SIZE];
   uint32_t   inp_offset;
   uint32_t   inp_numbytes;
 } __attribute__ ((packed));
+
 struct parse_getstart_parms {
   char       inp_filename[LCNAME_SIZE];
 } __attribute__ ((packed));
+
 struct parse_putstart_parms {
   char       inp_filename[LCNAME_SIZE];
   uint32_t   inp_filelen;
 } __attribute__ ((packed));
+
 struct parse_putdata_parms {
   char        inp_filename[LCNAME_SIZE];
   uint32_t    inp_offset;
@@ -110,23 +123,27 @@ struct parse_putdata_parms {
   uint32_t    inp_write_numbytes;
   char        inp_buffer[BUFF_SIZE];
 } __attribute__ ((packed));
+
 struct parse_putdone_parms {
   char        inp_filename[LCNAME_SIZE];
 } __attribute__ ((packed));
+
 struct parse_autofocus_parms {
   char        inp_data[AUTOFOCUS_SIZE];
 } __attribute__ ((packed));
+
 struct parse_rtoncert_parms {
   uint32_t         inp_angle_flag;
   unsigned char    inp_transform[OLDTRANSFORMLEN];
   double           inp_Xin;
   double           inp_Yin;
   double           inp_Zin;
-  int32_t         inp_XrawAngle;
-  int32_t         inp_YrawAngle;
+  int32_t          inp_XrawAngle;
+  int32_t          inp_YrawAngle;
   double           inp_XgeomAngle;
   double           inp_YgeomAngle;
 } __attribute__ ((packed));
+
 struct parse_chunkflex_parms
 {
   uint32_t         inp_numTargets;
@@ -138,6 +155,7 @@ struct parse_flexqkchk_parms
   uint32_t         inp_numTargets;
   unsigned char    inp_anglepairs[ANGLEPAIRSLENFLEX];
 } __attribute__ ((packed));
+
 struct parse_flexdisp_parms
 {
   uint32_t      inp_dataLength;
@@ -145,19 +163,23 @@ struct parse_flexdisp_parms
   unsigned char inp_anglepairs[NUMDISPFLEXPOINTS];
   unsigned char inp_transform[OLDTRANSFORMLEN];
 } __attribute__ ((packed));
+
 struct parse_disp_parms
 {
   uint32_t      inp_dataLength;
   unsigned char inp_dispdata[MAX_DATA];
 } __attribute__ ((packed));
+
 struct parse_quickcheckcount_parms
 {
   uint32_t      inp_qccount;
 } __attribute__ ((packed));
+
 struct parse_quickchecktime_parms
 {
   uint32_t      inp_qctime;
 } __attribute__ ((packed));
+
 struct parse_dispkitvid_parms {
   uint32_t         inp_aptlen;
   unsigned char    inp_transform[OLDTRANSFORMLEN];
@@ -170,62 +192,98 @@ struct parse_dispkitvid_parms {
   unsigned char    inp_vidB2;
   unsigned char    inp_vid_aptdata[BUFF_SIZE];
 } __attribute__ ((packed));
-struct parse_dofullreg_parms {
-  struct k_xyz_double   inp_targets[MAX_TARGETSOLD];
-  struct k_xy_double    inp_tgt_angles[MAX_TGTANGLEOLD];
-} __attribute__ ((packed));
+
 struct parse_findonetgt_parms {
   double            steerX;
   double            steerY;
 } __attribute__ ((packed));
+
 struct parse_takepic_parms {
   unsigned char     transform[NEWTRANSFORMLEN];
   double            visionX;
   double            visionY;
   double            visionZ;
 } __attribute__ ((packed));
+
 struct parse_clcxfrm_parms {
   struct k_xyz_double target[MAX_TARGETSOLD];
   struct k_xy_double  tgtAngle[MAX_TARGETSOLD];
 } __attribute__ ((packed));
+
 struct parse_flexcalxfrm_parms {
   uint32_t            num_targets;
-  struct k_xyz_double target[MAX_ANGLEPAIRS];
-  struct k_xy_double  tgtAngle[MAX_ANGLEPAIRS];
+  struct k_xyz_double target[MAX_TARGETSFLEX];
+  struct k_xy_double  tgtAngle[MAX_TARGETSFLEX];
 } __attribute__ ((packed));
+
 struct parse_flexcalxfdbk_parms
 {
   uint32_t            num_targets;
-  struct k_xyz_double target[MAX_ANGLEPAIRS];
-  struct k_xy_double  tgtAngle[MAX_ANGLEPAIRS];
-};
+  struct k_xyz_double target[MAX_TARGETSFLEX];
+  struct k_xy_double  tgtAngle[MAX_TARGETSFLEX];
+} __attribute__ ((packed));
+
+struct parse_rightondofullreg_parms {
+  uint32_t              angleflag;
+  struct k_xyz_double   target[MAX_TARGETSOLD];
+  struct k_xy_double    target_geo_angle[MAX_TARGETSOLD];
+  struct k_xy_anglepair target_raw_angle[MAX_TARGETSOLD];
+} __attribute__ ((packed));
+
+struct parse_rightondofullregwithfeedback_parms {
+  uint32_t              angleflag;
+  uint32_t              num_targets;
+  struct k_xyz_double   target[MAX_TARGETSOLD + 2];
+  struct k_xy_double    target_geo_angle[MAX_TARGETSOLD + 2];
+  struct k_xy_anglepair target_raw_angle[MAX_TARGETSOLD + 2];
+} __attribute__ ((packed));
+
+struct parse_flexrightondofullregwithfeedback_parms {
+  uint32_t              angleflag;
+  uint32_t              num_targets;
+  struct k_xyz_double   target[MAX_TARGETSFLEX];
+  struct k_xy_double    target_geo_angle[MAX_TARGETSFLEX];
+  struct k_xy_anglepair target_raw_angle[MAX_TARGETSFLEX];
+} __attribute__ ((packed));
+
 struct parse_chngdisp_parms {
   uint32_t    displayPeriod;
 } __attribute__ ((packed));
+
 struct parse_ethangle_parms {
   union {
     double   xData;
-    uint8_t xchar[8];
+    uint8_t  xchar[8];
   }x;
   union {
     double   yData;
     uint8_t  ychar[8];
   }y;
 } __attribute__ ((packed));
+
 struct parse_goangle_parms {
   union {
     double   xData;
-    int8_t xchar[8];
+    int8_t   xchar[8];
   }x;
   union {
     double   yData;
-    int8_t  ychar[8];
+    int8_t   ychar[8];
   }y;
 } __attribute__ ((packed));
+
 struct parse_setbit_parms {
   uint32_t  bit_id;
   uint32_t  bit_value;
 };
+
+struct parse_showtgt_parms
+{
+  uint32_t         inp_numpairs;
+  struct show_anglepair inp_targetpairs[MAX_TARGETSFLEX];
+};
+
+// Send Confirm
 struct parse_dkangle_parms {
   union {
     double   xData;
@@ -236,21 +294,19 @@ struct parse_dkangle_parms {
     uint8_t  ychar[8];
   }y;
 } __attribute__ ((packed));
+
 struct parse_dimangle_parms {
   double   xData;
   double   yData;
   uint32_t pulseoff;
   uint32_t pulseon;
 } __attribute__ ((packed));
-struct parse_showtgt_parms
-{
-  uint32_t         inp_numpairs;
-  struct show_anglepair inp_targetpairs[MAX_ANGLEPAIRS];
-} __attribute__ ((packed));
+
 struct parse_chngxfrmtol_parms
 {
   double         new_tolerance;
 } __attribute__ ((packed));
+
 struct parse_calibxy_parms
 {
   double         steerX;
@@ -273,27 +329,32 @@ struct parse_thqkchk_parms
 /*              CONFIRMATION structure                   */
 /*                                                       */
 /*********************************************************/
+
 struct send_cnfm {
   unsigned char   cmd;
   unsigned char   flags;
   uint16_t        seq_num;
   uint16_t        crc;
 } __attribute__ ((packed));
+
 /*********************************************************/
 /*                                                       */
 /*   Response output structures                          */
 /*   NOTE:  MUST include kheader & CRC                   */
 /*                                                       */
 /*********************************************************/
+
 struct parse_basic_resp {
   struct   k_header  hdr;
   uint16_t   resp_crc;
 } __attribute__ ((packed));
+
 struct parse_getstart_resp {
   struct   k_header  hdr;
   uint32_t   resp_filelen;
   uint16_t   resp_crc;
 } __attribute__ ((packed));
+
 struct parse_getdata_resp {
   struct k_header  hdr;
   char             lcName[LCNAME_SIZE];
@@ -302,67 +363,77 @@ struct parse_getdata_resp {
   char             resp_buffer[BUFF_SIZE];
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_putstart_resp {
   struct k_header  hdr;
   unsigned char    filename[LCNAME_SIZE];
   uint32_t         resp_filelen;
   uint16_t   resp_crc;
 } __attribute__ ((packed));
+
 struct parse_putdata_resp {
   struct k_header  hdr;
   uint16_t   resp_crc;
 } __attribute__ ((packed));
+
 struct parse_putdone_resp {
   struct k_header  hdr;
   unsigned char    filename[LCNAME_SIZE];
   uint32_t         filelen;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_autofocus_resp {
   struct k_header  hdr;
   char       resp_data[AUTOFOCUS_SIZE];
   uint16_t   resp_crc;
 } __attribute__ ((packed));
+
 struct parse_rtoncert_resp {
   struct k_header  hdr;
-  double     Xtr;
-  double     Ytr;
-  double     Ztr;
-  double     Xfound;
-  double     Yfound;
-  double     Xexpect;
-  double     Yexpect;
-  uint32_t   bXf;
-  uint32_t   bYf;
-  double     Xexternal;
-  double     Yexternal;
-  uint16_t   resp_crc;
+  double           Xtr;
+  double           Ytr;
+  double           Ztr;
+  double           Xfound;
+  double           Yfound;
+  double           Xexpect;
+  double           Yexpect;
+  uint32_t         bXf;
+  uint32_t         bYf;
+  double           Xexternal;
+  double           Yexternal;
+  uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_hobbsget_resp {
   struct k_header  hdr;
   uint32_t         resp_hobbscount;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_findonetgt_resp {
-  struct k_header  hdr;
+  struct k_header   hdr;
   uint32_t          rawX;
   uint32_t          rawY;
   double            geoX;
   double            geoY;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_tgtsused_resp {
   struct k_header  hdr;
   uint32_t         tgtCount;
   unsigned char    tgtNumber[MAX_TARGETSUSED];
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_clcxfrm_resp {
   struct k_header  hdr;
   unsigned char    transform[OLDTRANSFORMLEN];
   unsigned char    anglepairs[OLDANGLEPAIRSLEN];
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_flexcalxfrm_resp {
   struct k_header  hdr;
   unsigned char    transform[OLDTRANSFORMLEN];
@@ -373,6 +444,7 @@ struct parse_flexcalxfrm_resp {
   uint32_t         coplanartgts;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_flexcalxfdbk_resp {
   struct k_header  hdr;
   unsigned char    transform[OLDTRANSFORMLEN];
@@ -381,9 +453,10 @@ struct parse_flexcalxfdbk_resp {
   uint32_t         num_tgts;
   uint32_t         colineartgt;
   uint32_t         coplanartgts;
-  uint32_t         tgt_status[MAX_ANGLEPAIRS];
+  uint32_t         tgt_status[MAX_TARGETSFLEX];
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_flexcalxfdbkexp_resp {
   struct k_header  hdr;
   unsigned char    transform[OLDTRANSFORMLEN];
@@ -392,37 +465,89 @@ struct parse_flexcalxfdbkexp_resp {
   uint32_t         num_tgts;
   uint32_t         colineartgt;
   uint32_t         coplanartgts;
-  uint32_t         tgt_status[MAX_ANGLEPAIRS];
+  uint32_t         tgt_status[MAX_TARGETSFLEX];
   double           bestTolerance;
   double           worstTolOfAnyCalcXfrm;
   double           worstTolOfAnyInTolXfrm;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_chngdisp_resp {
   struct k_header  hdr;
   uint32_t     displayPeriod;
   uint16_t     resp_crc;
 } __attribute__ ((packed));
+
 struct parse_rfrshrt_resp {
   struct k_header  hdr;
   uint32_t     num_points;
   uint32_t     laser_period;
   uint16_t     resp_crc;
 } __attribute__ ((packed));
+
+struct parse_rightondofullreg_resp {
+  struct k_header    hdr;
+  unsigned char      transform[OLDTRANSFORMLEN];
+  unsigned char      anglepairs[OLDANGLEPAIRSLEN];
+  struct k_xy_double target_geo_angle[MAX_TARGETSOLD];
+  uint16_t           resp_crc;
+} __attribute__ ((packed));
+
+struct parse_rightondofullregwithfeedback_resp {
+  struct k_header    hdr;
+  unsigned char      transform[NEWTRANSFORMLEN];
+  double             besttolerance;
+  double             worsttoleranceofanycalculatedtransform;
+  double             worsttoleranceofanyintolerancetransform;
+  uint32_t           numberoftransforms;
+  uint32_t           numberoftargets;
+  unsigned char      anglepairs[OLDANGLEPAIRSLEN];
+  unsigned char      anglepairsextra[16];
+  struct k_xy_double target_geo_angle[MAX_TARGETSOLD + 2];
+  uint32_t           target_status[MAX_TARGETSOLD + 2];
+  uint16_t           resp_crc;
+} __attribute__ ((packed));
+
+struct parse_flexrightondofullregwithfeedback_resp {
+  struct k_header    hdr;
+  unsigned char      transform[NEWTRANSFORMLEN];
+  double             besttolerance;
+  double             worsttoleranceofanycalculatedtransform;
+  double             worsttoleranceofanyintolerancetransform;
+  uint32_t           numberoftransforms;
+  uint32_t           numberoftargets;
+  unsigned char      anglepairs[ANGLEPAIRSLENFLEX];
+  struct k_xy_double target_geo_angle[MAX_TARGETSFLEX];
+  uint32_t           target_status[MAX_TARGETSFLEX];
+  uint32_t           colineartargets;
+  uint32_t           coplanartargets;
+  uint16_t           resp_crc;
+} __attribute__ ((packed));
+
+struct parse_flexfail_resp {
+  struct k_header    hdr;
+  uint32_t           colineartargets;
+  uint32_t           coplanartargets;
+  uint32_t           fill[4];
+  uint16_t           resp_crc;
+} __attribute__ ((packed));
+
 struct parse_chngxfrmtol_resp
 {
   struct k_header  hdr;
-  double         new_tolerance;
-  uint16_t     resp_crc;
+  double           new_tolerance;
+  uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_superfom_resp
 {
-  struct k_header  hdr;
-  uint32_t     num_targets;
-  double       chi_square;
-  struct k_targetinfo   tgt_info[MAX_ANGLEPAIRS];
-  uint16_t     resp_crc;
+  struct k_header      hdr;
+  uint32_t             num_targets;
+  double               chi_square;
+  struct k_targetinfo  tgt_info[MAX_TARGETSFLEX];
+  uint16_t             resp_crc;
 } __attribute__ ((packed));
+
 struct parse_calibxy_resp
 {
   struct k_header  hdr;

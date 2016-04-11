@@ -7,12 +7,14 @@
 #define  MAX_NUM_THREADS 1
 #define STEPDELAY   500
 #define NUM_HOBBS_COUNTERS  4
-#define MAX_ANGLEPAIRS   24    // kNumberOfFlexPoints
+#define MAX_TARGETSFLEX   24    // kNumberOfFlexTargets
 #define MAX_TARGETSUSED   128
 #define PARSE_HOBBS_HOBBS 1
 #define PARSE_HOBBS_XSCAN 2
 #define PARSE_HOBBS_YSCAN 3
 #define PARSE_HOBBS_LASER 4
+#define PROJ_VISION  1
+#define PROJ_LASER   2
 #define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
 #define MAX_DOSENSE_RETRIES 30
 #define DOSENSE_LEVEL       30
@@ -74,18 +76,21 @@ struct k_header {
       unsigned char errtype1;
       uint16_t      errtype2;
     };
+    struct {
+      uint32_t      hdr;
+    };
   };
 } __attribute__ ((packed));
 struct version_info {
-  char      *pVersions;
+  char       *pVersions;
   uint32_t   version_size;
   uint32_t   isVersInit;
 };
 
 struct lg_master {
-  int32_t            foundTarget[MAX_ANGLEPAIRS];
-  int32_t            gColinear[MAX_ANGLEPAIRS];
-  int32_t            gCoplanar[MAX_ANGLEPAIRS];
+  int32_t            foundTarget[MAX_TARGETSFLEX];
+  int32_t            gColinear[MAX_TARGETSFLEX];
+  int32_t            gCoplanar[MAX_TARGETSFLEX];
   struct sockaddr_in webhost_addr;
   struct hobbs_ctrs hobbs;
   struct version_info   vers_data;
@@ -93,7 +98,9 @@ struct lg_master {
   struct lg_xydata gSaveXY;
   struct lg_xydata gCheckXY;
   char            webhost[128];
+  char            visionhost[128];
   unsigned char   gBestTargetArray[MAX_TARGETSUSED];
+  double          l2vtransform[12];
   double          gArgTol;
   double          ping_count;
   double          gTolerance;
@@ -114,6 +121,7 @@ struct lg_master {
   int             datafd;
   int             fd_laser;
   int             serial_ether_flag;
+  int             projector_mode;
   unsigned long   gProjectorSerialNumber;
   uint32_t        gHEX;
   uint32_t        rcvdStopCmd;

@@ -7,8 +7,7 @@
 #include "L3DTransform.h"
 #include "Protocol.h"
 
-void PerformAndSendQuickCheck(struct lg_master *pLgMaster, unsigned char*pAngles, uint32_t nTargets);
-
+void PerformAndSendQuickCheck(struct lg_master *pLgMaster, unsigned char *pAngles, uint32_t nTargets);
 extern void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char * data,
                                        uint32_t nTargets, uint32_t nThresh);
 extern uint32_t SaveAnglesForQuickCheck (struct displayData *data,

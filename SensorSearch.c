@@ -90,9 +90,11 @@ void limitCalc(int16_t centerX, int16_t centerY, int16_t *eolXNeg,
 static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
 		     int16_t delX, int16_t delY, uint32_t nStepsIn,
 		     int16_t *foundX, int16_t *foundY);
+#if 0
 static int  FakeLeg(struct lg_master *pLgMaster, int16_t X, int16_t Y,
                     int16_t delX, int16_t delY, uint32_t nSteps,
                     int16_t *foundX, int16_t *foundY);
+#endif
 static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY);
 int compare ( const void * a, const void * b );
 
@@ -474,7 +476,7 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
     double dMaxY;
     uint64_t     sumX=0, sumY=0;
     uint32_t     count=0;
-    uint32_t     i, found_index;
+    uint32_t     i;
     int          theResult;
 
     // Initialize variables and buffers to be used
@@ -928,6 +930,7 @@ void InitDrift(int16_t *Xarr, int16_t *Yarr)
     return;
 }
 
+#if 0
 int  FakeLeg(struct lg_master *pLgMaster, int16_t inX, int16_t inY,
 	     int16_t delX, int16_t delY, uint32_t nSteps,
 	     int16_t *foundX, int16_t *foundY)
@@ -999,6 +1002,7 @@ int  FakeLeg(struct lg_master *pLgMaster, int16_t inX, int16_t inY,
 	  }
 	return(theResult);
 }
+#endif
 
 static int DoFineLevel(struct lg_master *pLgMaster, int16_t *foundX,
 		       int16_t *foundY, double *outMinX, double *outMinY,
@@ -1194,8 +1198,8 @@ static int findFirstLast(struct lg_master *pLgMaster, int16_t *firstX, int16_t *
         int16_t          dXMedian[4096];
         int16_t          dYMedian[4096];
 	uint64_t         sumX, sumY;
-	uint32_t         i,iCountMedian, ihalf;
-        int16_t          Xm, Ym, tmpX, tmpY, first_found;
+	uint32_t         i,iCountMedian;
+        int16_t          tmpX, tmpY, first_found;
 
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));

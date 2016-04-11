@@ -25,9 +25,9 @@ static char rcsid[] = "$Id$";
 
 void FlexCalculateTransform(struct lg_master *pLgMaster, struct parse_flexcalxfrm_parms *pInp, uint32_t respondToWhom)
 {
-    struct k_xyz_double    theCoordinateBuffer[MAX_ANGLEPAIRS];
-    struct k_xy_double     foundAngles[MAX_ANGLEPAIRS];
-    struct k_xy_anglepair  XYarr[MAX_ANGLEPAIRS];
+    struct k_xyz_double    theCoordinateBuffer[MAX_TARGETSFLEX];
+    struct k_xy_double     foundAngles[MAX_TARGETSFLEX];
+    struct k_xy_anglepair  XYarr[MAX_TARGETSFLEX];
     transform              foundTransform;
     struct parse_flexcalxfrm_resp   *pResp;
     double                 Xgeo, Ygeo;

@@ -18,6 +18,7 @@
 #include "parse_data.h"
 #include "DoAutoFocusCmd.h"
 #include "Protocol.h"
+#include "RemoteSerial.h"
 
 void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 {
@@ -47,6 +48,14 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 	 HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 	 return;
        }
+
+     // for LASER mode
+     // check if remote computer is to be used
+     if ( (pLgMaster->gHeaderSpecialByte & 0x01) && (pLgMaster->projector_mode == PROJ_LASER) ) {
+           RemoteSerial( pLgMaster, (char *)buffer );
+           return;
+     }
+
      // Write buffer out to ttyS2
      // Need to read one byte at a time due to FPGA limitations for serial port
      // design

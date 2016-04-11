@@ -40,6 +40,7 @@
 #include "SetBit.h"
 #include "DoFindOneTarget.h"
 #include "Files.h"
+#include "L2VtakePicture.h"
 
 uint32_t cmdState = 1;
 static char     *gDisplayDataBuffer = 0;
@@ -534,23 +535,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
       }
     break;
-  case kDoFullReg:
-    cmdSize = kSizeOfCommand + kSizeOfDoFullRegParameters;
-    if (index >= cmdSize + 2)
-      {
-	cmdState = 1;
-	if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer, cmdSize))
-	  {
-	    SendConfirmation(pLgMaster, kDoFullReg);
-	    DoFullReg(pLgMaster,
-		      (struct parse_dofullreg_parms *)pLgMaster->gParametersBuffer,
-		      kRespondExtern);
-	  }
-	else
-	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
-      }
-    break;
-  case kSetBit:
+   case kSetBit:
     cmdSize = kSizeOfCommand + kSizeOfSetBitParameters;
     if (index >= cmdSize + 2)
       {
@@ -597,7 +582,19 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  syslog(LOG_NOTICE,"parse675 tv %d %d", tv.tv_sec, tv.tv_usec);
 #endif
 	  // Referred to as MOVECAMERA in LaserGuide
-	  DoTakePicture (pLgMaster, (struct parse_takepic_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
+	  syslog(LOG_NOTICE,"about to DoTakePicture" );
+          if ( pLgMaster->projector_mode == PROJ_LASER )
+            {
+            L2VtakePicture ( pLgMaster
+                           , (struct parse_takepic_parms *)pLgMaster->gParametersBuffer
+                           , kRespondExtern
+                           );
+            }
+          else
+            {
+            DoTakePicture (pLgMaster, (struct parse_takepic_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
+            }
+
 #ifdef SPECIAL
 	  gettimeofday( &tv, &tz );
 	  syslog(LOG_NOTICE, "parse678 tv %d %d\n", tv.tv_sec, tv.tv_usec);
@@ -819,7 +816,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  {
 	    SendConfirmation(pLgMaster, kRightOnReg);
 	    RightOnFullReg ( pLgMaster,
-			     (char *)pLgMaster->gParametersBuffer,
+			     (struct parse_rightondofullreg_parms *)pLgMaster->gParametersBuffer,
 			     kRespondExtern );
 	  }
 	else
@@ -941,7 +938,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfRightOnCertParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kRightOnCert);
-	    RightOnCert(pLgMaster, (char *)pLgMaster->gParametersBuffer, kRespondExtern );
+	    RightOnCert(pLgMaster, (struct parse_rtoncert_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
 	  }
       else
 	SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
