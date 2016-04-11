@@ -59,7 +59,6 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
 
     ClearSensorBuffers();  // Make sure all the buffers used by SearchForASensor are zeroed to start
     rc = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
-    doLGSTOP(pLgMaster);
 #ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"DOFIND1TGT: SEARCHSENSOR x=%x,y=%x,findX %x, findY %x, rc %x",ptX,ptY,fndX,fndY,rc);
 #endif

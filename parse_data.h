@@ -150,13 +150,7 @@ struct parse_chunkflex_parms
   unsigned char    inp_anglepairs[ANGLEPAIRSLENFLEX];
   unsigned char    inp_transform[OLDTRANSFORMLEN];
 } __attribute__ ((packed));
-
-struct parse_qkcheck_parms
-{
-  unsigned char   inp_anglepairs[OLDANGLEPAIRSLEN];
-} __attribute__ ((packed));
-
-struct parse_flexquickcheck_parms
+struct parse_flexqkchk_parms
 {
   uint32_t         inp_numTargets;
   unsigned char    inp_anglepairs[ANGLEPAIRSLENFLEX];
@@ -318,6 +312,16 @@ struct parse_calibxy_parms
   double         steerX;
   double         steerY;
   double         inp_Z;
+} __attribute__ ((packed));
+struct parse_qkcheck_parms
+{
+  unsigned char   anglepairs[OLDANGLEPAIRSLEN];
+} __attribute__ ((packed));
+struct parse_thqkchk_parms
+{
+  uint32_t        threshold;
+  uint32_t        num_targets;
+  unsigned char   anglepairs[ANGLEPAIRSLENFLEX];
 } __attribute__ ((packed));
 
 /*********************************************************/

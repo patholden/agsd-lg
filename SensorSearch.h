@@ -12,8 +12,10 @@
 #define kYtooSmallToSearch      -6
 #define kYtooLargeToSearch      -7
 #define kSuperFineNotFound      -8
+#define kSuperFineTooFew        -9
 
 #define kNumberDrift   12
+#define kMaxQuickSearches       3
 
 int QuickCheckASensor(struct lg_master *pLgMaster, int16_t centerX, int16_t centerY);
 int DoSearch(int16_t startX, int16_t startY, int16_t *foundX, int16_t *foundY);
@@ -35,13 +37,13 @@ void SensorInitLog(void);
 int SearchForASensor (struct lg_master *pLgMaster, int16_t startX, int16_t startY,
 		      int16_t *foundX, int16_t *foundY);
 void ClearSensorBuffers(void);
+uint32_t getSuperFineFactor(void);
 
 extern int gTargetDrift;
 
 extern uint32_t gCoarseSearchStep;
 extern int  gSuperFineCount;
 extern int  gSuperFineSkip;
-extern uint32_t gSuperFineFactor;
 extern int  gNoFine;
 extern int  gMaxQuickSearches;
 extern int  gNumberOfSensorSearchAttempts;

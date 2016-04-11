@@ -3,12 +3,16 @@ static char rcsid[] = "$Id: LaserFlex.c,v 1.18 2003/04/25 10:40:04 ags-sw Exp ag
 
 */
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <stdio.h>
 #include <math.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stddef.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <endian.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
@@ -52,7 +56,7 @@ enum
 #endif
 
 void DoFlexDisplayChunks (struct lg_master *pLgMaster,
-			  struct parse_chunkflex_parms *parameters,
+			  struct parse_chunkflex_parms *pInp,
 			  uint32_t respondToWhom )
 {
     struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
@@ -61,8 +65,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
     int      numberOfTargets;
     double   *tmpDoubleArr;
     char     *tmpPtr;
-    int32_t *p_anglepairs;
-    int32_t *p_transform;
+    double   *p_transform;
     int      checkQC=0;
     int      error=0;
   
@@ -76,7 +79,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	pResp->hdr.status1 = RESPFAIL;
 	pResp->hdr.errtype1 = RESPE1APTERROR;
 	HandleResponse (pLgMaster, sizeof ( uint32_t ), respondToWhom );
-	ResetFlexPlyCounter(pLgMaster);
+	ResetPlyCounter(pLgMaster);
 	return;
       }
     if (!pLgMaster->gSensorBuffer)
@@ -84,37 +87,34 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	pResp->hdr.status1 = RESPFAIL;
 	pResp->hdr.errtype1 = RESPE1BOARDERROR;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	ResetFlexPlyCounter(pLgMaster);
+	ResetPlyCounter(pLgMaster);
 	return;
       }
-    numberOfTargets = parameters->inp_numTargets;
+    numberOfTargets = pInp->inp_numTargets;
     if (numberOfTargets > MAX_TARGETSFLEX)
       {
 	pResp->hdr.status1 = RESPFAIL;
 	pResp->hdr.errtype1 = RESPTOOMANYPLIES;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	ResetFlexPlyCounter(pLgMaster);
+	ResetPlyCounter(pLgMaster);
 	return;
       }
-    
+
     index  = pLgMaster->gPlysReceived * kNumberOfFlexPoints *
       2 * sizeof ( uint32_t );
 
-    tmpPtr = pLgMaster->gSensorBuffer + index;
+    tmpPtr = (char *)((char *)pLgMaster->gSensorBuffer + index);
     gQuickCheckTargetNumber[pLgMaster->gPlysReceived] = numberOfTargets;
 #ifdef AGS_DEBUG
     syslog(LOG_ERR,"\nFLEXDISPCHUNKS: targets %d, plynum %d, index %x",numberOfTargets,pLgMaster->gPlysReceived,index);
 #endif
-    memcpy(tmpPtr, parameters->inp_anglepairs, (kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
+    memcpy(tmpPtr, pInp->inp_anglepairs, (kNumberOfFlexPoints * 2 * sizeof(uint32_t)));
 
     checkQC = 0;
-    p_anglepairs = (int32_t *)&parameters->inp_anglepairs[0];
     for (i = 0; i < numberOfTargets; i++)
       {
-	if (p_anglepairs[i])
-	  checkQC++;
-	p_transform = (int32_t *)&parameters->inp_transform[i];
-	if (p_transform[i])
+	// Check pair
+	if ((pInp->inp_anglepairs[i] != 0) || (pInp->inp_anglepairs[i+1] != 0))
 	  checkQC++;
       }
     if (checkQC == 0)
@@ -123,10 +123,11 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	initQCcounter(pLgMaster);
       }
 
-    tmpDoubleArr = (double *)&parameters->inp_transform[0];
+    p_transform = (double *)((char *)pInp + offsetof(struct parse_chunkflex_parms,inp_transform));
     error = 0;
-    for (i=0; i < 12; i++)
+    for (i=0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
       {
+	tmpDoubleArr[i] = p_transform[i];
 	if (isnan(tmpDoubleArr[i]))
 	  error = 1;
 	if (isinf(tmpDoubleArr[i]))
@@ -139,7 +140,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	pResp->hdr.status = RESPFAIL;
 	pResp->hdr.errtype = RESPOTHERERROR;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	ResetFlexPlyCounter(pLgMaster);
+	ResetPlyCounter(pLgMaster);
 	return;
       }
     if (pLgMaster->gPlysReceived++)
@@ -158,7 +159,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       pResp->hdr.status = RESPFAIL;
       pResp->hdr.errtype = pResp->hdr.errtype;
       HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-      ResetFlexPlyCounter(pLgMaster);
+      ResetPlyCounter(pLgMaster);
       return;
     }
   
@@ -176,7 +177,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       pResp->hdr.status = RESPFAIL;
       pResp->hdr.errtype = htons(pResp->hdr.errtype);
       HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-      ResetFlexPlyCounter(pLgMaster);
+      ResetPlyCounter(pLgMaster);
       return;
     }
   if (pLgMaster->gAbortDisplay || (pLgMaster->gPlysReceived < pLgMaster->gPlysToDisplay))
@@ -184,7 +185,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       pResp->hdr.status = RESPGOOD;
       if (!(pLgMaster->gHeaderSpecialByte & 0x80))
 	HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-      ResetFlexPlyCounter(pLgMaster);
+      ResetPlyCounter(pLgMaster);
       return;
     }
   else
@@ -197,7 +198,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	      pResp->hdr.errtype1 = RESPE1BOARDERROR; 
 	      HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
 	    }
-	  ResetFlexPlyCounter(pLgMaster);
+	  ResetPlyCounter(pLgMaster);
 	  return;
 	}
       gVideoCheck = 0;
@@ -207,20 +208,15 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	  pResp->hdr.status =  RESPFAIL; 
 	  pResp->hdr.errtype1 = RESPE1BOARDERROR; 
 	  HandleResponse (pLgMaster, sizeof(uint32_t), respondToWhom );
-	  ResetFlexPlyCounter(pLgMaster);
+	  ResetPlyCounter(pLgMaster);
 	  return;
 	}
       if ((pLgMaster->gHeaderSpecialByte & 0x80))
-	{
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, respondToWhom);
-	  ResetFlexPlyCounter(pLgMaster);
-	}
       else
-	{
 	  PostCmdDisplay(pLgMaster,(struct displayData *)&dispData, SENDRESPONSE, respondToWhom);
-	  ResetFlexPlyCounter(pLgMaster);
-	}
     }
+  ResetPlyCounter(pLgMaster);
   return;
 }
 
@@ -305,7 +301,7 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
       pResp->hdr.status = RESPFAIL; 
       if (!(pLgMaster->gHeaderSpecialByte & 0x80))
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), 0);
-      ResetFlexPlyCounter(pLgMaster);
+      ResetPlyCounter(pLgMaster);
       return;
     }
   
@@ -322,7 +318,7 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
       pResp->hdr.status = RESPFAIL; 
       if (!(pLgMaster->gHeaderSpecialByte & 0x80))
 	HandleResponse(pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
-      ResetFlexPlyCounter(pLgMaster);
+      ResetPlyCounter(pLgMaster);
       return;
     }
   else
@@ -332,7 +328,7 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 	  pResp->hdr.status = RESPGOOD;
 	  if (!(pLgMaster->gHeaderSpecialByte & 0x80))
 	    HandleResponse (pLgMaster,(sizeof(struct parse_basic_resp)-kCRCSize), 0);
-	  ResetFlexPlyCounter(pLgMaster);
+	  ResetPlyCounter(pLgMaster);
 	  return;
 	}
       else
@@ -344,45 +340,46 @@ void DoFlexDisplay (struct lg_master *pLgMaster, uint32_t dataLength,
 	      pResp->hdr.status1 = RESPFAIL;
 	      pResp->hdr.errtype1 = RESPE1BOARDERROR; 
 	      HandleResponse (pLgMaster,sizeof ( uint32_t ), 0 );
-	      ResetFlexPlyCounter(pLgMaster);
+	      ResetPlyCounter(pLgMaster);
 	      return;
 	    }
 	  if ( (pLgMaster->gHeaderSpecialByte & 0x80))
 	    PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, SENDRESPONSE, 0);
 	  else
 	    PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, 0);
-	  ResetFlexPlyCounter(pLgMaster);
+	  ResetPlyCounter(pLgMaster);
 	}
     }
   return;
 }
 
-
-
-
-void DoFlexQuickCheck ( struct lg_master *pLgMaster, struct parse_flexquickcheck_parms *data, uint32_t respondToWhom )
+void DoFlexQuickCheck(struct lg_master *pLgMaster, struct parse_flexqkchk_parms* data, uint32_t respondToWhom)
 {
-        uint32_t nTargets;
+    struct parse_basic_resp *pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+    uint32_t nTargets;
 
-        nTargets = data->inp_numTargets;
-        PerformAndSendQuickCheck ( pLgMaster, (int32_t *)data->inp_anglepairs, nTargets);
+    memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
+    nTargets = data->inp_numTargets;
+
+    // First validate num targets
+    if(!nTargets || (nTargets > kNumberOfFlexPoints))
+      {
+	pResp->hdr.status = RESPFAIL;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
+    PerformAndSendQuickCheck(pLgMaster, (unsigned char *)data->inp_anglepairs, nTargets);
+    return;
 }
 
-
-// FIXME---PAH---NEEDS cmd/resp structs
-void DoThresholdQuickCheck (struct lg_master *pLgMaster, char * data, uint32_t respondToWhom )
+void DoThresholdQuickCheck(struct lg_master *pLgMaster, struct parse_thqkchk_parms *pInp, uint32_t respondToWhom)
 {
-        int index;
-        uint32_t nTargets;
-        uint32_t nThresh;
-        char * ptr;
+    uint32_t nTargets;
+    uint32_t nThresh;
 
-        index = 0;
-        nThresh  = *((uint32_t *)&(data[index]));
-        index    = sizeof(uint32_t);
-        nTargets = *((uint32_t *)&(data[index]));
-        index = 2 * sizeof(uint32_t);
-        ptr = (char *)(&(data[index]));
-        PerformThresholdQuickCheck ( pLgMaster, ptr, nTargets, nThresh );
+    nThresh  = pInp->threshold;
+    nTargets = pInp->num_targets;
+    PerformThresholdQuickCheck(pLgMaster, (char *)pInp->anglepairs, nTargets, nThresh);
+    return;
 }
 

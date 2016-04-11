@@ -52,7 +52,12 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      // for LASER mode
      // check if remote computer is to be used
      if ( (pLgMaster->gHeaderSpecialByte & 0x01) && (pLgMaster->projector_mode == PROJ_LASER) ) {
-           RemoteSerial( pLgMaster, (char *)buffer );
+
+           RemoteSerial( pLgMaster
+                       , (char *)buffer
+                       , kRespondExtern
+                       );
+
            return;
      }
 

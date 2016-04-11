@@ -16,9 +16,10 @@
 #define PROJ_VISION  1
 #define PROJ_LASER   2
 #define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
-#define MAX_DOSENSE_RETRIES 10
+#define MAX_DOSENSE_RETRIES 30
 #define DOSENSE_LEVEL       30
 #define DOSENSE_MID       0x300
+#define DOSENSE_MIN_SAMPLES   20
 #define kMaxUnsigned      0xFFFF
 #define kMaxSigned        0x7FFF
 #define kMinSigned        (-kMaxSigned)
@@ -188,14 +189,14 @@ int SearchBeamOff(struct lg_master *pLgMaster);
 int SearchBeamOn(struct lg_master *pLgMaster);
 int InitBoard(struct lg_master *pLgMaster);
 void ReleaseBoard (struct lg_master *pLgMaster);
-void JustDoDisplay(struct lg_master *pLgMaster, char * wr_ptr, int patternLength );
+int JustDoDisplay(struct lg_master *pLgMaster, char * wr_ptr, int patternLength );
 void FlashLed(struct lg_master *pLgMaster, int numFlash);         
 void SlowDownAndStop(struct lg_master *pLgMaster);
 int setROIlength(struct lg_master *pLgMaster, int32_t half_pattern);
 int ROIoff(struct lg_master *pLgMaster);
 int doLGSTOP(struct lg_master *pLgMaster);
 int doROIOff(struct lg_master *pLgMaster);
-int doDevDisplay(struct lg_master *pLgMaster, struct lg_disp_data *lg_display);
+int doDevDisplay(struct lg_master *pLgMaster, uint32_t ptn_len, uint32_t do_restart);
 int doStartPulse(struct lg_master *pLgMaster, struct lg_pulse_data *lg_pulsedata);
 int doSetROI(struct lg_master *pLgMaster, uint32_t write_val);
 int doSetReadyLED(struct lg_master *pLgMaster);
@@ -213,6 +214,7 @@ void GoToPulse(struct lg_master *pLgMaster, struct lg_xydata *pPulseData,
 	       uint32_t pulseoffvalue, uint32_t pulseonvalue);
 int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
 int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData);
+void move_one_dark(struct lg_master *pLgMaster, struct lg_xydata *pDarkData);
 void ResumeDisplay(struct lg_master *pLgMaster);
 int32_t GetQCflag(struct lg_master *pLgMaster);
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
