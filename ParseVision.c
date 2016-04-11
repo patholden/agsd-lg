@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <syslog.h>
 #include <ctype.h>
 #include <linux/laser_api.h>
 #include <netinet/in.h>
@@ -40,6 +41,7 @@ ParseVision( struct lg_master *pLgMaster
      pLgMaster->l2vtransform[ 9] = 0.0;
      pLgMaster->l2vtransform[10] = 0.0;
      pLgMaster->l2vtransform[11] = 0.0;
+     sprintf( pLgMaster->visionhost, "10.1.3.1" );
 
      
 
@@ -131,9 +133,7 @@ ParseVision( struct lg_master *pLgMaster
             if ( narg == 4 ) {
                memset( pLgMaster->visionhost, 0, 128 );
                sprintf( pLgMaster->visionhost, "%d.%d.%d.%d", d1, d2, d3, d4 );
-#ifdef ZDEBUG
-fprintf( stderr, "visionhost %s\n", pLgMaster->visionhost );
-#endif
+               syslog( LOG_NOTICE, "visionhost %s\n", pLgMaster->visionhost );
             }
           }
 
@@ -143,7 +143,7 @@ fprintf( stderr, "visionhost %s\n", pLgMaster->visionhost );
      }
 #ifdef ZDEBUG
 for( i=0; i<12; i++ ) {
-  fprintf( stderr, "l2v %2d %lf\n", i, pLgMaster->l2vtransform[i] );
+  syslog( LOG_NOTICE, "l2v %2d %lf\n", i, pLgMaster->l2vtransform[i] );
 }
 
 #endif

@@ -268,6 +268,13 @@ int main ( int argc, char **argv )
       closelog();
       exit(EXIT_FAILURE);
     }
+  syslog(LOG_NOTICE, " projector_mode %d \n", pConfigMaster->projector_mode );
+  if ( pConfigMaster->projector_mode == PROJ_LASER ) {
+      syslog(LOG_NOTICE, " projector_mode %d - laser \n", pConfigMaster->projector_mode );
+  }
+  if ( pConfigMaster->projector_mode == PROJ_VISION ) {
+      syslog(LOG_NOTICE, " projector_mode %d - vision \n", pConfigMaster->projector_mode );
+  }
   SlowDownAndStop (pConfigMaster);
   SetQCcounter(pConfigMaster, 0);
   SearchBeamOff(pConfigMaster);
@@ -281,7 +288,8 @@ int main ( int argc, char **argv )
       exit(EXIT_FAILURE);
     }
   // The main loop should never really exit.
-  syslog(stderr, "\nWaiting to Accept packets");
+  syslog(stderr, " \n");
+  syslog(stderr, "Waiting to Accept packets");
   // Before jumping into main loop, start background thread
   // will is only used for updating hobbs counters once every 2 hours
   thread_data[0].pLgMaster = pConfigMaster;

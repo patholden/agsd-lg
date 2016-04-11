@@ -598,7 +598,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  syslog(LOG_NOTICE,"parse675 tv %d %d", tv.tv_sec, tv.tv_usec);
 #endif
 	  // Referred to as MOVECAMERA in LaserGuide
-	  DoTakePicture (pLgMaster, (struct parse_takepic_parms *)pLgMaster->gParametersBuffer, kRespondExtern );
+	  syslog(LOG_NOTICE,"about to DoTakePicture" );
           if ( pLgMaster->projector_mode == PROJ_LASER )
             {
             L2VtakePicture ( pLgMaster

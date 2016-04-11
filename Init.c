@@ -50,9 +50,9 @@ void DoReInit( struct lg_master *pLgMaster, uint32_t respondToWhom )
 
 int ConfigDataInit(struct lg_master* pLgMaster)
 {
-    char testStr[256];
-    char tmpline[256];
-    char word[256];
+    char testStr[512];
+    char tmpline[512];
+    char word[512];
     FILE *handle;
     char *localBuff;
     char *token;
@@ -115,14 +115,15 @@ int ConfigDataInit(struct lg_master* pLgMaster)
     
     token = localBuff; 
     count = 0;
-    while ((count++ < file_size) && (*token != 0))
+    while ((count < file_size) && (*token != 0))
       {
-	strncpy(tmpline, token, 255);
-	for (i = 0; i < 255; i++)
+	strncpy(tmpline, token, 512);
+	for (i = 0; i < 512; i++)
 	  {
 	    if ((tmpline[i] == 0x0a) || (tmpline[i] == 0x0d))
 	      tmpline[i] = 0;
 	  }
+        // syslog(LOG_NOTICE, "size %4ld token ---%s---\n", file_size, token );
 	
 	strcpy( testStr, "transformtolerance =" );
 	if (strncmp( tmpline, testStr, strlen(testStr)) == 0)
@@ -207,6 +208,9 @@ int ConfigDataInit(struct lg_master* pLgMaster)
         strcpy( testStr, "projectormode =" );
         if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
           sscanf( token, "projectormode = %s", word );
+
+          // syslog(LOG_NOTICE, "mode ---%s---\n", word );
+
           strcpy( testStr, "laser" );                         
           if ( strncmp( word, testStr, strlen(testStr) ) == 0 ) {
             pLgMaster->projector_mode    = PROJ_LASER;        
@@ -251,6 +255,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	  token++;
 	  count++;
 	}
+        // syslog(LOG_NOTICE, "count ---%d---\n", count );
       }
     free(localBuff);
     return(0);

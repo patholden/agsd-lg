@@ -67,14 +67,14 @@ void L2VtakePicture ( struct lg_master *pLgMaster,
         int hexcount;
 
 
-  // Prep response packet
-  pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  memset(pResp, 0, sizeof(struct parse_basic_resp));
+        // Prep response packet
+        pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+        memset(pResp, 0, sizeof(struct parse_basic_resp));
 
 
-  // Get points
-  memcpy((char *)&tmpDoubleArr, (char *)&pInp->transform[0], sizeof(tmpDoubleArr));
-  ArrayIntoTransform((double *)&tmpDoubleArr, &theT );
+        // Get points
+        memcpy((char *)&tmpDoubleArr, (char *)&pInp->transform[0], sizeof(tmpDoubleArr));
+        ArrayIntoTransform((double *)&tmpDoubleArr, &theT );
 
 
 
@@ -91,32 +91,30 @@ void L2VtakePicture ( struct lg_master *pLgMaster,
 
         TransformPoint( &p2v_T, projT.transVector, theT.transVector );
 
-#ifdef ZDEBUG
-fprintf(stderr, "proj form mat %lf\n", projT.rotMatrix[0][0] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[0][1] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[0][2] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[1][0] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[1][1] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[1][2] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[2][0] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[2][1] );
-fprintf(stderr, "transform mat %lf\n", projT.rotMatrix[2][2] );
-fprintf(stderr, "transform vec %lf\n", projT.transVector[0] );
-fprintf(stderr, "transform vec %lf\n", projT.transVector[1] );
-fprintf(stderr, "transform vec %lf\n", projT.transVector[2] );
-fprintf(stderr, "theT form mat %lf\n", theT.rotMatrix[0][0] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[0][1] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[0][2] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[1][0] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[1][1] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[1][2] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[2][0] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[2][1] );
-fprintf(stderr, "transform mat %lf\n", theT.rotMatrix[2][2] );
-fprintf(stderr, "transform vec %lf\n", theT.transVector[0] );
-fprintf(stderr, "transform vec %lf\n", theT.transVector[1] );
-fprintf(stderr, "transform vec %lf\n", theT.transVector[2] );
-#endif
+syslog(LOG_NOTICE, "proj form mat %lf\n", projT.rotMatrix[0][0] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[0][1] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[0][2] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[1][0] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[1][1] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[1][2] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[2][0] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[2][1] );
+syslog(LOG_NOTICE, "transform mat %lf\n", projT.rotMatrix[2][2] );
+syslog(LOG_NOTICE, "transform vec %lf\n", projT.transVector[0] );
+syslog(LOG_NOTICE, "transform vec %lf\n", projT.transVector[1] );
+syslog(LOG_NOTICE, "transform vec %lf\n", projT.transVector[2] );
+syslog(LOG_NOTICE, "theT form mat %lf\n", theT.rotMatrix[0][0] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[0][1] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[0][2] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[1][0] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[1][1] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[1][2] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[2][0] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[2][1] );
+syslog(LOG_NOTICE, "transform mat %lf\n", theT.rotMatrix[2][2] );
+syslog(LOG_NOTICE, "transform vec %lf\n", theT.transVector[0] );
+syslog(LOG_NOTICE, "transform vec %lf\n", theT.transVector[1] );
+syslog(LOG_NOTICE, "transform vec %lf\n", theT.transVector[2] );
 
 		
   partPoint[0] = pInp->visionX;
@@ -124,23 +122,17 @@ fprintf(stderr, "transform vec %lf\n", theT.transVector[2] );
   partPoint[2] = pInp->visionZ;
 
 
-#ifdef ZDEBUG
-fprintf(stderr, "in xyz %lf %lf %lf\n",partPoint[0],partPoint[1],partPoint[2]);
-#endif
+syslog(LOG_NOTICE, "in xyz %lf %lf %lf\n",partPoint[0],partPoint[1],partPoint[2]);
 
         TransformPoint ( &theT, partPoint, outputPoint );
 
-#ifdef ZDEBUG
-fprintf(stderr, "out xyz %lf %lf %lf\n",outputPoint[0],outputPoint[1],outputPoint[2]);
-#endif
+syslog(LOG_NOTICE, "out xyz %lf %lf %lf\n",outputPoint[0],outputPoint[1],outputPoint[2]);
 
 
         TransformIntoArray( &theT, tmpDoubleArr );
 
 
-#ifdef ZDEBUG
-fprintf(stderr, "TIA\n" );
-#endif
+syslog(LOG_NOTICE, "TIA\n" );
 
 
   
@@ -150,46 +142,32 @@ fprintf(stderr, "TIA\n" );
 
   tcp_srv_addr.sin_port = htons(port);
 
-#ifdef ZDEBUG
-fprintf(stderr, "about to inet_addr\n" );
-#endif
+syslog(LOG_NOTICE, "about to inet_addr\n" );
 
   if( (inaddr = inet_addr(pLgMaster->visionhost)) != INADDR_NONE) {
       bcopy((char *) &inaddr, (char *) &tcp_srv_addr.sin_addr, sizeof(inaddr));
       tcp_host_info.h_name = NULL;
   } else {
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
                 return;
   }
 
-#ifdef ZDEBUG
-fprintf(stderr, "about socket\n" );
-#endif
+syslog(LOG_NOTICE, "about socket\n" );
 
   if( (fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      fprintf( stderr, "can't create TCP socket\n");
-      close (fd);
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                close (fd);
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
                 return;
   }
 
-#ifdef ZDEBUG
-fprintf(stderr, "about connect\n" );
-#endif
+syslog(LOG_NOTICE, "about connect\n" );
    
         if( connect(fd,(struct sockaddr *)&tcp_srv_addr,sizeof(tcp_srv_addr)) < 0 ) {
-      fprintf( stderr, "can't connect to server\n");
-      close (fd);
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                close (fd);
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
                 return;
   }
 
@@ -222,33 +200,25 @@ fprintf(stderr, "about connect\n" );
                hexbuff[hexcount] = inbuff[i];
                hexcount++;
             }
-#ifdef ZDEBUG
-fprintf(stderr, "about write %x  hex %d\n", 0xff&hexbuff[hexcount],hexcount );
-#endif
+// syslog(LOG_NOTICE, "about write %x  hex %d\n", 0xff&hexbuff[hexcount],hexcount );
         }
 
 
         total = 0;
         n = 1;
         while ( total < hexcount && n > 0 ) {
-#ifdef ZDEBUG
-fprintf(stderr, "about write %d  total %d\n", hexcount, total );
-#endif
+// syslog(LOG_NOTICE, "about write %d  total %d\n", hexcount, total );
             n = write( fd, &(hexbuff[total]), (hexcount-total) );
             if ( n < 0 ) {
                 close( fd );
-                *(uint32_t *)(pLgMaster->theResponseBuffer) =
-                        kFail;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                pResp->hdr.status = RESPFAIL;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
                 return;
             }
             total += n;
         }
         count = 0;
-#ifdef ZDEBUG
-fprintf(stderr, "about read \n" );
-#endif
+syslog(LOG_NOTICE, "about read \n" );
         FD_ZERO( &socks );
         FD_SET( fd, &socks );
         highsock = fd;
@@ -264,17 +234,13 @@ fprintf(stderr, "about read \n" );
 
         if ( readsocks > 0 && FD_ISSET( fd, &socks ) ) {
 
-#ifdef ZDEBUG
-fprintf(stderr, "about readsocks %d \n", readsocks );
-#endif
+syslog(LOG_NOTICE, "about readsocks %d \n", readsocks );
             n = read(fd,linebuff,MAXLINE);
             strncpy( &(outbuff[count]), linebuff, n );
             count += n;
         }
 
-#ifdef ZDEBUG
-fprintf(stderr, "about close  read %d\n", n );
-#endif
+syslog(LOG_NOTICE, "about close  read %d\n", n );
 
         close (fd);
 
@@ -284,9 +250,8 @@ fprintf(stderr, "about close  read %d\n", n );
     gettimeofday( &tv, &tz );
     printf( "Picture78 tv %d %d\n", tv.tv_sec, tv.tv_usec );
 #endif
-                *(uint32_t *)(pLgMaster->theResponseBuffer) = kOK;
-                HandleResponse ( pLgMaster,
-                        sizeof ( uint32_t ), kRespondExtern );
+                pResp->hdr.status = RESPGOOD;
+                HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
        return;
 
        //  PostCommand( kDarkAngle, (char *)data, kRespondExtern );
