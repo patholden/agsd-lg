@@ -69,11 +69,6 @@ void ResetPlyCounter(struct lg_master *pLgMaster)
     pLgMaster->gPlysReceived = 0;
     return;
 }
-void ResetFlexPlyCounter(struct lg_master *pLgMaster)
-{
-  ResetPlyCounter(pLgMaster);
-  return;
-}
 void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_parms *pInp, uint32_t respondToWhom )
 {
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
@@ -114,12 +109,12 @@ void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_
 void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *pInp, uint32_t respondToWhom)
 {
   struct displayData  dispData;
+  double tmpDoubleArr[MAX_NEW_TRANSFORM_ITEMS];
   struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   char *tmpPtr;
   double *p_transform;
   int index;
   int i;
-  double tmpDoubleArr[MAX_NEW_TRANSFORM_ITEMS];
   int numberOfTargets;
   int checkQC;
   int error;
@@ -264,7 +259,11 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
   
     memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
     memset((char *)&dispData, 0, sizeof(struct displayData));
-  
+
+    // dataLength = num bytes in this packet
+    // dataOffset = offset into entire payload
+    // pLgMaster->gTransmitLengthSum = how many bytes received so far
+    // 
     if ((dataLength + dataOffset) > pLgMaster->gDataChunksLength)
       {
 	pResp->hdr.status = RESPFAIL;
@@ -647,11 +646,12 @@ void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number, uint32_t re
   return;
 }
 
-void DoQuickCheck (struct lg_master *pLgMaster, struct parse_qkcheck_parms *inp_anglepairs, uint32_t respondToWhom )
+void DoQuickCheck (struct lg_master *pLgMaster, struct parse_qkcheck_parms *pInp, uint32_t respondToWhom )
 {
 
     gRespondToWhom = respondToWhom;
-    PerformAndSendQuickCheck (pLgMaster, (int32_t *)inp_anglepairs, 6);  // must now set target number
+      // must now set number of targets, hard-coded to max val for old max.
+    PerformAndSendQuickCheck (pLgMaster, pInp->anglepairs, MAX_TARGETSOLD);
 }
 
 double DoubleFromCharConv ( unsigned char *theChar )

@@ -23,7 +23,6 @@ static char rcsid[] = "$Id$";
 #include "LaserInterface.h"
 
 
-#define NPOINTS 2048
 #define kNumberStep 64 * 8
    /*
     *  size based on default values of gNumberOfSpiral
@@ -103,24 +102,32 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     int16_t Xarr[32];
     int16_t Yarr[32];
     int32_t flag[32];
-    int i;
+    int i,rc;
     int16_t Xi, Yi, currentX, currentY, lastX, lastY;
 
     memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
     memset((char *)&Xarr, 0, sizeof(Xarr));
     memset((char *)&Yarr, 0, sizeof(Yarr));
     memset((char *)&flag, 0, sizeof(flag));
-    maxSize = NPOINTS * 24 * sizeof(struct lg_xydata);
+    maxSize = MAX_LG_BUFFER;
 
     nTargets = Parameters->inp_numpairs;
     if(nTargets > kNumberOfFlexPoints)
       {
+	syslog(LOG_ERR,"ShowTargets bad target num %d",nTargets);
 	pResp->hdr.status = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
-    wr_buf = (char *)calloc(NPOINTS * 24, 4);
-    
+    wr_buf = malloc(MAX_LG_BUFFER);
+    memset(wr_buf, 0, MAX_LG_BUFFER);
+    if (!wr_buf)
+      {
+	syslog(LOG_ERR,"ShowTargets unable to malloc display buffer");
+	pResp->hdr.status = RESPFAIL;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
     tmpPtr = wr_buf;
     gCoarse3SearchStep = 0x0008;
     for (i = 0; i < nTargets; i++)
@@ -132,7 +139,6 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
         Yarr[i] = Yi;
         flag[i] = Parameters->inp_targetpairs[i].flag;
     }
-
     /*
      * draw marker
      */
@@ -233,8 +239,11 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
     index *= sizeof(struct lg_xydata);
     if (index < maxSize)
       {
-	JustDoDisplay(pLgMaster, tmpPtr, index );
-	pResp->hdr.status = RESPGOOD;
+	rc = JustDoDisplay(pLgMaster, wr_buf, index);
+	if (!rc)
+	  pResp->hdr.status = RESPGOOD;
+	else
+	  pResp->hdr.status = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
       }
     else
@@ -243,7 +252,7 @@ void DoShowTargets(struct lg_master *pLgMaster, struct parse_showtgt_parms *Para
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
       }
     // Let everything fall through here to free up buffer
-    free(wr_buf);
+    free(wr_buf) ;
     return;
 }
 

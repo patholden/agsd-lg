@@ -232,7 +232,13 @@ uint32_t FinishPattern (struct lg_master *pLgMaster)
 	uint32_t tempLong;
 #endif
 	if ( gItIsStart ) return 0U;
-	if ( gRawInput ) return 0U;
+	if (gRawInput)
+	  {
+#ifdef AGS_DEBUG
+	    syslog(LOG_DEBUG,"gRawInput set");
+#endif
+	    return(0);
+	  }
 	UnpendPenDown();
 	SetPenUp();
 	gNowInside = true;

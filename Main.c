@@ -104,6 +104,8 @@ static void ags_cleanup(struct lg_master *pLgMaster)
   CloseUserStuff (pLgMaster );
   if (gQCsaveData)
     free(gQCsaveData);
+  doClearLinkLED(pLgMaster);
+  doSetReadyLED(pLgMaster);
   if (pLgMaster->socketfd >= 0)
     close(pLgMaster->socketfd);
   if (pLgMaster->datafd >= 0)
@@ -242,9 +244,9 @@ int main ( int argc, char **argv )
   SensorInitLog();
   syslog(LOG_NOTICE, " factor spiral %d",   pConfigMaster->gSpiralFactor );
   syslog(LOG_NOTICE, " hatch %d\n",           pConfigMaster->gHatchFactor );
-  syslog(LOG_NOTICE, " SuperFineCount %d",   gSuperFineCount );
-  syslog(LOG_NOTICE, " SuperFineSkip %d",   gSuperFineSkip );
-  syslog(LOG_NOTICE, " SuperFineFactor %d\n",   gSuperFineFactor );
+  syslog(LOG_NOTICE, " SuperFineCount %d", gSuperFineCount);
+  syslog(LOG_NOTICE, " SuperFineSkip %d", gSuperFineSkip );
+  syslog(LOG_NOTICE, " SuperFineFactor %d\n",   getSuperFineFactor());
   syslog(LOG_NOTICE, "fast %x",   gFastBabies );
   syslog(LOG_NOTICE, " (expo %d), ",       gFastExponent );
   syslog(LOG_NOTICE, "slow %x",   gSlowBabies );
@@ -255,7 +257,7 @@ int main ( int argc, char **argv )
   syslog(LOG_NOTICE, "LongToShort %f \n",   gLongToShort );
   syslog(LOG_NOTICE, "CurveInterpolation %f ",   gCurveMin );
   syslog(LOG_NOTICE, "QuickCheck %d ",   gQuickCheck );
-  syslog(LOG_NOTICE, "MaxQuickSearches %d \n", gMaxQuickSearches);
+  syslog(LOG_NOTICE, "MaxQuickSearches %d \n", kMaxQuickSearches);
   syslog(LOG_NOTICE, "MaxDiffMag %f ",   gMaxDiffMag );
   syslog(LOG_NOTICE, "MultipleSweeps %d ", pConfigMaster->gMultipleSweeps );
 
@@ -279,13 +281,13 @@ int main ( int argc, char **argv )
   SetQCcounter(pConfigMaster, 0);
   SearchBeamOff(pConfigMaster);
 
-  // Set up program to capter user-entered signals
+  // Set up program to capture user-entered signals
   if ((main_capture_signals()) < 0)
     {
       syslog(LOG_ERR,"\nSIGACT failure");
       ags_cleanup(pConfigMaster);
       closelog();
-      exit(EXIT_FAILURE);
+      exit(EXIT_SUCCESS);
     }
   // The main loop should never really exit.
   syslog(stderr, " \n");
