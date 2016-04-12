@@ -51,6 +51,7 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 
      // for LASER mode
      // check if remote computer is to be used
+     syslog(LOG_NOTICE, "af special header %x", pLgMaster->gHeaderSpecialByte);
      if ( (pLgMaster->gHeaderSpecialByte & 0x01) && (pLgMaster->projector_mode == PROJ_LASER) ) {
 
            RemoteSerial( pLgMaster
@@ -68,6 +69,13 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
        {
 	 cdata_out = pInp->inp_data[af_index];
 	 write_count = write(pLgMaster->af_serial, (void *)&cdata_out, 1);
+#ifdef ZDEBUG
+if (isalnum(cdata_out) ) {
+syslog(LOG_NOTICE, "afwrite %2x  %d index %d   %c ", cdata_out, write_count, af_index, cdata_out );
+} else {
+syslog(LOG_NOTICE, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index );
+}
+#endif
 	 if (write_count != 1)
 	   {
 	     syslog(LOG_ERR, "AFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
