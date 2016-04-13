@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <sys/io.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -65,7 +66,9 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      // Write buffer out to ttyS2
      // Need to read one byte at a time due to FPGA limitations for serial port
      // design
-     for (af_index = 0; af_index < AFtoWrite; af_index++)
+     syslog(LOG_NOTICE, "AFtoWrite %d  fd %d ", AFtoWrite, pLgMaster->af_serial );
+     if ( pLgMaster->af_serial > 0 ) {
+       for (af_index = 0; af_index < AFtoWrite; af_index++)
        {
 	 cdata_out = pInp->inp_data[af_index];
 	 write_count = write(pLgMaster->af_serial, (void *)&cdata_out, 1);
@@ -76,6 +79,7 @@ syslog(LOG_NOTICE, "afwrite %2x  %d index %d   %c ", cdata_out, write_count, af_
 syslog(LOG_NOTICE, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index );
 }
 #endif
+
 	 if (write_count != 1)
 	   {
 	     syslog(LOG_ERR, "AFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
@@ -86,12 +90,22 @@ syslog(LOG_NOTICE, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_inde
 	     return;
 	   }
        }
+     }
+     syslog(LOG_NOTICE, "AFtoWrite2 %d ", AFtoWrite );
        usleep(1000);   // Wait 1msec to get data back
        // Need to read one byte at a time due to FPGA limitations for serial port
        // design
        for (af_index = 0; af_index < MAX_DATA; af_index++)
 	 {
 	   read_count = read(pLgMaster->af_serial, &cdata_in, 1);
+#ifdef ZDEBUG
+if ( isalnum( cdata_in ) ) {
+syslog( LOG_NOTICE, "af read %3d %2x  %c ", af_index, 0xff & cdata_in, cdata_in );
+} else {
+syslog( LOG_NOTICE, "af read %3d %2x  ", af_index, 0xff & cdata_in );
+}
+#endif
+
 	   if (read_count == 1)
 	     {
 	       pLgMaster->gAFInputBuffer[af_index] = cdata_in;
@@ -117,6 +131,7 @@ syslog(LOG_NOTICE, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_inde
 	     }
 	 }
 
+     syslog(LOG_NOTICE, "AF num_read %d ", num_read );
        if ((num_read > 0) && (num_read <= AUTOFOCUS_SIZE))
 	 {
 	   memcpy(pResp->resp_data, pLgMaster->gAFInputBuffer, num_read);

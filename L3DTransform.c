@@ -237,7 +237,7 @@ void GetAngles(struct lg_master *pLgMaster, long double *x, long double *xa, lon
 /*	true and the transform in tr.				        */
 /************************************************************************/
 Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
-			  doubleTransform *Dtr, double DdeltaXHeight, double Dtolerance,
+			  double *Darr, double DdeltaXHeight, double Dtolerance,
 			  double * bestCosine)
 {
 	short i, j, numberOfTrans;
@@ -253,6 +253,7 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
         double perpend;
         double angdist;
         int goodPermutes;
+        doubleTransform Dtr;
 
 	transform trBestForEach3, trFor3Pts[16];
 
@@ -303,6 +304,35 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
 	      continue;
 	    numberOfTrans = From3PtsToTrans(pLgMaster,&iPt[a], &iPt[b], &iPt[c],
 					    deltaXHeight, (transform *)&trFor3Pts);
+#ifdef ZDEBUG
+                       syslog( LOG_NOTICE, "304 L3D pt0 %Lf %Lf %Lf %Lf %Lf"
+, iPt[a].oldLoc[0] 
+, iPt[a].oldLoc[1] 
+, iPt[a].oldLoc[2] 
+, iPt[a].xRad 
+, iPt[a].yRad );
+                       syslog( LOG_NOTICE, "304 L3D pt1 %Lf %Lf %Lf %Lf %Lf"
+, iPt[b].oldLoc[0] 
+, iPt[b].oldLoc[1] 
+, iPt[b].oldLoc[2] 
+, iPt[b].xRad 
+, iPt[b].yRad );
+                       syslog( LOG_NOTICE, "304 L3D pt2 %Lf %Lf %Lf %Lf %Lf"
+, iPt[c].oldLoc[0] 
+, iPt[c].oldLoc[1] 
+, iPt[c].oldLoc[2] 
+, iPt[c].xRad 
+, iPt[c].yRad );
+                       syslog( LOG_NOTICE, "304 L3D pt3 %Lf %Lf %Lf %Lf %Lf"
+, iPt[d].oldLoc[0] 
+, iPt[d].oldLoc[1] 
+, iPt[d].oldLoc[2] 
+, iPt[d].xRad 
+, iPt[d].yRad );
+
+                       syslog( LOG_NOTICE, "305 L3D %d trans" , (int)numberOfTrans );
+#endif
+
 	    if (numberOfTrans == 0)
 	      continue;
 	    tan4thPtX = tan ( iPt[d].xRad );
@@ -311,6 +341,24 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
 	    theBestCos = -1.L;
 	    while (numberOfTrans--)
 	      {
+#ifdef ZDEBUG
+        syslog(LOG_NOTICE, "transform %20.12Lf %20.12Lf %20.12Lf"
+, trFor3Pts[numberOfTrans].rotMatrix[0][0]
+, trFor3Pts[numberOfTrans].rotMatrix[0][1] 
+, trFor3Pts[numberOfTrans].rotMatrix[0][2] );
+        syslog(LOG_NOTICE, "transform %20.12Lf %20.12Lf %20.12Lf"
+, trFor3Pts[numberOfTrans].rotMatrix[1][0]
+, trFor3Pts[numberOfTrans].rotMatrix[1][1] 
+, trFor3Pts[numberOfTrans].rotMatrix[1][2] );
+        syslog(LOG_NOTICE, "transform %20.12Lf %20.12Lf %20.12Lf"
+, trFor3Pts[numberOfTrans].rotMatrix[2][0]
+, trFor3Pts[numberOfTrans].rotMatrix[2][1] 
+, trFor3Pts[numberOfTrans].rotMatrix[2][2] );
+        syslog(LOG_NOTICE, "transform %20.12Lf %20.12Lf %20.12Lf"
+, trFor3Pts[numberOfTrans].transVector[0]
+, trFor3Pts[numberOfTrans].transVector[1] 
+, trFor3Pts[numberOfTrans].transVector[2] );
+#endif
 		TransformPoint ( &trFor3Pts[numberOfTrans],
 				 iPt[d].oldLoc, newPoint );
 		GetAngles (pLgMaster, (long double *)&newPoint[0], &xa, &ya, deltaXHeight );
@@ -381,30 +429,51 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
 		if (fabs(1.L - tempBestCos) > tolerance)
 		  return(false);
 	}
-        Dtr->rotMatrix[0][0] = (double)(tr->rotMatrix[0][0]);
-        Dtr->rotMatrix[0][1] = (double)(tr->rotMatrix[0][1]);
-        Dtr->rotMatrix[0][2] = (double)(tr->rotMatrix[0][2]);
-        Dtr->rotMatrix[1][0] = (double)(tr->rotMatrix[1][0]);
-        Dtr->rotMatrix[1][1] = (double)(tr->rotMatrix[1][1]);
-        Dtr->rotMatrix[1][2] = (double)(tr->rotMatrix[1][2]);
-        Dtr->rotMatrix[2][0] = (double)(tr->rotMatrix[2][0]);
-        Dtr->rotMatrix[2][1] = (double)(tr->rotMatrix[2][1]);
-        Dtr->rotMatrix[2][2] = (double)(tr->rotMatrix[2][2]);
-        Dtr->transVector[0] = (double)(tr->transVector[0]);
-        Dtr->transVector[1] = (double)(tr->transVector[1]);
-        Dtr->transVector[2] = (double)(tr->transVector[2]);
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][2] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][2] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][2] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[2] );
+        Dtr.rotMatrix[0][0] = (double)(tr->rotMatrix[0][0]);
+        Dtr.rotMatrix[0][1] = (double)(tr->rotMatrix[0][1]);
+        Dtr.rotMatrix[0][2] = (double)(tr->rotMatrix[0][2]);
+        Dtr.rotMatrix[1][0] = (double)(tr->rotMatrix[1][0]);
+        Dtr.rotMatrix[1][1] = (double)(tr->rotMatrix[1][1]);
+        Dtr.rotMatrix[1][2] = (double)(tr->rotMatrix[1][2]);
+        Dtr.rotMatrix[2][0] = (double)(tr->rotMatrix[2][0]);
+        Dtr.rotMatrix[2][1] = (double)(tr->rotMatrix[2][1]);
+        Dtr.rotMatrix[2][2] = (double)(tr->rotMatrix[2][2]);
+        Dtr.transVector[0] = (double)(tr->transVector[0]);
+        Dtr.transVector[1] = (double)(tr->transVector[1]);
+        Dtr.transVector[2] = (double)(tr->transVector[2]);
+
+#ifdef ZDEBUG
+        syslog(LOG_NOTICE, "transform %20.12lf %20.12lf %20.12lf"
+, Dtr.rotMatrix[0][0]
+, Dtr.rotMatrix[0][1] 
+, Dtr.rotMatrix[0][2] );
+        syslog(LOG_NOTICE, "transform %20.12lf %20.12lf %20.12lf"
+, Dtr.rotMatrix[1][0]
+, Dtr.rotMatrix[1][1] 
+, Dtr.rotMatrix[1][2] );
+        syslog(LOG_NOTICE, "transform %20.12lf %20.12lf %20.12lf"
+, Dtr.rotMatrix[2][0]
+, Dtr.rotMatrix[2][1] 
+, Dtr.rotMatrix[2][2] );
+        syslog(LOG_NOTICE, "transform %20.12lf %20.12lf %20.12lf"
+, Dtr.transVector[0]
+, Dtr.transVector[1] 
+, Dtr.transVector[2] );
+#endif
+
+        Darr[ 0] = Dtr.rotMatrix[0][0];
+        Darr[ 1] = Dtr.rotMatrix[0][1];
+        Darr[ 2] = Dtr.rotMatrix[0][2];
+        Darr[ 3] = Dtr.rotMatrix[1][0];
+        Darr[ 4] = Dtr.rotMatrix[1][1];
+        Darr[ 5] = Dtr.rotMatrix[1][2];
+        Darr[ 6] = Dtr.rotMatrix[2][0];
+        Darr[ 7] = Dtr.rotMatrix[2][1];
+        Darr[ 8] = Dtr.rotMatrix[2][2];
+        Darr[ 9] = Dtr.transVector[0] ;
+        Darr[10] = Dtr.transVector[1] ;
+        Darr[11] = Dtr.transVector[2] ;
+
 	return(true);
 }
 
@@ -864,6 +933,12 @@ short SolveTheSystem ( long double a01, long double sqd01,
 	long double rootCoefficient, rootCoefficientTemp;
 	
 	short i, numberOfSolutions, numberOfRoots;
+
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "sts a01 %Lf sqd01 %Lf ", a01, sqd01 );
+syslog( LOG_NOTICE, "sts a02 %Lf sqd02 %Lf ", a02, sqd02 );
+syslog( LOG_NOTICE, "sts a12 %Lf sqd12 %Lf ", a12, sqd12 );
+#endif
 	
 	a01p2 = a01 * a01;
 	a02p2 = a02 * a02;
@@ -1089,6 +1164,9 @@ short SolveTheSystem ( long double a01, long double sqd01,
 				rs[numberOfSolutions][0] = r0Temp;
 				rs[numberOfSolutions][1] = r1Temp1;
 				rs[numberOfSolutions][2] = r2Temp;
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "rsa %d 012 %Lf %Lf %Lf ", numberOfSolutions, rs[numberOfSolutions][0], rs[numberOfSolutions][1], rs[numberOfSolutions][2] );
+#endif
 				numberOfSolutions++;
 			}
 			if ( ( fabs ( ( r1Temp2*r1Temp2 - 2.L*a12*r1Temp2*r2Temp +
@@ -1099,6 +1177,9 @@ short SolveTheSystem ( long double a01, long double sqd01,
 				rs[numberOfSolutions][0] = r0Temp;
 				rs[numberOfSolutions][1] = r1Temp2;
 				rs[numberOfSolutions][2] = r2Temp;
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "rsb %d 012 %Lf %Lf %Lf ", numberOfSolutions, rs[numberOfSolutions][0], rs[numberOfSolutions][1], rs[numberOfSolutions][2] );
+#endif
 				numberOfSolutions++;
 			}
 			if ( det02 != 0.L )
@@ -1110,6 +1191,9 @@ short SolveTheSystem ( long double a01, long double sqd01,
 					rs[numberOfSolutions][0] = r0Temp;
 					rs[numberOfSolutions][1] = r1Temp1;
 					rs[numberOfSolutions][2] = r2Temp;
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "rsc %d 012 %Lf %Lf %Lf ", numberOfSolutions, rs[numberOfSolutions][0], rs[numberOfSolutions][1], rs[numberOfSolutions][2] );
+#endif
 					numberOfSolutions++;
 				}
 				if ( ( fabs ( ( r1Temp2*r1Temp2 - 2.L*a12*r1Temp2*r2Temp +
@@ -1119,6 +1203,9 @@ short SolveTheSystem ( long double a01, long double sqd01,
 					rs[numberOfSolutions][0] = r0Temp;
 					rs[numberOfSolutions][1] = r1Temp2;
 					rs[numberOfSolutions][2] = r2Temp;
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "rsd %d 012 %Lf %Lf %Lf ", numberOfSolutions, rs[numberOfSolutions][0], rs[numberOfSolutions][1], rs[numberOfSolutions][2] );
+#endif
 					numberOfSolutions++;
 				}
 			}

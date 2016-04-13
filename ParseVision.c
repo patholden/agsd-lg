@@ -146,6 +146,7 @@ for( i=0; i<12; i++ ) {
   syslog( LOG_NOTICE, "l2v %2d %lf\n", i, pLgMaster->l2vtransform[i] );
 }
 
+syslog( LOG_NOTICE, "visionhost %s ", pLgMaster->visionhost );
 #endif
 
      return err;

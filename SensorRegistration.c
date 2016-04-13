@@ -121,6 +121,7 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
 	transform tr;
 	transform Xtr;
         doubleTransform tempTr;
+        double doubleArray[12];
         transform savetr[MAXTRANSNUM];
         transform testtr;
         int iTr;
@@ -180,6 +181,10 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
         int32_t * revdex;
         int numout, ntries;
 
+#ifdef ZDEBUG
+        int index;
+#endif
+
         
 
         gFOM    = 0.0;
@@ -228,6 +233,14 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
  		    gSavePt[i].xRad = foundAngles[i*2];
  		    gSavePt[i].yRad = foundAngles[i*2 + 1];
                 }
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "gX %d %lf", i, gX[i] );
+syslog( LOG_NOTICE, "gY %d %lf", i, gY[i] );
+syslog( LOG_NOTICE, "gZ %d %lf", i, gZ[i] );
+syslog( LOG_NOTICE, "xRad %d %.15lf", i, tempPt[i].xRad );
+syslog( LOG_NOTICE, "yRad %d %.15lf", i, tempPt[i].yRad );
+#endif
+
 		i++;
  	}
  	
@@ -326,7 +339,38 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
 	    memcpy(&(iPt[1]),&(tempPt[b]),sizeof(inputPoint));
 	    memcpy(&(iPt[2]),&(tempPt[c]),sizeof(inputPoint));
 	    memcpy(&(iPt[3]),&(tempPt[d]),sizeof(inputPoint));
-	    FindBestTransform(pLgMaster, iPt, &tempTr, deltaMirror, tolerance, &bestCosine);
+
+	    FindBestTransform(pLgMaster, iPt, doubleArray, deltaMirror, tolerance, &bestCosine);
+
+            tempTr.rotMatrix[0][0] = doubleArray[ 0];
+            tempTr.rotMatrix[0][1] = doubleArray[ 1];
+            tempTr.rotMatrix[0][2] = doubleArray[ 2];
+            tempTr.rotMatrix[1][0] = doubleArray[ 3];
+            tempTr.rotMatrix[1][1] = doubleArray[ 4];
+            tempTr.rotMatrix[1][2] = doubleArray[ 5];
+            tempTr.rotMatrix[2][0] = doubleArray[ 6];
+            tempTr.rotMatrix[2][1] = doubleArray[ 7];
+            tempTr.rotMatrix[2][2] = doubleArray[ 8];
+            tempTr.transVector[0]  = doubleArray[ 9];
+            tempTr.transVector[1]  = doubleArray[10];
+            tempTr.transVector[2]  = doubleArray[11];
+
+#ifdef ZDEBUG
+for( index=0; index<4; index++) {
+syslog( LOG_NOTICE, "pt %d xyz %lf %lf %lf  angs %lf %lf", index,
+          iPt[index].oldLoc[0], iPt[index].oldLoc[1],iPt[index].oldLoc[2],
+          iPt[index].xRad, iPt[index].yRad );
+}
+syslog( LOG_NOTICE, "bestCosine %.8lf  %.10lf ", bestCosine, tolerance );
+#endif
+
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "matrix %14.8lf %14.8lf %14.8lf ", tempTr.rotMatrix[0][0] , tempTr.rotMatrix[0][1] , tempTr.rotMatrix[0][2] );
+syslog( LOG_NOTICE, "matrix %14.8lf %14.8lf %14.8lf ", tempTr.rotMatrix[1][0] , tempTr.rotMatrix[1][1] , tempTr.rotMatrix[1][2] );
+syslog( LOG_NOTICE, "matrix %14.8lf %14.8lf %14.8lf ", tempTr.rotMatrix[2][0] , tempTr.rotMatrix[2][1] , tempTr.rotMatrix[2][2] );
+syslog( LOG_NOTICE, "vector %14.8lf %14.8lf %14.8lf ", tempTr.transVector[0]  , tempTr.transVector[1]  , tempTr.transVector[2]  );
+#endif
+
 
               n = 3;
               while ( n-- ) {
@@ -338,6 +382,12 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
               }
               saveBest[saved] = bestCosine;
               tCos = 1.0 - bestCosine;
+
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "tCos %.8lf tol %.8f", tCos, tolerance );
+#endif
+
+
               if ( tCos > gWorstTolAll ) {
                                      gWorstTolAll = tCos;
               }
@@ -362,6 +412,31 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
                                                = tempTr.rotMatrix[ii][jj];
                     }
 	      }
+
+#ifdef ZDEBUG
+syslog( LOG_NOTICE , "bestXYZ %14.8lf %14.8lf %14.8lf"
+              , gBestOfAllTransform.transVector[0]
+              , gBestOfAllTransform.transVector[1]
+              , gBestOfAllTransform.transVector[2]
+              );
+syslog( LOG_NOTICE , "bestmatrix " );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[0][0] );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[0][1] );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[0][2] );
+syslog( LOG_NOTICE , "\n");
+syslog( LOG_NOTICE , "bestmatrix " );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[1][0] );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[1][1] );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[1][2] );
+syslog( LOG_NOTICE , "\n");
+syslog( LOG_NOTICE , "bestmatrix " );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[2][0] );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[2][1] );
+syslog( LOG_NOTICE , "%14.8lf ", gBestOfAllTransform.rotMatrix[2][2] );
+syslog( LOG_NOTICE , "\n");
+#endif
+
+
               if ( tCos < tolerance ) {
                                      // if ( tCos > gWorstTolReg ) {
                                      //      gWorstTolReg = tCos;
@@ -373,6 +448,17 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
                        savePoint[d]++;
                        nOfTrans++;
               }
+
+#ifdef ZDEBUG
+syslog( LOG_NOTICE, "saveGood   %d  saved %d  tCos %.2le   tol %.2le"
+               , saveGood[saved]
+               , saved
+               , tCos
+               , tolerance );
+syslog( LOG_NOTICE, " nOfTrans  %d " , nOfTrans );
+#endif
+
+
               if ( tCos < minCos[a] ) { minCos[a] = tCos; }
               if ( tCos < minCos[b] ) { minCos[b] = tCos; }
               if ( tCos < minCos[c] ) { minCos[c] = tCos; }
@@ -381,6 +467,11 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
 	}
         free( combos );
         free( revdex );
+
+#ifdef SDEBUG
+syslog( LOG_NOTICE, "nOfTrans %d   saved %d", nOfTrans, saved );
+#endif
+
 
         GnOfTrans = nOfTrans;
         gSaved = saved;
