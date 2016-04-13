@@ -69,10 +69,11 @@ void RemoteSerial ( struct lg_master *pLgMaster
 
 #ifdef ZDEBUG
      for ( i = 0; i < 32 ; i++ ) {
+          if ( isalnum( buffer[i] ) ) {
+          syslog( LOG_NOTICE, "remoteserial %2d %02x   %c ", i, 0xff&buffer[i], buffer[i] );
+          } else {
           syslog( LOG_NOTICE, "remoteserial %2d %02x ", i, 0xff&buffer[i] );
-          if ( isalnum( buffer[i] ) )
-             syslog( LOG_NOTICE, " %c ",  buffer[i] );
-          syslog( LOG_NOTICE, "\n" );
+          }
      }
 #endif
 
@@ -252,19 +253,21 @@ syslog( LOG_NOTICE, "2nd read %d bytes   count %d \n", n, count );
           count0 = 0;
           for ( i = 0; i < count; i++ ) {
 #ifdef ZDEBUG
+if ( isalnum( outbuff[i] ) ) {
+syslog( LOG_NOTICE, "hexread %3d %2x  %c ", i, 0xff & outbuff[i], outbuff[i] );
+} else {
 syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
-if ( isalnum( outbuff[i] ) )
-             syslog( LOG_NOTICE, " %c ",  outbuff[i] );
-syslog( LOG_NOTICE, "\n" );
+}
 #endif
              if ( (unsigned char)(outbuff[i]) == 0x80 ) {
                   hexbuff[count0] = outbuff[i+1] + 0x80;
                   i++;
 #ifdef ZDEBUG
+if ( isalnum( outbuff[i] ) ) {
+syslog( LOG_NOTICE, "hexread %3d %2x  %c ", i, 0xff & outbuff[i], outbuff[i] );
+} else {
 syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
-if ( isalnum( outbuff[i] ) )
-             syslog( LOG_NOTICE, " %c ",  outbuff[i] );
-syslog( LOG_NOTICE, "\n" );
+}
 #endif
              } else {
                   hexbuff[count0] = outbuff[i];
@@ -273,11 +276,12 @@ syslog( LOG_NOTICE, "\n" );
           } 
 
 #ifdef ZDEBUG
-          for ( i = 0; i < count; i++ ) {
+          for ( i = 0; i < count0; i++ ) {
+if ( isalnum( hexbuff[i] ) ) {
+syslog( LOG_NOTICE, "unhexread %3d %2x  %c ", i, 0xff & hexbuff[i], hexbuff[i] );
+} else {
 syslog( LOG_NOTICE, "unhexread %3d %2x  ", i, 0xff & hexbuff[i] );
-          if ( isalnum( hexbuff[i] ) )
-             syslog( LOG_NOTICE, " %c ",  hexbuff[i] );
-syslog( LOG_NOTICE, "\n" );
+}
           } 
 #endif
             // skip over the six byte confirmation in hexbuff
@@ -288,7 +292,6 @@ syslog( LOG_NOTICE, "\n" );
 syslog( LOG_NOTICE, "about close  read %d   count %d\n", n, count );
 for ( i = 0; i < 40; i++ ) {
 syslog( LOG_NOTICE, "outbuff %3d %2x  ", i, 0xff & outbuff[i] );
-syslog( LOG_NOTICE, "\n" );
 }
 #endif
         }
@@ -306,7 +309,6 @@ syslog( LOG_NOTICE, "\n" );
 syslog( LOG_NOTICE, "about close  read %d   count %d\n", n, count );
 for ( i = 0; i < 40; i++ ) {
 syslog( LOG_NOTICE, "response %3d %2x  ", i, 0xff & pLgMaster->theResponseBuffer[i] );
-syslog( LOG_NOTICE, "\n" );
 }
 #endif
 

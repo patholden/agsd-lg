@@ -117,6 +117,7 @@ struct lg_master {
   uint16_t        *coarsedata;
   uint16_t        *gLsort;
   int             af_serial;
+  int             pc_serial;
   int             socketfd;
   int             datafd;
   int             fd_laser;

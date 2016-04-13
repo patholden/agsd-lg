@@ -165,6 +165,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	  SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
 	}
     }
+    break;
   case kDisplayChunksStart:
     cmdSize = kSizeOfCommand +kSizeOfDisplayChunksStartParameters;
     if ( index >= cmdSize + 2 ) {

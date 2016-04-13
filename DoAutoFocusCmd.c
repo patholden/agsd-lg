@@ -41,9 +41,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      if ((AFtoWrite <= 0) || (AFtoWrite > 32) || (pLgMaster->af_serial < 0))
        {
 	 syslog(LOG_ERR, " Bad AFWriteLen %d", AFtoWrite);
-	 // Flush ttyS2 to prepare for next operation
-	 if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-	   perror("CantFlushttyS2");
 	 pResp->hdr.status = RESPFAIL;
 	 HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 	 return;
@@ -51,6 +48,7 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 
      // for LASER mode
      // check if remote computer is to be used
+     syslog(LOG_NOTICE, "af special header %x", pLgMaster->gHeaderSpecialByte);
      if ( (pLgMaster->gHeaderSpecialByte & 0x01) && (pLgMaster->projector_mode == PROJ_LASER) ) {
 
            RemoteSerial( pLgMaster
@@ -68,11 +66,16 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
        {
 	 cdata_out = pInp->inp_data[af_index];
 	 write_count = write(pLgMaster->af_serial, (void *)&cdata_out, 1);
+#ifdef ZDEBUG
+if (isalnum(cdata_out) ) {
+syslog(LOG_NOTICE, "afwrite %2x  %d index %d   %c ", cdata_out, write_count, af_index, cdata_out );
+} else {
+syslog(LOG_NOTICE, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index );
+}
+#endif
 	 if (write_count != 1)
 	   {
 	     syslog(LOG_ERR, "AFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
-	     if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-	       syslog(LOG_ERR, "AFWRITE:CantFlushttyS2");
 	     pResp->hdr.status = RESPFAIL;
 	     HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 	     return;
@@ -99,8 +102,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 		   if ( errno != EAGAIN && errno != EWOULDBLOCK )
 		     {
 		       syslog(LOG_ERR,"AFREAD: FAIL: total_bytes %x, err %x, val %2x",read_count,num_read, (int)cdata_in);
-		       if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-			 perror("AFWRITE:CantFlushttyS2");
 		       pResp->hdr.status = RESPFAIL;
 		       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 		       return;
@@ -115,10 +116,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 	   pResp->hdr.status = kAutoFocusCmd;
 	   HandleResponse(pLgMaster, (sizeof(struct parse_autofocus_resp) - kCRCSize), kRespondExtern);
 	 }
-
-       // Flush ttyS2 to prepare for next operation
-       if (tcflush(pLgMaster->af_serial, TCIOFLUSH))
-	 perror("CantFlushttyS2");      
        return;
 }
 
