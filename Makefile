@@ -17,11 +17,11 @@ AR=$(TOOLDIR)/x86_64-buildroot-linux-uclibc-ar
 
 # COMPILE AND LINK OPTIONS AND DEPENDENCIES
 LDFLAGS=-Wl,--sysroot=$(STAGING_DIR) -Wl,--error-poison-system-directories -L$(STAGING_DIR)/lib -L$(STAGING_DIR)/usr/lib -lc -lm -lpthread
-EXTRA_CFLAGS = -DAGS_DEBUG -DZDEBUG
+EXTRA_CFLAGS = -DAGS_DEBUG
 USERINCLUDE    := \
 	-I./ \
 	-I$(LNXHDRDIR)/include
-CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall $(USERINCLUDE)
+CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall -Wmissing-prototypes -Wstrict-prototypes -Wunused $(USERINCLUDE)
 AGS_OBJECTS = Main.o \
 	      L3DTransform.o \
 	      AngleCorrections.o \

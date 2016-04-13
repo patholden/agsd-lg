@@ -1,4 +1,3 @@
-#include <stdint.h>
 // static char rcsid[] = "$Id: LaserPattern.c,v 1.11 2001/12/27 22:47:03 ags-sw Exp ags-sw $";
 
 #include <stdint.h>
@@ -266,18 +265,12 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 	      GetAngleBorderPoint ( gOldPoint, newPoint, theEndPoint );
 	      if ( ! WithinLaserLinearRange( theEndPoint ) ) {
 		theEndPoint = dummyPoint;
-		GetLinearBorderPoint ( gOldPoint
-				       , newPoint
-				       , theEndPoint 
-				       );
+		GetLinearBorderPoint(gOldPoint, newPoint, theEndPoint);
 	      }
 	      gNowInside = false;
 	    } else if ( ! WithinLaserLinearRange ( newPoint ) ) {
 	    theEndPoint = dummyPoint;
-	    GetLinearBorderPoint ( gOldPoint
-				   , newPoint
-				   , theEndPoint 
-				   );
+	    GetLinearBorderPoint(gOldPoint, newPoint, theEndPoint);
 	    gNowInside = false;
 	  } else
 	    theEndPoint = newPoint;
@@ -306,12 +299,7 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 		    gOldPoint[kY] = dummyPoint[kY];
 		    gOldPoint[kZ] = dummyPoint[kZ];
 		  } else {
-		  if ( LinearBorderPointsBetween ( gOldPoint
-						   , newPoint
-						   , sillyPoint
-						   , theEndPoint
-						   )
-		       )
+		  if ( LinearBorderPointsBetween(gOldPoint, newPoint, sillyPoint, theEndPoint))
 		    {
 		      beamWasOn = gBeamOn;
 		      SetPenUp();
@@ -323,16 +311,12 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 		      gOldPoint[kY] = sillyPoint[kY];
 		      gOldPoint[kZ] = sillyPoint[kZ];
 		    }
-		  else return 0U;
+		  else
+		    return(0);
 		}
 	      } else {
 	      theEndPoint = dummyPoint;
-	      if ( AngleBorderPointsBetween ( gOldPoint
-					      , newPoint
-					      , sillyPoint
-					      , theEndPoint
-					      )
-		   )
+	      if (AngleBorderPointsBetween(gOldPoint, newPoint, sillyPoint, theEndPoint))
 		{
 		  beamWasOn = gBeamOn;
 		  SetPenUp();
@@ -361,483 +345,440 @@ static uint32_t PutPointsEndingAt (struct lg_master *pLgMaster, double *newPoint
 #if _NEW_PATH_
 uint32_t ProcessStoredPoints(struct lg_master *pLgMaster)
 {
-        double pt1[3];
-        double pt2[3];
-        double pt3[3];
-	struct APTVector *currPoint, *prevPoint, *nextPoint;
-	double cosXin, cosYin, cosXout, cosYout, cosIn, cosOut;
-	double pathFraction, pathPoint[3], distLD, cosInOut;
-	double shortSegment;
-        double DXcp, DYcp, DZcp, Lcp;
-        double DXcn, DYcn, DZcn, Lcn;
-        double Ldot;
-	uint32_t tempLong, theError;
-	uint32_t slowDownStep = SlowDownStep (  );
-	uint32_t fastStep = FastStep (  );
-	int32_t dist, maxSlowDownDist, theSlowDownDist;
-	int32_t distXin, distXout, distYin, distYout;
-	int16_t   pathX, pathY;
-	int32_t distSlow;
-	int32_t axp, ayp, axc, ayc, axn, ayn;
-	uint16_t currIndex, prevIndex, nextIndex, pilePoints;
-	uint16_t i, numSlowSteps, numFastSteps, fastToSlowRatio;
-	unsigned char fChangeBeam, fSlowDown, fMiddlePoints;
+    double pt1[3];
+    double pt2[3];
+    double pt3[3];
+    struct APTVector *currPoint, *prevPoint, *nextPoint;
+    double cosXin, cosYin, cosXout, cosYout, cosIn, cosOut;
+    double pathFraction, pathPoint[3], distLD, cosInOut;
+    double shortSegment;
+    double DXcp, DYcp, DZcp, Lcp;
+    double DXcn, DYcn, DZcn, Lcn;
+    double Ldot;
+    uint32_t tempLong, theError;
+    uint32_t slowDownStep = SlowDownStep();
+    uint32_t fastStep = FastStep();
+    int32_t dist, maxSlowDownDist, theSlowDownDist;
+    int32_t distXin, distXout, distYin, distYout;
+    int16_t   pathX, pathY;
+    int32_t distSlow;
+    int32_t axp, ayp, axc, ayc, axn, ayn;
+    uint16_t currIndex, prevIndex, nextIndex, pilePoints;
+    uint16_t i, numSlowSteps, numFastSteps, fastToSlowRatio;
+    unsigned char fChangeBeam, fSlowDown, fMiddlePoints;
 
-	
-	if ( gNumberOfStoredPoints == 0 ) return 0;
-	
-	fastToSlowRatio = fastStep / slowDownStep;
-	maxSlowDownDist = ( ( fastToSlowRatio * ( fastToSlowRatio + 1 ) )
-		>> 1 ) * slowDownStep;
-	shortSegment = (double)( slowDownStep << 2 );
+    if (gNumberOfStoredPoints == 0)
+      return(0);
 
-          /* 
-           *  since the pattern can go OutOfRange,
-           *  need to set theError intially to 0
-           */
-        theError = 0;
+    fastToSlowRatio = fastStep / slowDownStep;
+    maxSlowDownDist = ((fastToSlowRatio * (fastToSlowRatio + 1)) >> 1) * slowDownStep;
+    shortSegment = (double)(slowDownStep << 2);
 
-	currIndex = 0;
-	do
-	{
-		if ( currIndex ) prevIndex = currIndex - 1;
-		else prevIndex = gNumberOfStoredPoints - 1;
-		nextIndex = ( currIndex + 1 ) % gNumberOfStoredPoints;
-		prevPoint = &gPointStorage[prevIndex];
-		currPoint = &gPointStorage[currIndex];
-		nextPoint = &gPointStorage[nextIndex];
-		axp = prevPoint->ax - kMinSigned;
-		ayp = prevPoint->ay - kMinSigned;
-		axc = currPoint->ax - kMinSigned;
-		ayc = currPoint->ay - kMinSigned;
-		axn = nextPoint->ax - kMinSigned;
-		ayn = nextPoint->ay - kMinSigned;
+    /* 
+     *  since the pattern can go OutOfRange,
+     *  need to set theError intially to 0
+     */
+    theError = 0;
+    currIndex = 0;
+    do
+      {
+	if (currIndex)
+	  prevIndex = currIndex - 1;
+	else
+	  prevIndex = gNumberOfStoredPoints - 1;
+	nextIndex = (currIndex + 1) % gNumberOfStoredPoints;
+	prevPoint = &gPointStorage[prevIndex];
+	currPoint = &gPointStorage[currIndex];
+	nextPoint = &gPointStorage[nextIndex];
+	axp = prevPoint->ax - kMinSigned;
+	ayp = prevPoint->ay - kMinSigned;
+	axc = currPoint->ax - kMinSigned;
+	ayc = currPoint->ay - kMinSigned;
+	axn = nextPoint->ax - kMinSigned;
+	ayn = nextPoint->ay - kMinSigned;
 
-                DXcp = currPoint->x - prevPoint->x;
-                DYcp = currPoint->y - prevPoint->y;
-                DZcp = currPoint->z - prevPoint->z;
-                Lcp  = sqrt( DXcp*DXcp + DYcp*DYcp + DZcp*DZcp );
+	DXcp = currPoint->x - prevPoint->x;
+	DYcp = currPoint->y - prevPoint->y;
+	DZcp = currPoint->z - prevPoint->z;
+	Lcp  = sqrt( DXcp*DXcp + DYcp*DYcp + DZcp*DZcp );
 
-                DXcn = currPoint->x - nextPoint->x;
-                DYcn = currPoint->y - nextPoint->y;
-                DZcn = currPoint->z - nextPoint->z;
-                Lcn  = sqrt( DXcn*DXcn + DYcn*DYcn + DZcn*DZcn );
+	DXcn = currPoint->x - nextPoint->x;
+	DYcn = currPoint->y - nextPoint->y;
+	DZcn = currPoint->z - nextPoint->z;
+	Lcn  = sqrt( DXcn*DXcn + DYcn*DYcn + DZcn*DZcn );
 
-                if ( Lcp > 0.0 && Lcn > 0.0 ) {
-                     Ldot = fabs(DXcp*DXcn + DYcp*DYcn + DZcp*DZcn) / (Lcp*Lcn);
-                } else {
-                     Ldot = 1.0;
-                }
-		if ( axc > axp )
-		{
-			distXin = axc - axp;
-			cosXin = (double)distXin;
-		}
-		else
-		{
-			distXin = axp - axc;
-			cosXin = -(double)distXin;
-		}
+	if ((Lcp > 0.0) && (Lcn > 0.0))
+	  Ldot = fabs(DXcp*DXcn + DYcp*DYcn + DZcp*DZcn) / (Lcp*Lcn);
+	else
+	  Ldot = 1.0;
+	if (axc > axp)
+	  {
+	    distXin = axc - axp;
+	    cosXin = (double)distXin;
+	  }
+	else
+	  {
+	    distXin = axp - axc;
+	    cosXin = -(double)distXin;
+	  }
+	if (ayc > ayp)
+	  {
+	    distYin = ayc - ayp;
+	    cosYin = (double)distYin;
+	  }
+	else
+	  {
+	    distYin = ayp - ayc;
+	    cosYin = -(double)distYin;
+	  }
+	if (axn > axc)
+	  {
+	    distXout = axn - axc;
+	    cosXout = (double)distXout;
+	  }
+	else
+	  {
+	    distXout = axc - axn;
+	    cosXout = -(double)distXout;
+	  }
+	if (ayn > ayc)
+	  {
+	    distYout = ayn - ayc;
+	    cosYout = (double)distYout;
+	  }
+	else
+	  {
+	    distYout = ayc - ayn;
+	    cosYout = -(double)distYout;
+	  }
+	cosIn = sqrt ( cosXin * cosXin + cosYin * cosYin );
+	cosOut = sqrt ( cosXout * cosXout + cosYout * cosYout );
+	if (cosIn < DBL_MIN)
+	  {
+	    if (cosOut < DBL_MIN)
+	      {
+		fSlowDown = true;
+		cosXin = -1.0;
+		cosYin = 0.0;
+		cosXout = 1.0;
+		cosYout = 0.0;
+	      }
+	    else
+	      {
+		fSlowDown = true;
+		cosXout /= cosOut;
+		cosYout /= cosOut;
+		cosXin = - cosXout;
+		cosYin = - cosYout;
+	      }
+	  }
+	else
+	  {
+	    if (cosOut < DBL_MIN)
+	      {
+		fSlowDown = true;
+		cosXin /= cosIn;
+		cosYin /= cosIn;
+		cosXout = - cosXin;
+		cosYout = - cosYin;
+	      }
+	    else
+	      {
+		fSlowDown = false;
+		cosXin /= cosIn;
+		cosYin /= cosIn;
+		cosXout /= cosOut;
+		cosYout /= cosOut;
+	      }
+	  }
+	cosInOut = cosXin * cosXout + cosYin * cosYout;
+	fChangeBeam = (currPoint->on && !nextPoint->on) || (!currPoint->on && nextPoint->on);
 
-		if ( ayc > ayp )
-		{
-			distYin = ayc - ayp;
-			cosYin = (double)distYin;
-		}
-		else
-		{
-			distYin = ayp - ayc;
-			cosYin = -(double)distYin;
-		}
+	//  first check for curve interpolation
+	//     - make sure that the real-space line
+	//       is curved as well (test Ldot)
+	if (!fSlowDown && !fChangeBeam && (Ldot < gCurveCos)
+	    && (Lcp > gCurveMin) && (Lcp < gCurveMax)
+	    && (Lcn > gCurveMin) && (Lcn < gCurveMax)
+	    && (cosInOut < gCurveCos) && (cosInOut >= gMaxCos))
+	  {
+	    pt1[0] = prevPoint->x;
+	    pt1[1] = prevPoint->y;
+	    pt1[2] = prevPoint->z;
+	    pt2[0] = currPoint->x;
+	    pt2[1] = currPoint->y;
+	    pt2[2] = currPoint->z;
+	    pt3[0] = nextPoint->x;
+	    pt3[1] = nextPoint->y;
+	    pt3[2] = nextPoint->z;
+	    gBeamOn = currPoint->on;
+	    theError = findarc(pLgMaster, pt1, pt2, pt3, gCurveMin); 
+	    if (theError)
+	      return(theError);
+	    continue;
+	  }
+	if (!fSlowDown)
+	  fSlowDown = fChangeBeam || (cosInOut < gMaxCos)
+	    || ((cosIn / cosOut) > gLongToShort) || ((cosOut / cosIn) > gLongToShort);
 
-		if ( axn > axc )
-		{
-			distXout = axn - axc;
-			cosXout = (double)distXout;
-		}
-		else
-		{
-			distXout = axc - axn;
-			cosXout = -(double)distXout;
-		}
-
-		if ( ayn > ayc )
-		{
-			distYout = ayn - ayc;
-			cosYout = (double)distYout;
-		}
-		else
-		{
-			distYout = ayc - ayn;
-			cosYout = -(double)distYout;
-		}
-		
-		cosIn = sqrt ( cosXin * cosXin + cosYin * cosYin );
-		cosOut = sqrt ( cosXout * cosXout + cosYout * cosYout );
-		if ( cosIn < DBL_MIN )
-		{
-			if ( cosOut < DBL_MIN )
-			{
-				fSlowDown = true;
-				cosXin = -1.0;
-				cosYin = 0.0;
-				cosXout = 1.0;
-				cosYout = 0.0;
-			}
-			else
-			{
-				fSlowDown = true;
-				cosXout /= cosOut;
-				cosYout /= cosOut;
-				cosXin = - cosXout;
-				cosYin = - cosYout;
-			}
-		}
-		else
-		{
-			if ( cosOut < DBL_MIN )
-			{
-				fSlowDown = true;
-				cosXin /= cosIn;
-				cosYin /= cosIn;
-				cosXout = - cosXin;
-				cosYout = - cosYin;
-			}
-			else
-			{
-				fSlowDown = false;
-				cosXin /= cosIn;
-				cosYin /= cosIn;
-				cosXout /= cosOut;
-				cosYout /= cosOut;
-			}
-		}
-		cosInOut = cosXin * cosXout + cosYin * cosYout;
-		fChangeBeam = ( currPoint->on && !nextPoint->on ) ||
-			( !currPoint->on && nextPoint->on );
-
-                //  first check for curve interpolation
-                //     - make sure that the real-space line
-                //       is curved as well (test Ldot)
-                if (!fSlowDown && !fChangeBeam && (Ldot < gCurveCos)
-		    && (Lcp > gCurveMin) && (Lcp < gCurveMax)
-		    && (Lcn > gCurveMin) && (Lcn < gCurveMax)
-		    && (cosInOut < gCurveCos) && (cosInOut >= gMaxCos))
-                {
-		  pt1[0] = prevPoint->x;
-		  pt1[1] = prevPoint->y;
-		  pt1[2] = prevPoint->z;
-		  pt2[0] = currPoint->x;
-		  pt2[1] = currPoint->y;
-		  pt2[2] = currPoint->z;
-		  pt3[0] = nextPoint->x;
-		  pt3[1] = nextPoint->y;
-		  pt3[2] = nextPoint->z;
-		  gBeamOn = currPoint->on;
-		  theError = findarc(pLgMaster, pt1, pt2, pt3, gCurveMin ); 
-		  if (theError)
-		    return(theError);
-		  continue;
-                }
-                
-		if (!fSlowDown)
-		  fSlowDown = fChangeBeam || (cosInOut < gMaxCos)
-		    || ((cosIn / cosOut) > gLongToShort)
-		    || ((cosOut / cosIn) > gLongToShort);
-
-		pilePoints = PilePoints ( fChangeBeam, fSlowDown, cosInOut );
+	pilePoints = PilePoints ( fChangeBeam, fSlowDown, cosInOut );
 /* */
-		if ( ( pilePoints > 1 ) &&
-			( cosIn < shortSegment ) && ( cosOut < shortSegment ) )
-			fSlowDown = false;
-		
-		if ( fSlowDown ) theSlowDownDist = maxSlowDownDist;
-		else theSlowDownDist = 0L;
-		
-		gBeamOn = currPoint->on;
+	if ((pilePoints > 1) && (cosIn < shortSegment) && (cosOut < shortSegment))
+	  fSlowDown = false;
+	if (fSlowDown)
+	  theSlowDownDist = maxSlowDownDist;
+	else
+	  theSlowDownDist = 0;
+	gBeamOn = currPoint->on;
+	if (distXin > distYin)
+	  dist = distXin;
+	else
+	  dist = distYin;
+	distLD = (double)dist;
+	distSlow = dist >> 1;
+	if (distSlow < theSlowDownDist)
+	  numFastSteps = 0;
+	else
+	  numFastSteps = (distSlow - theSlowDownDist) / fastStep;
+	fMiddlePoints = false;
+	if (!fSlowDown)
+	  numSlowSteps = 0;
+	else
+	  {
+	    if (distSlow > theSlowDownDist)
+	      numSlowSteps = fastToSlowRatio;
+	    else
+	      {
+		numSlowSteps = 0;
+		while (distSlow >= 0) 
+		  {
+		    numSlowSteps++;
+		    distSlow -= numSlowSteps * slowDownStep;
+		  }
+		numSlowSteps--;
+	      }
+	    if (dist && (numFastSteps == 0))
+	      {
+		if (numSlowSteps)
+		  numSlowSteps--;
+		fMiddlePoints = true;
+	      }
+	  }
+	if (numFastSteps || (!fSlowDown && (distLD > (double)fastStep)))
+	  {
+	    if (numFastSteps)
+	      numFastSteps--;
+	    pathFraction = .50 - (distLD - 2.0 * ((double)theSlowDownDist + ((double)numFastSteps * (double)fastStep)))
+				/ (6.0 * distLD);
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * prevPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * prevPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * prevPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint (pLgMaster, pathX, pathY );
+		if (tempLong)
+		  return(tempLong);
+	      }
+	  }
+	i = numFastSteps;
+	while (i)
+	  {
+	    pathFraction =  ((double)theSlowDownDist + ((double)i * (double)fastStep)) / distLD;
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * prevPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * prevPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * prevPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY);
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY);
+		if (tempLong)
+		  return(tempLong);
+	      }
+	    i--;
+	  }
+	if (fMiddlePoints)
+	  {
+	    pathFraction = .50 - (distLD - ((double)numSlowSteps * (double)((numSlowSteps + 1) * slowDownStep)))
+	      / (6.0 * distLD);
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * prevPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * prevPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * prevPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY);
+		if (tempLong)
+		  return(tempLong);
+	      }
+	  }
+	i = numSlowSteps;
+	while (i)
+	  {
+	    pathFraction = (double)(((i * (i + 1)) >> 1) * slowDownStep) / distLD;
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * prevPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * prevPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * prevPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY);
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY );
+		if (tempLong)
+		  return(tempLong);
+	      }
+	    i--;
+	  }
+	if (theError == 0)
+	  {
+	    i = pilePoints;
+	    while (i--)
+	      {
+		tempLong = PutAPoint(pLgMaster, currPoint->ax, currPoint->ay);
+		if (tempLong)
+		  return(tempLong);
+	      }
+	  }
+	gBeamOn = nextPoint->on;
+	if (distXout > distYout)
+	  dist = distXout;
+	else
+	  dist = distYout;
+	distLD = (double)dist;
+	distSlow = (int32_t)(dist >> 1);
 
-		if ( distXin > distYin ) dist = distXin;
-		else dist = distYin;
-		distLD = (double)dist;
-		distSlow = dist >> 1;
-				
-		if ( distSlow < theSlowDownDist ) numFastSteps = 0;
-		else numFastSteps = (distSlow - theSlowDownDist) / fastStep;
-		
-		fMiddlePoints = false;
-		if ( !fSlowDown ) numSlowSteps = 0;
-		else
-		{
-		  if ( distSlow > theSlowDownDist)
-		    numSlowSteps = fastToSlowRatio;
-		  else
-		    {
-				numSlowSteps = 0;
-				while ( distSlow >= 0L ) 
-				{
-					numSlowSteps++;
-					distSlow -= numSlowSteps * slowDownStep;
-				}
-				numSlowSteps--;
-			}
-			if ( dist && ( numFastSteps == 0 ) )
-			{
-				if ( numSlowSteps ) numSlowSteps--;
-				fMiddlePoints = true;
-			}
-		}
+	if (distSlow < (int32_t)theSlowDownDist) numFastSteps = 0;
+	else numFastSteps = (distSlow - theSlowDownDist) / fastStep;
 
-		if ( numFastSteps || ( !fSlowDown && ( distLD > (double)fastStep ) ) )
-		{
-			if ( numFastSteps ) numFastSteps--;
-			pathFraction = .50 -
-				( distLD - 2.0 * 
-				( (double)theSlowDownDist + ( (double)numFastSteps * (double)fastStep ) )
-				)
-				/ ( 6.L * distLD );
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if (theError)
-			  {
-			    pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			    pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-			  }
-			else
-			  {
-			    tempLong = PutAPoint (pLgMaster, pathX, pathY );
-			    if (tempLong) return tempLong;
-			  }
-		}
-		
-		i = numFastSteps;
-		while ( i )
-		{
-			pathFraction = 
-				( (double)theSlowDownDist + ( (double)i * (double)fastStep ) ) /
-				distLD;
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			  tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-			i--;
-		}
-				
-		if ( fMiddlePoints )
-		{
-			pathFraction = .50 -
-				( distLD - 
-				( (double)numSlowSteps * (double)( ( numSlowSteps + 1 ) * slowDownStep ) )
-				)
-				/ ( 6.L * distLD );
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			  tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-		}
-		
-		i = numSlowSteps;
-		while ( i )
-		{
-			pathFraction = (double)
-				( ( ( i * ( i + 1 ) ) >> 1 ) * slowDownStep )
-				/ distLD;
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * prevPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			   tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-			i--;
-		}
-		
-                if ( theError == 0 ) {
-			i = pilePoints;
-			while ( i-- )
-			{
-				tempLong = PutAPoint(pLgMaster, currPoint->ax,
-					currPoint->ay );
-				if ( tempLong ) return tempLong;
-			}
-		}
-
-		gBeamOn = nextPoint->on;
-
-		if ( distXout > distYout ) dist = distXout;
-		else dist = distYout;
-		distLD = (double)dist;
-		distSlow = (int32_t)( dist >> 1 );
-
-		if ( distSlow < (int32_t)theSlowDownDist ) numFastSteps = 0;
-		else numFastSteps = ( distSlow - theSlowDownDist ) / fastStep;
-
-		fMiddlePoints = false;
-		if ( !fSlowDown ) numSlowSteps = 0;
-		else
-		{
-		  if ( distSlow > (int32_t)theSlowDownDist )
-				numSlowSteps = fastToSlowRatio;
-			else
-			{
-				numSlowSteps = 0;
-				while ( distSlow >= 0L ) 
-				{
-					numSlowSteps++;
-					distSlow -= numSlowSteps * slowDownStep;
-				}
-				numSlowSteps--;
-			}
-			if ( dist && ( numFastSteps == 0 ) )
-			{
-				if ( numSlowSteps ) numSlowSteps--;
-				fMiddlePoints = true;
-			}
-		}
-		
-		i = 1;
-		while ( i <= numSlowSteps )
-		{
-			pathFraction = (double)
-				( ( ( i * ( i + 1 ) ) >> 1 ) * slowDownStep )
-				/ distLD;
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			   tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-			i++;
-		}
-		
-		if ( fMiddlePoints )
-		{
-			pathFraction = .50 - ( distLD - 
-				( (double)numSlowSteps * (double)( ( numSlowSteps + 1 ) * slowDownStep ) ) )
-				/ ( 6.L * distLD );
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			   tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-		}
-
-		i = 1;
-		while ( i < numFastSteps )
-		{
-			pathFraction = 
-				( (double)theSlowDownDist + ( (double)i * (double)fastStep ) )
-				/ distLD;
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			   tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-			i++;
-		}
-		
-		if ( numFastSteps || ( !fSlowDown && ( distLD > (double)fastStep ) ) )
-		{
-			if ( numFastSteps ) numFastSteps--;
-			pathFraction = .50 -
-				( distLD - 2.0 * 
-				( (double)theSlowDownDist + ( (double)numFastSteps * (double)fastStep ) )
-				)
-				/ ( 6.L * distLD );
-			pathPoint[kX] = currPoint->x * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->x;
-			pathPoint[kY] = currPoint->y * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->y;
-			pathPoint[kZ] = currPoint->z * ( 1.0 - pathFraction ) +
-				pathFraction * nextPoint->z;
-			theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY );
-			if ( theError ) {
-/*
- *				return kPatternAngleOutOfRange + theError;
- */
-			  pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
-			  pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
-                        } else {
-			   tempLong = PutAPoint(pLgMaster, pathX, pathY );
-			   if ( tempLong ) return tempLong;
-                        }
-		}
-
-	} while ( ++currIndex < gNumberOfStoredPoints );
-	
-	return 0U;
+	fMiddlePoints = false;
+	if (!fSlowDown)
+	  numSlowSteps = 0;
+	else
+	  {
+	    if (distSlow > (int32_t)theSlowDownDist)
+	      numSlowSteps = fastToSlowRatio;
+	    else
+	      {
+		numSlowSteps = 0;
+		while (distSlow >= 0) 
+		  {
+		    numSlowSteps++;
+		    distSlow -= numSlowSteps * slowDownStep;
+		  }
+		numSlowSteps--;
+	      }
+	    if (dist && (numFastSteps == 0))
+	      {
+		if (numSlowSteps)
+		  numSlowSteps--;
+		fMiddlePoints = true;
+	      }
+	  }
+	i = 1;
+	while (i <= numSlowSteps)
+	  {
+	    pathFraction = (double)(((i * (i + 1)) >> 1) * slowDownStep) / distLD;
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * nextPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * nextPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * nextPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY);
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY );
+		if (tempLong)
+		  return(tempLong);
+	      }
+	    i++;
+	  }
+	if (fMiddlePoints)
+	  {
+	    pathFraction = .50 - (distLD - ((double)numSlowSteps * (double)((numSlowSteps + 1) * slowDownStep)))
+				/ (6.0 * distLD);
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * nextPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * nextPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * nextPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY);
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY );
+		if (tempLong)
+		  return(tempLong);
+	      }
+	  }
+	i = 1;
+	while ( i < numFastSteps )
+	  {
+	    pathFraction = ((double)theSlowDownDist + ((double)i * (double)fastStep)) / distLD;
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * nextPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * nextPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * nextPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY);
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY);
+		if (tempLong)
+		  return(tempLong);
+	      }
+	    i++;
+	  }
+	if (numFastSteps || (!fSlowDown && (distLD > (double)fastStep)))
+	  {
+	    if (numFastSteps)
+	      numFastSteps--;
+	    pathFraction = .50 - (distLD - 2.0 * ((double)theSlowDownDist + ((double)numFastSteps * (double)fastStep)))
+	      / (6.0 * distLD);
+	    pathPoint[kX] = currPoint->x * (1.0 - pathFraction) + pathFraction * nextPoint->x;
+	    pathPoint[kY] = currPoint->y * (1.0 - pathFraction) + pathFraction * nextPoint->y;
+	    pathPoint[kZ] = currPoint->z * (1.0 - pathFraction) + pathFraction * nextPoint->z;
+	    theError = PointToBinary(pLgMaster, pathPoint, &pathX, &pathY);
+	    if (theError)
+	      {
+		pLgMaster->gOutOfRange.errtype1 = RESPE1PATANGLEOUTOFRANGE;
+		pLgMaster->gOutOfRange.errtype2 = (uint16_t)(theError & 0xFFFF);
+	      }
+	    else
+	      {
+		tempLong = PutAPoint(pLgMaster, pathX, pathY );
+		if (tempLong)
+		  return(tempLong);
+	      }
+	  }
+      } while (++currIndex < gNumberOfStoredPoints);
+    return(0);
 }
 #endif
 

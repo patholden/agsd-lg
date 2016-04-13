@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <syslog.h>
+#include "ParseVisionFocus.h"
 
 #define BUFFSIZE 65536
 

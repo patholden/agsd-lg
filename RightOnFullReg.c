@@ -31,6 +31,7 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 #include "SensorSearch.h"
 #include "3DTransform.h"
 #include "Protocol.h"
+#include "RightOnFullReg.h"
 
 #define	kNumberOfSensorSearchAttempts 3
 

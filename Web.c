@@ -14,6 +14,7 @@
 #include "BoardComm.h"
 #include "comm_loop.h"
 #include "Video.h"
+#include "Web.h"
 
 struct sockaddr_in     tcp_srv_addr;
 struct servent         tcp_serv_info;

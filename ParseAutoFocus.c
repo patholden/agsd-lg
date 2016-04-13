@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <syslog.h>
+#include "ParseAutoFocus.h"
 
 #define BUFFSIZE 65536
 

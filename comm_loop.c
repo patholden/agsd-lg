@@ -30,6 +30,8 @@
 extern int
 pingClient( char* peerAddr );
 
+static int IsOkToSend(struct lg_master *pLgMaster);
+
 int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
   int                sockaddr_len = sizeof(struct sockaddr_in);
@@ -101,36 +103,25 @@ int CommInit(struct lg_master *pLgMaster)
       perror("opensock");
       return(error);
     }
-  syslog(LOG_NOTICE, "PC host comm port initialized");
+  syslog(LOG_NOTICE, "PC host comm ethernet port initialized");
 
-#if 0
-  // FIXME---KHH---ENABLE BOTH OPEN CALLS WHEN DRIVER IS DONE
-  // Try to open AutoFocus serial port
-  pLgMaster->af_serial = open("/dev/ttyS1", O_RDWR | O_NONBLOCK | O_NOCTTY);
-  if (pLgMaster->af_serial <= 0)
+  // Try to open front end PC serial port
+  pLgMaster->pc_serial = open("/dev/lgttyS1", O_RDWR | O_NONBLOCK | O_NOCTTY);
+  if (pLgMaster->pc_serial <= 0)
     {
-      syslog(LOG_ERR,"open serial port /dev/ttyS1 failed");
+      syslog(LOG_ERR,"open PC front end serial port /dev/lgttyS1 failed");
       return(-5);
     }
+  syslog(LOG_NOTICE, "PC host comm serial port lgttyS1 initialized");
   // Try to open AutoFocus serial port
-  pLgMaster->af_serial = open("/dev/ttyS2", O_RDWR | O_NONBLOCK | O_NOCTTY);
+  pLgMaster->af_serial = open("/dev/lgttyS2", O_RDWR | O_NONBLOCK | O_NOCTTY);
   if (pLgMaster->af_serial <= 0)
     {
-      syslog(LOG_ERR,"open serial port /dev/ttyS2 failed");
+      syslog(LOG_ERR,"open Auto Focus serial port /dev/lgttyS2 failed");
       return(-5);
     }
-  // FIXME---KHH---REMOVE THIS WHEN DRIVER DOES INITIALIZATION
-  // Set up device to our settings
-  term.c_cflag = (term.c_cflag & ~CSIZE) | CS8; // 8 bits
-  term.c_cflag &= ~(PARENB | PARODD | CMSPAR);  // no parity 
-  term.c_cflag &= ~CSTOPB;                      // One stop bit
-  term.c_cflag &= ~(CRTSCTS);                   // Flow control off
-  term.c_iflag &= ~(IXON | IXOFF | IXANY);
-  term.c_cflag |= CLOCAL;                       // ignore modem status lines  
-  baud  = B115200;
-#endif
 
-  syslog(LOG_NOTICE, "AutoFocus port initialized");
+  syslog(LOG_NOTICE, "AutoFocus port lgttyS2 initialized");
   // This sets the correct data presentation on send/recv from webhost
   pLgMaster->gHEX = 1;
   return(0);
@@ -267,7 +258,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   free(recv_data);
   return(data_len);
 }
-int IsOkToSend(struct lg_master *pLgMaster)
+static int IsOkToSend(struct lg_master *pLgMaster)
 {
     struct pollfd  poll_fd;
 
