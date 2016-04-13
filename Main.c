@@ -75,7 +75,7 @@ uint32_t gVideoPreDwell = 0;
 int gForceTransform = 0;
 int termination_flag=0;
 
-void sigact_handler(void)
+static void sigact_handler(void)
 {
   termination_flag = 1;
 }
@@ -117,7 +117,7 @@ static void ags_cleanup(struct lg_master *pLgMaster)
   return;
 }
 
-void *ags_bkgd_proc(void *p_threadarg)
+static void *ags_bkgd_proc(void *p_threadarg)
 {
   struct ags_bkgd_thread_struct *p_my_data;
   struct lg_master *pHobbsMaster;

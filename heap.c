@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "heap.h"
 
 #define SWAP(a,b) itemp=(a);(a)=(b);(b)=itemp;
 

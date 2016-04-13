@@ -30,6 +30,8 @@
 extern int
 pingClient( char* peerAddr );
 
+static int IsOkToSend(struct lg_master *pLgMaster);
+
 int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
   int                sockaddr_len = sizeof(struct sockaddr_in);
@@ -267,7 +269,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   free(recv_data);
   return(data_len);
 }
-int IsOkToSend(struct lg_master *pLgMaster)
+static int IsOkToSend(struct lg_master *pLgMaster)
 {
     struct pollfd  poll_fd;
 

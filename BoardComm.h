@@ -177,10 +177,12 @@ void SetLowBeam(struct lg_xydata *pDevXYData);
 void SetDarkBeam(struct lg_xydata *pDevXYData);
 int doWriteDevCmdNoData(struct lg_master *pLgMaster, uint32_t command);
 int doWriteDevCmd32(struct lg_master *pLgMaster, uint32_t command, uint32_t write_val);
+int doWriteCmdMove(struct lg_master *pLgMaster, struct lg_move_data *pMove, uint32_t command);
 int doWriteDevDelta(struct lg_master *pLgMaster, struct lg_xydelta *pDelta);
 int doWriteDevPoints(struct lg_master *pLgMaster, struct lg_xydata *pXYData);
 void StopPulse(struct lg_master *pLgMaster);
 int CDRHflag(struct lg_master *pLgMaster);
+int32_t GetQCcounter(struct lg_master *pLgMaster);
 int SetQCcounter(struct lg_master *pLgMaster, int count);
 int initQCcounter(struct lg_master *pLgMaster);
 int stopQCcounter(struct lg_master *pLgMaster);
@@ -205,6 +207,7 @@ int doSetSearchBeam(struct lg_master *pLgMaster);
 int doClearSearchBeam(struct lg_master *pLgMaster);
 void doClearLinkLED(struct lg_master *pLgMaster);
 void doSetLinkLED(struct lg_master *pLgMaster);
+int doClearShutterENB(struct lg_master *pLgMaster);
 int doSetShutterENB(struct lg_master *pLgMaster);
 int doSetXOffset(struct lg_master *pLgMaster, uint32_t xoff);
 int doSetYOffset(struct lg_master *pLgMaster, uint32_t yoff);
@@ -227,7 +230,6 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
 void PostCmdDarkAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData);
 void limitXY(int16_t currentX, int16_t currentY, int16_t *eolXNeg, int16_t *eolXPos, int16_t *eolYNeg,
 	     int16_t * eolYPos, int16_t delta);
-void AdjustXYLimit(int16_t *eolXPos, int16_t *eolXNeg, int16_t *eolYPos, int16_t *eolYNeg, int16_t delta);
 uint32_t  get_num_disp_points(void);
 int doSTOPCMD(struct lg_master *pLgMaster);
 #endif // BOARDCOMM_H

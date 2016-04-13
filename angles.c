@@ -12,6 +12,7 @@
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "3DTransform.h"
+#include "angles.h"
 
 int TransformtoRPY (transform *m, double *roll, double *pitch, 
 		double *yaw, double *x_trans, double *y_trans, 

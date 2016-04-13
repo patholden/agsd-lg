@@ -34,6 +34,7 @@ static char rcsid[] = "$Id: FullRegWithFeedback.c,v 1.1 2006/06/05 18:40:30 ags-
 #include "L3DTransform.h"
 #include "BoardComm.h"
 #include "parse_data.h"
+#include "FullRegWithFeedback.h"
 
 #define	kNumberOfSensorSearchAttempts 3
 

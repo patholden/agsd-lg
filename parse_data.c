@@ -832,9 +832,9 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand + kSizeOfRegWithFeedbackParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kRegWithFeedback);
-	    FullRegWithFeedback ( pLgMaster,
-				  (char *)pLgMaster->gParametersBuffer,
-				  kRespondExtern );
+	    FullRegWithFeedback(pLgMaster,
+				(struct parse_rightondofullregwithfeedback_parms *)pLgMaster->gParametersBuffer,
+				kRespondExtern);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);
@@ -849,9 +849,9 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 				(kSizeOfCommand+kSizeOfFlexRegWithFeedbackParameters)))
 	  {
 	    SendConfirmation(pLgMaster, kFlexRegWithFeedback);
-	    FlexFullRegWithFeedback ( pLgMaster,
-				      (char *)pLgMaster->gParametersBuffer,
-				      kRespondExtern );
+	    FlexFullRegWithFeedback(pLgMaster,
+				    (struct parse_flexrightondofullregwithfeedback_parms *)pLgMaster->gParametersBuffer,
+				    kRespondExtern);
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);

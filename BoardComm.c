@@ -1179,44 +1179,24 @@ void limitXY(int16_t currentX, int16_t currentY, int16_t *eolXNeg, int16_t *eolX
 		    int16_t *eolYNeg, int16_t * eolYPos, int16_t delta)
 {
 
-    if (currentX >= (kMaxSigned - delta))
+    if ((currentX + delta) >= kMaxSigned)
       *eolXPos = kMaxSigned;
     else
       *eolXPos = currentX + delta;
-    if (currentX <= kMinSigned + delta)
+    if ((currentX - delta) <= kMinSigned)
       *eolXNeg = kMinSigned;
     else
       *eolXNeg = currentX - delta;
-    if (currentY >= (kMaxSigned - delta))
+    if ((currentY + delta) >= kMaxSigned)
       *eolYPos = kMaxSigned;
     else
       *eolYPos = currentY + delta;
-    if (currentY <= (kMinSigned - delta))
+    if ((currentY - delta) <= kMinSigned)
       *eolYNeg = kMinSigned;
     else
       *eolYNeg = currentY - delta;
       
     return;
-}
-void AdjustXYLimit(int16_t *eolXPos, int16_t *eolXNeg, int16_t *eolYPos, int16_t *eolYNeg, int16_t delta)
-{
-    if (*eolXPos >= kMaxSigned + delta)
-      *eolXPos  = kMaxSigned;
-    else
-      *eolXPos += delta;
-    if (*eolXNeg <= (kMinSigned + delta))
-      *eolXNeg  = kMinSigned;
-    else
-      *eolXNeg -= delta;
-    if (*eolYPos >= (kMaxSigned + delta))
-      *eolYPos  = kMaxSigned;
-    else
-      *eolYPos += delta;
-    if (*eolYNeg <= (kMinSigned + delta))
-      *eolYNeg  = kMinSigned;
-    else
-      *eolYNeg -= delta;
-  return;
 }
 uint32_t  get_num_disp_points(void)
 {

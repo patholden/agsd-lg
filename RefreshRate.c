@@ -16,6 +16,7 @@ static char rcsid[] = "$Id: FOM.c,v 1.2 1999/05/04 15:32:35 ags-sw Exp $";
 #include "parse_data.h"
 #include "Protocol.h"
 #include "comm_loop.h"
+#include "RefreshRate.h"
 #include "SensorRegistration.h"
 
 void DoRefreshRate (struct lg_master *pLgMaster, uint32_t respondToWhom )

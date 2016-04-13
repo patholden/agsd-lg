@@ -22,7 +22,7 @@ static char rcsid[] = "$Id: LaserFlex.c,v 1.18 2003/04/25 10:40:04 ags-sw Exp ag
 #include "AppCommon.h"
 #include "comm_loop.h"
 #include "parse_data.h"
-/* #include "AppWindows.h" */
+#include "LaserFlex.h"
 #include "AppStrListIDs.h"
 #include "LaserCmds.h"
 #include "AppErrors.h"

@@ -71,39 +71,37 @@ void ResetPlyCounter(struct lg_master *pLgMaster)
 }
 void DoDisplayChunksStart (struct lg_master *pLgMaster, struct parse_chunkstart_parms *pInp, uint32_t respondToWhom )
 {
-  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  uint32_t                dataLength;
+    struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+    uint32_t                dataLength;
 
-  // Note this input is in BIG endian format on the wire
-  dataLength = ntohl(pInp->apt_len);
-  memset(pResp, 0, sizeof(struct parse_basic_resp));
-  if (!dataLength || (dataLength > kMaxDataLength))
-    {
-      pResp->hdr.status = RESPFAIL;
-      if (dataLength)
-	pResp->hdr.errtype = htons(RESPDATATOOLARGE);
+    // Note this input is in BIG endian format on the wire
+    dataLength = ntohl(pInp->apt_len);
+    memset(pResp, 0, sizeof(struct parse_basic_resp));
+    if (!dataLength || (dataLength > kMaxDataLength))
+      {
+	pResp->hdr.status = RESPFAIL;
+	if (dataLength)
+	  pResp->hdr.errtype = htons(RESPDATATOOLARGE);
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
+    if (!pLgMaster->gDataChunksBuffer)
+      {
+	pResp->hdr.status = RESPFAIL;
+	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+	return;
+      }
+
+    // Ready to go, initialize variables & buffers
+    memset(pLgMaster->gDataChunksBuffer, 0, kMaxDataLength);
+    pLgMaster->gDataChunksLength = dataLength;
+    pLgMaster->gTransmitLengthSum = 0;
+    pResp->hdr.status = RESPGOOD;
+
+    // If no-response flag is set, don't send response
+    if (!(pLgMaster->gHeaderSpecialByte & 0x80))
       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-      return;
-    }
-  else
-    {
-      if (!pLgMaster->gDataChunksBuffer)
-	{
-	  pResp->hdr.status = RESPFAIL;
-	  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	  return;
-	}
-      memset(pLgMaster->gDataChunksBuffer, 0, kMaxDataLength);
-      pLgMaster->gDataChunksLength = dataLength;
-      pLgMaster->gTransmitLengthSum = 0;
-      pResp->hdr.status = RESPGOOD;
-    }
-  // If no-response flag is set, don't send response
-  if (!(pLgMaster->gHeaderSpecialByte & 0x80))
-    {
-      HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-    }
-  return;
+    return;
 }
 
 void DoDisplayChunks(struct lg_master *pLgMaster, struct parse_chunksdo_parms *pInp, uint32_t respondToWhom)

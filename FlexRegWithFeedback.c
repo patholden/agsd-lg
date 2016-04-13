@@ -27,6 +27,7 @@ static char rcsid[] = "$Id$";
 #include "AppCommon.h"
 #include "comm_loop.h"
 #include "parse_data.h"
+#include "FlexFullRegWithFeedback.h"
 #include "LaserInterface.h"
 #include "SensorRegistration.h"
 #include "SensorSearch.h"
