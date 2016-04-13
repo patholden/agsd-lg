@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <sys/io.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
