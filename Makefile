@@ -68,7 +68,7 @@ AGS_OBJECTS = Main.o \
 	      SensorSearch.o  Files.o
 #
 #
-agsd : $(AGS_OBJECTS)
+agsd : $(AGS_OBJECTS) BoardComm.h $(LNXHDRDIR)/include/linux/laser_api.h
 	$(CC) $(LDFLAGS) -o $@ $(AGS_OBJECTS)
 
 jigqc : $(JIG_OBJECTS) jigqc.o
