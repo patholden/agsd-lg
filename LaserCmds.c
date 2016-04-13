@@ -543,7 +543,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 	    return;
 	  }
  	
-#if defined(ZDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
 	syslog(LOG_NOTICE, "1555 plys rcvd %d  disp %d", pLgMaster->gPlysReceived, pLgMaster->gPlysToDisplay);
 #endif
  	if (pLgMaster->gPlysReceived < pLgMaster->gPlysToDisplay)
@@ -565,7 +565,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
  	{
 	  if (pLgMaster->gAbortDisplay || (pLgMaster->gPlysReceived < pLgMaster->gPlysToDisplay))
 	    {
-#if defined(ZDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
 	      syslog(LOG_NOTICE, "1574 plys rcvd %d  disp %d", pLgMaster->gPlysReceived, pLgMaster->gPlysToDisplay);
 #endif
 	      pResp->hdr.status = RESPGOOD;
@@ -581,7 +581,7 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 				      "GET  /cgi-bin/reset"
 				      "   HTTP/1.0\n\n"
 				       );
-#if defined(ZDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
 			int slen;
 			slen = GetWebVideo(pLgMaster, ToVideo, count, FromVideo );
 			syslog(LOG_NOTICE, "1634 getweb slen %d gVideoCount %d\n", slen, gVideoCount);

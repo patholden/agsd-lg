@@ -50,7 +50,7 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
   syslog(LOG_ERR, "SS42 %d %d %d %d", gQCtimer,QCresult,gFirstTimer,LTemp );
 #endif
   if ( gQCtimer > 0 ) {
-#if defined(ZDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
     syslog(LOG_ERR, "SS43 gDisplayFlag %d", pLgMaster->gDisplayFlag );
     syslog(LOG_ERR, "SS44 gFirstTimer %d", gFirstTimer );
     syslog(LOG_ERR, "SS45 gQCtimer %d", gQCtimer );
@@ -65,7 +65,7 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
 	else
 	  {
 	    diff = GetQCtimer();
-#if defined(ZDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
 	    syslog(LOG_ERR, "SS54 diff %d", diff );
 #endif
 	    if (diff >= gQCtimer)
@@ -77,13 +77,13 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
   }
 
   if( QCresult > 0 ) {
-#if defined(TDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
     syslog(LOG_ERR, "line 124 SystemSpecifics about to Stop QC %d", QCresult );
 #endif
     gFirstTimer = 1;
     if ( gQuickCheck == 1 ) {
       doQuickCheck = ShouldDoQuickCheck(); 
-#if defined(ZDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
       syslog(LOG_ERR, "SS67 doQC %d", doQuickCheck );
 #endif
       if ( doQuickCheck ) {
@@ -101,7 +101,7 @@ void DoSystemPeriodic (struct lg_master *pLgMaster)
 	}
       }
     } else {
-#if defined(TDEBUG) || defined(KITDEBUG)
+#ifdef KITDEBUG
       syslog(LOG_NOTICE, "line 124 SystemSpecifics about to Stop QC %d", QCresult);
       syslog(LOG_NOTICE, "line 125 SystemSpecifics gVideoCheck %d", gVideoCheck);
       syslog(LOG_NOTICE, "line 126 SystemSpecifics gVideoCount %d", gVideoCount);

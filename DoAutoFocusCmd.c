@@ -67,11 +67,11 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
        {
 	 cdata_out = pInp->inp_data[af_index];
 	 write_count = write(pLgMaster->af_serial, (void *)&cdata_out, 1);
-#ifdef ZDEBUG
+#ifdef AGS_DEBUG
 if (isalnum(cdata_out) ) {
-syslog(LOG_NOTICE, "afwrite %2x  %d index %d   %c ", cdata_out, write_count, af_index, cdata_out );
+syslog(LOG_DEBUG, "afwrite %2x  %d index %d   %c ", cdata_out, write_count, af_index, cdata_out );
 } else {
-syslog(LOG_NOTICE, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index );
+syslog(LOG_DEBUG, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index );
 }
 #endif
 	 if (write_count != 1)

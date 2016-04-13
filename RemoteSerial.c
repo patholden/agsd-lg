@@ -67,12 +67,12 @@ void RemoteSerial ( struct lg_master *pLgMaster
 
 
 
-#ifdef ZDEBUG
+#ifdef AGS_DEBUG
      for ( i = 0; i < 32 ; i++ ) {
           if ( isalnum( buffer[i] ) ) {
-          syslog( LOG_NOTICE, "remoteserial %2d %02x   %c ", i, 0xff&buffer[i], buffer[i] );
+          syslog(LOG_DEBUG, "remoteserial %2d %02x   %c ", i, 0xff&buffer[i], buffer[i] );
           } else {
-          syslog( LOG_NOTICE, "remoteserial %2d %02x ", i, 0xff&buffer[i] );
+          syslog( LOG_DEBUG, "remoteserial %2d %02x ", i, 0xff&buffer[i] );
           }
      }
 #endif
@@ -89,8 +89,8 @@ void RemoteSerial ( struct lg_master *pLgMaster
 
         tcp_srv_addr.sin_port = htons(port);
 
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about to inet_addr\n" );
+#ifdef AGS_DEBUG
+syslog(LOG_DEBUG, "about to inet_addr" );
 #endif
 
         if( (inaddr = inet_addr(pLgMaster->visionhost)) != INADDR_NONE) {
@@ -103,8 +103,8 @@ syslog( LOG_NOTICE, "about to inet_addr\n" );
                 return;
         }
 
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about socket\n" );
+#ifdef AGS_DEBUG
+syslog(LOG_DEBUG, "about socket" );
 #endif
 
   if( (fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -117,8 +117,8 @@ syslog( LOG_NOTICE, "about socket\n" );
                 return;
   }
 
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about connect\n" );
+#ifdef AGS_DEBUG
+syslog(LOG_DEBUG, "about connect" );
 #endif
    
         if( connect(fd,(struct sockaddr *)&tcp_srv_addr,sizeof(tcp_srv_addr)) < 0 ) {
@@ -159,8 +159,8 @@ syslog( LOG_NOTICE, "about connect\n" );
             }
         }
         for ( i=0; i<hexcount; i++ ) {
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about write %x  hex %d\n", 0xff&hexbuff[i],i );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "about write %x  hex %d", 0xff&hexbuff[i],i );
 #endif
         }
 
@@ -168,8 +168,8 @@ syslog( LOG_NOTICE, "about write %x  hex %d\n", 0xff&hexbuff[i],i );
         total = 0;
         n = 1;
         while ( total < hexcount && n > 0 ) {
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about write %d  total %d\n", hexcount, total );
+#ifdef AGS_DEBUG
+syslog( LOG_NOTICE, "about write %d  total %d", hexcount, total );
 #endif
             n = write( fd, &(hexbuff[total]), (hexcount-total) );
             if ( n < 0 ) {
@@ -183,8 +183,8 @@ syslog( LOG_NOTICE, "about write %d  total %d\n", hexcount, total );
             total += n;
         }
         count = 0;
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about read \n" );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "about read" );
 #endif
         FD_ZERO( &socks );
         FD_SET( fd, &socks );
@@ -199,8 +199,8 @@ syslog( LOG_NOTICE, "about read \n" );
                           , &timeout
                           );
 
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "gHeaderSpecialByte  %02x \n", 0xff & pLgMaster->gHeaderSpecialByte );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "gHeaderSpecialByte  %02x", 0xff & pLgMaster->gHeaderSpecialByte );
 #endif
         memset( linebuff, 0, MAXLINE );
         memset( hexbuff, 0, MAXLINE );
@@ -211,14 +211,14 @@ syslog( LOG_NOTICE, "gHeaderSpecialByte  %02x \n", 0xff & pLgMaster->gHeaderSpec
           memset( linebuff, 0, MAXLINE );
                // try first read, which may be just a response
           if ( readsocks > 0 && FD_ISSET( fd, &socks ) ) {
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about readsocks %d \n", readsocks );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "about readsocks %d", readsocks );
 #endif
             n = read(fd,linebuff,MAXLINE);
             memcpy( &(outbuff[count]), linebuff, n );
             count += n;
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "1st read %d bytes  count %d \n", n, count );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "1st read %d bytes  count %d", n, count );
 #endif
           }
 
@@ -243,8 +243,8 @@ syslog( LOG_NOTICE, "1st read %d bytes  count %d \n", n, count );
                   memcpy( &(outbuff[count]), linebuff, n );
                   count += n;
               }
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "2nd read %d bytes   count %d \n", n, count );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "2nd read %d bytes   count %d", n, count );
 #endif
           }
 
@@ -252,21 +252,21 @@ syslog( LOG_NOTICE, "2nd read %d bytes   count %d \n", n, count );
 
           count0 = 0;
           for ( i = 0; i < count; i++ ) {
-#ifdef ZDEBUG
+#ifdef AGS_DEBUG
 if ( isalnum( outbuff[i] ) ) {
-syslog( LOG_NOTICE, "hexread %3d %2x  %c ", i, 0xff & outbuff[i], outbuff[i] );
+syslog( LOG_DEBUG, "hexread %3d %2x  %c ", i, 0xff & outbuff[i], outbuff[i] );
 } else {
-syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
+syslog( LOG_DEBUG, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
 }
 #endif
              if ( (unsigned char)(outbuff[i]) == 0x80 ) {
                   hexbuff[count0] = outbuff[i+1] + 0x80;
                   i++;
-#ifdef ZDEBUG
+#ifdef AGS_DEBUG
 if ( isalnum( outbuff[i] ) ) {
-syslog( LOG_NOTICE, "hexread %3d %2x  %c ", i, 0xff & outbuff[i], outbuff[i] );
+syslog( LOG_DEBUG, "hexread %3d %2x  %c ", i, 0xff & outbuff[i], outbuff[i] );
 } else {
-syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
+syslog( LOG_DEBUG, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
 }
 #endif
              } else {
@@ -275,12 +275,12 @@ syslog( LOG_NOTICE, "hexread %3d %2x  ", i, 0xff & outbuff[i] );
              count0++;
           } 
 
-#ifdef ZDEBUG
+#ifdef AGS_DEBUG
           for ( i = 0; i < count0; i++ ) {
 if ( isalnum( hexbuff[i] ) ) {
-syslog( LOG_NOTICE, "unhexread %3d %2x  %c ", i, 0xff & hexbuff[i], hexbuff[i] );
+syslog( LOG_DEBUG, "unhexread %3d %2x  %c ", i, 0xff & hexbuff[i], hexbuff[i] );
 } else {
-syslog( LOG_NOTICE, "unhexread %3d %2x  ", i, 0xff & hexbuff[i] );
+syslog( LOG_DEBUG, "unhexread %3d %2x  ", i, 0xff & hexbuff[i] );
 }
           } 
 #endif
@@ -288,10 +288,10 @@ syslog( LOG_NOTICE, "unhexread %3d %2x  ", i, 0xff & hexbuff[i] );
             // and copy over just 32 bytes
           memcpy( &(outbuff[0]), &(hexbuff[6]), 32 );
 
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about close  read %d   count %d\n", n, count );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "about close  read %d   count %d", n, count );
 for ( i = 0; i < 40; i++ ) {
-syslog( LOG_NOTICE, "outbuff %3d %2x  ", i, 0xff & outbuff[i] );
+syslog( LOG_DEBUG, "outbuff %3d %2x", i, 0xff & outbuff[i] );
 }
 #endif
         }
@@ -305,10 +305,10 @@ syslog( LOG_NOTICE, "outbuff %3d %2x  ", i, 0xff & outbuff[i] );
                             // skip over header
                 memcpy( &(pLgMaster->theResponseBuffer[4]), &(outbuff[4]), 32 );
 
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "about close  read %d   count %d\n", n, count );
+#ifdef AGS_DEBUG
+syslog( LOG_DEBUG, "about close  read %d   count %d", n, count );
 for ( i = 0; i < 40; i++ ) {
-syslog( LOG_NOTICE, "response %3d %2x  ", i, 0xff & pLgMaster->theResponseBuffer[i] );
+syslog( LOG_DEBUG, "response %3d %2x", i, 0xff & pLgMaster->theResponseBuffer[i] );
 }
 #endif
 
