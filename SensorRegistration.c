@@ -595,6 +595,7 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
             }
             Ys[i] = chisqr(pLgMaster, &Pmatrix[i][0]);
         }
+
 	/*  execute amoeba only if the tolerance was small */
         if ((nOfTrans > 0)  && (tolerance < 0.0001) && (gNPoints >= 4))
 	  amoeba (pLgMaster, Pmatrix, Ys, ndim, ftol, &chisqr, &nfunk );
@@ -725,6 +726,8 @@ unsigned char FindTransformMatrix (struct lg_master *pLgMaster,uint16_t numberOf
              }
 
         }
+
+
 
 /*
  * make figure of merit calculation
