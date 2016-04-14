@@ -63,24 +63,12 @@ void CalculateTransform ( struct lg_master *pLgMaster,
 	ConvertExternalAnglesToBinary(pLgMaster, Xgeo, Ygeo, &xout, &yout);
 	XYarr[i].xangle = xout;
 	XYarr[i].yangle = yout;
-#ifdef ZDEBUG
-syslog( LOG_NOTICE, "CALCTRANS i %d angs %lf %lf geo %lf %lf", i, angX, angY, Xgeo, Ygeo );
-#endif
       } 
     for (i=0; i < MAX_TARGETSOLD; i++)
       {
 	theCoordinateBuffer[i].Xtgt = pInp->target[i].Xtgt;
 	theCoordinateBuffer[i].Ytgt = pInp->target[i].Ytgt;
 	theCoordinateBuffer[i].Ztgt = pInp->target[i].Ztgt;
-#ifdef ZDEBUG
-syslog( LOG_NOTICE
-      , "CALCTRANS i %d xyz %lf %lf %lf "
-      , i
-      , theCoordinateBuffer[i].Xtgt
-      , theCoordinateBuffer[i].Ytgt
-      , theCoordinateBuffer[i].Ztgt
-      );
-#endif
       }
     SaveFullRegCoordinates(MAX_TARGETSOLD, (double *)&theCoordinateBuffer);
     theResult = FindTransformMatrix(pLgMaster, MAX_TARGETSOLD, gDeltaMirror,

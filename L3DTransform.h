@@ -11,9 +11,9 @@ typedef struct { double rotMatrix[3][3], transVector[3]; }
 extern double minL3Distance;
  int32_t gBestTargetNumber;
 
-unsigned char FindBestTransform(struct lg_master *pLgMaster
+unsigned char FindBestTransform( struct lg_master *pLgMaster
                                , doubleInputPoint *iPt
-                               , double * doubleArray
+                               , doubleTransform *tr
                                , double deltaXHeight
                                , double tolerance
                                , double * bestCosine
