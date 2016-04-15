@@ -30,8 +30,6 @@
 extern int
 pingClient( char* peerAddr );
 
-static int IsOkToSend(struct lg_master *pLgMaster);
-
 int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
   int                sockaddr_len = sizeof(struct sockaddr_in);
@@ -106,7 +104,7 @@ int CommInit(struct lg_master *pLgMaster)
   syslog(LOG_NOTICE, "PC host comm ethernet port initialized");
 
   // Try to open front end PC serial port
-  pLgMaster->pc_serial = open("/dev/lgttyS1", O_RDWR | O_NONBLOCK | O_NOCTTY);
+  pLgMaster->pc_serial = open("/dev/lgttyS1", O_RDWR | O_NONBLOCK);
   if (pLgMaster->pc_serial <= 0)
     {
       syslog(LOG_ERR,"open PC front end serial port /dev/lgttyS1 failed");
@@ -114,7 +112,7 @@ int CommInit(struct lg_master *pLgMaster)
     }
   syslog(LOG_NOTICE, "PC host comm serial port lgttyS1 initialized");
   // Try to open AutoFocus serial port
-  pLgMaster->af_serial = open("/dev/lgttyS2", O_RDWR | O_NONBLOCK | O_NOCTTY);
+  pLgMaster->af_serial = open("/dev/lgttyS2", O_RDWR | O_NONBLOCK);
   if (pLgMaster->af_serial <= 0)
     {
       syslog(LOG_ERR,"open Auto Focus serial port /dev/lgttyS2 failed");
@@ -258,7 +256,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   free(recv_data);
   return(data_len);
 }
-static int IsOkToSend(struct lg_master *pLgMaster)
+int IsOkToSend(struct lg_master *pLgMaster)
 {
     struct pollfd  poll_fd;
 
