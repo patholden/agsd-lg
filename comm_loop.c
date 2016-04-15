@@ -256,7 +256,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
   free(recv_data);
   return(data_len);
 }
-int IsOkToSend(struct lg_master *pLgMaster)
+static int IsOkToSend(struct lg_master *pLgMaster)
 {
     struct pollfd  poll_fd;
 
