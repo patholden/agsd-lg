@@ -6,12 +6,22 @@ static char rcsid[] = "$Id$";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
+#include <syslog.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <time.h>
+#include <math.h>
+#include <assert.h>
+#include <sys/io.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
+#include <sys/ioctl.h>
 #include <linux/laser_api.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
@@ -24,9 +34,9 @@ static char rcsid[] = "$Id$";
 #include "3DTransform.h"
 #include "Protocol.h"
 
-void CalculateTransform ( struct lg_master *pLgMaster,
-			  struct parse_clcxfrm_parms* pInp,
-			  uint32_t respondToWhom )
+void CalculateTransform(struct lg_master *pLgMaster,
+		        struct parse_clcxfrm_parms *pInp,
+		        uint32_t respondToWhom)
 {
     struct k_xyz_double    theCoordinateBuffer[MAX_TARGETSOLD];
     struct k_xy_double     foundAngles[MAX_TARGETSOLD];
@@ -41,6 +51,10 @@ void CalculateTransform ( struct lg_master *pLgMaster,
     int16_t  xout, yout;
     uint16_t i;
     uint8_t  theResult;
+
+    syslog(LOG_DEBUG, "Entered Routine: CalcTransform");
+
+    LogCalculateTransformCommand(pInp, pLgMaster);
     
     theTransformTolerance  = pLgMaster->gArgTol;
     pResp = (struct parse_clcxfrm_resp *)pLgMaster->theResponseBuffer;
@@ -87,12 +101,76 @@ void CalculateTransform ( struct lg_master *pLgMaster,
 	pResp->hdr.errtype = htons((uint16_t)((GnOfTrans & 0xFF) << 8));
 	TransformIntoArray( &foundTransform, (double *)&pResp->transform[0]);
 	memcpy((char *)&pResp->anglepairs[0], (char *)&XYarr[0], OLDANGLEPAIRSLEN);
+	LogCalculateTransformResponse(pResp, (sizeof(struct parse_clcxfrm_resp)-kCRCSize));
 	HandleResponse(pLgMaster, (sizeof(struct parse_clcxfrm_resp)-kCRCSize), respondToWhom );
       }
     else
       {
 	pResp->hdr.status = RESPFAIL;
+	LogCalculateTransformResponse(pResp, (sizeof(struct parse_basic_resp)-kCRCSize));
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
       }
+    return;
+}
+
+
+void LogCalculateTransformCommand(struct parse_clcxfrm_parms *param, struct lg_master *pLgMaster)
+{
+    int32_t          i;
+   
+    syslog(LOG_DEBUG, "CMD: HeaderSpecialByte: %02x", pLgMaster->gHeaderSpecialByte);
+
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+        syslog(LOG_DEBUG, "CMD: target #%d: target[%d].Xtgt: %f   target[%d].Ytgt: %f   target[%d].Ztgt: %f",
+               i + 1,
+	       i,
+  	       param->target[i].Xtgt,
+	       i,
+	       param->target[i].Ytgt,
+	       i,
+	       param->target[i].Ztgt);
+	}
+
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+        syslog(LOG_DEBUG, "CMD: target #%d: tgtAngle[%d].Xangle: %f   tgtAngle[%d].Yangle: %f",
+    	       i + 1,
+	       i,
+	       param->tgtAngle[i].Xangle,
+	       i,
+	       param->tgtAngle[i].Yangle);
+      }
+      
+    return;    
+}
+
+
+void LogCalculateTransformResponse(struct parse_clcxfrm_resp *pRespBuf, uint32_t respLen)
+{
+    double           transform[MAX_NEW_TRANSFORM_ITEMS];
+    int32_t          i;
+    
+    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+
+    if (respLen <= sizeof(pRespBuf->hdr.hdr))
+      return;
+
+    memcpy(transform, pRespBuf->transform, sizeof(transform));
+    for (i = 0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
+      {
+	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
+      }
+
+    for (i = 0; i < MAX_TARGETSOLD; i++)
+      {
+        syslog(LOG_DEBUG, "RSP: target #%d: anglepairsX[%d]: %d   anglepairsY[%d]: %d",
+	       i + 1,
+	       2*i+0,
+	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
+	       2*i+1,
+  	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
+      }
+
     return;
 }

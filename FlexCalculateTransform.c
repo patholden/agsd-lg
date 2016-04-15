@@ -112,23 +112,32 @@ void FlexCalculateTransform(struct lg_master *pLgMaster, struct parse_flexcalxfr
 					0.00001, (double *)&foundAngles, (double *)&foundTransform);
 	GnOfTrans = 0;
       }
+
     for (i = 0; i < nTargets ; i++)
       {
 	if (pLgMaster->gColinear[i] > 0)
 	  intColinear = intColinear | (1 << i);
       }
+
     if (theResult)
       pResp->hdr.status = RESPGOOD;
     else
       pResp->hdr.status = RESPFAIL;
 
     TransformIntoArray(&foundTransform, (double *)&pResp->transform[0]);
+
     memset((char *)&pResp->anglepairs[0], 0xFF, ANGLEPAIRSLENFLEX);
     memcpy((char *)&pResp->anglepairs[0], (char *)&XYarr[0], sizeof(XYarr));
-    pResp->num_xfrms = gSaved;
+
+    pResp->num_xfrms = GnOfTrans;
+
     pResp->num_tgts = nTargets;
+
     pResp->colineartgt = intColinear;
+
     pResp->coplanartgts = intPlanar;
+
     HandleResponse(pLgMaster, (sizeof(struct parse_flexcalxfrm_resp)-kCRCSize), respondToWhom);
+
     return;
 }

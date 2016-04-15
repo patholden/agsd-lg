@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -24,6 +25,7 @@ void DosuperFOM (struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
     struct parse_superfom_resp   *pResp;
     struct k_targetinfo          tgt_info;
+    int32_t                      respLen;
     int i;
 
     pResp = (struct parse_superfom_resp *)pLgMaster->theResponseBuffer;
@@ -31,7 +33,7 @@ void DosuperFOM (struct lg_master *pLgMaster, uint32_t respondToWhom )
     pResp->hdr.status = RESPGOOD;
     pResp->num_targets = get_number_of_points();
     pResp->chi_square = get_chisquare_val();
-    for (i=0; i<gNumberOfPoints; i++)
+    for (i = 0; i < pResp->num_targets; i++)
       {
 	if (pLgMaster->foundTarget[i] == 1)
 	  {
@@ -47,6 +49,10 @@ void DosuperFOM (struct lg_master *pLgMaster, uint32_t respondToWhom )
 	    pResp->tgt_info[i].ydev    = 0.0;
 	  }
       }
-    HandleResponse(pLgMaster, (sizeof(struct parse_superfom_resp)-kCRCSize), respondToWhom);
+    // requires a variable length response, don't include unused targets
+    respLen = offsetof(struct parse_superfom_resp, tgt_info) + (pResp->num_targets * sizeof(struct k_targetinfo));
+
+    HandleResponse(pLgMaster, respLen, respondToWhom);
+
     return;
 }

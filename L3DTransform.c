@@ -278,11 +278,11 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
         tolerance = Dtolerance;
         for ( i=0; i<4; i++)
 	  {
-            iPt[i].oldLoc[0] = (long double)(DiPt[i].oldLoc[0]);
-            iPt[i].oldLoc[1] = (long double)(DiPt[i].oldLoc[1]);
-            iPt[i].oldLoc[2] = (long double)(DiPt[i].oldLoc[2]);
-            iPt[i].xRad = (long double)(DiPt[i].xRad);
-            iPt[i].yRad = (long double)(DiPt[i].yRad);
+            iPt[i].oldLoc[0] = (DiPt[i].oldLoc[0]);
+            iPt[i].oldLoc[1] = (DiPt[i].oldLoc[1]);
+            iPt[i].oldLoc[2] = (DiPt[i].oldLoc[2]);
+            iPt[i].xRad = (DiPt[i].xRad);
+            iPt[i].yRad = (DiPt[i].yRad);
 	  }
 	gQuarterPi_ = pi() * .25L;
 	gSqrtOfTwo_ = sqrt(2.L);
@@ -376,11 +376,19 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
 	    newPoint[0] = tan(xa);
 	    newPoint[1] = tan(ya);
 	    tempBestCos =
-	      ((newPoint[0]*tan4thPtX) + (newPoint[1]*tan4thPtY) + 1.L)
-	      / sqrt((sec4thPtSq * (Square(newPoint[0]) + Square(newPoint[1])) + 1.L));
+	      ( (newPoint[0]*tan4thPtX) + (newPoint[1]*tan4thPtY) + 1.L )
+	      /
+              sqrt(
+                     sec4thPtSq *
+                       (  Square( newPoint[0] )
+                        + Square( newPoint[1] )
+                        + 1.L
+                       )
+                   );
+
 		if (fabs(1.L - tempBestCos) > tolerance)
 		  return(false);
-	}
+ 	  }
         Dtr->rotMatrix[0][0] = (double)(tr->rotMatrix[0][0]);
         Dtr->rotMatrix[0][1] = (double)(tr->rotMatrix[0][1]);
         Dtr->rotMatrix[0][2] = (double)(tr->rotMatrix[0][2]);
@@ -393,18 +401,8 @@ Boolean FindBestTransform(struct lg_master *pLgMaster, doubleInputPoint *DiPt,
         Dtr->transVector[0] = (double)(tr->transVector[0]);
         Dtr->transVector[1] = (double)(tr->transVector[1]);
         Dtr->transVector[2] = (double)(tr->transVector[2]);
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[0][2] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[1][2] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->rotMatrix[2][2] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[0] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[1] );
-        syslog(LOG_NOTICE, "transform %20.12lf", Dtr->transVector[2] );
+
+
 	return(true);
 }
 
@@ -1665,73 +1663,6 @@ void FindRotMatrix ( long double iV1[3], long double iV2[3],
 	}
 }
 
-#if 0
-static	void		TransformIntoArray
-						( transform *theTransform,
-						long double theArray[12] );
-void TransformIntoArray
-	( transform *theTransform, long double theArray[12] )
-{
-	theArray[0] = theTransform->rotMatrix[0][0];
- 	theArray[1] = theTransform->rotMatrix[0][1];
- 	theArray[2] = theTransform->rotMatrix[0][2];
- 	theArray[3] = theTransform->rotMatrix[1][0];
- 	theArray[4] = theTransform->rotMatrix[1][1];
- 	theArray[5] = theTransform->rotMatrix[1][2];
- 	theArray[6] = theTransform->rotMatrix[2][0];
- 	theArray[7] = theTransform->rotMatrix[2][1];
- 	theArray[8] = theTransform->rotMatrix[2][2];
- 	theArray[9] = theTransform->transVector[0];
- 	theArray[10] = theTransform->transVector[1];
- 	theArray[11] = theTransform->transVector[2];
-}
-
-void ArrayIntoTransform(double *theArray, struct transform *theTransform )
-{
-	theTransform->rotMatrix[0][0] = theArray[0];
- 	theTransform->rotMatrix[0][1] = theArray[1];
- 	theTransform->rotMatrix[0][2] = theArray[2];
- 	theTransform->rotMatrix[1][0] = theArray[3];
- 	theTransform->rotMatrix[1][1] = theArray[4];
- 	theTransform->rotMatrix[1][2] = theArray[5];
- 	theTransform->rotMatrix[2][0] = theArray[6];
- 	theTransform->rotMatrix[2][1] = theArray[7];
- 	theTransform->rotMatrix[2][2] = theArray[8];
- 	theTransform->transVector[0] = theArray[9];
- 	theTransform->transVector[1] = theArray[10];
- 	theTransform->transVector[2] = theArray[11];
-	return;
-}
-		
-static	void		IdentityArray ( long double theArray[12] );
-void IdentityArray ( long double theArray[12] )
-{
-	theArray [ 0 ] = 1.L;
-	theArray [ 1 ] = 0.L;
-	theArray [ 2 ] = 0.L;
-	theArray [ 3 ] = 0.L;
-	theArray [ 4 ] = 1.L;
-	theArray [ 5 ] = 0.L;
-	theArray [ 6 ] = 0.L;
-	theArray [ 7 ] = 0.L;
-	theArray [ 8 ] = 1.L;
-	theArray [ 9 ] = 0.L;
-	theArray [ 10 ] = 0.L;
-	theArray [ 11 ] = 0.L;
-}
-
-static	void		InvertTransform ( transform *theTransform,
-						transform *invTransform );
-void InvertTransform ( transform *theTransform, transform *invTransform )
-{
-	Invert3DMatrix ( theTransform->rotMatrix, invTransform->rotMatrix );
-	Multiply3DMatrixByVector ( invTransform->rotMatrix,
-		theTransform->transVector, invTransform->transVector );
-	invTransform->transVector[0] = -invTransform->transVector[0];
-	invTransform->transVector[1] = -invTransform->transVector[1];
-	invTransform->transVector[2] = -invTransform->transVector[2];
-}
-#endif
 
 double
 pDist ( inputPoint *iPt0, inputPoint *iPt1, inputPoint *iPt2 )
