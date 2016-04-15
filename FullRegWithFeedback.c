@@ -62,7 +62,7 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
     int              numberOfFoundTargets = 0;
     int              searchResult;
     int              useTarget[MAX_TARGETSOLD];
-    uint32_t         respLen = (sizeof(struct parse_rightondofullregwithfeedback_resp));
+    uint32_t         respLen = (sizeof(struct parse_rightondofullregwithfeedback_resp)-kCRCSize);
     uint32_t         rc = 0;
     uint32_t         lostSensors;
     int16_t          fndX, fndY;

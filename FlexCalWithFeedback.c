@@ -105,6 +105,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
       }
     theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, theTransformTolerance,
 				    (double *)&foundAngles, (double *)&foundTransform);
+
     /* desperate attempt to get something */
     if ((gSaved == 0) && gForceTransform)
       {
@@ -122,9 +123,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
 	GnOfTrans = 0;
 	theResult = 0;
       }
-    // FIXME---PAH---THIS MAY BE A BUG.  SHOULD ALWAYS LOAD UP RESP BUFF, JUST CHECK EXP VAL FOR
-    // LAST 3 DOUBLES.
-    //    if ((pLgMaster->gHeaderSpecialByte & 0x20) && gSaved == 0)
+
     if (gSaved == 0)
       {
 	pResp->hdr.status = RESPFAIL;
@@ -151,14 +150,21 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
 	  pResp->hdr.status = RESPGOOD;
 	else
 	  pResp->hdr.status = RESPFAIL;
+
 	TransformIntoArray(&foundTransform, (double *)&pResp->transform[0]);
+
 	memset((char *)&pResp->anglepairs[0], 0xFF, ANGLEPAIRSLENFLEX);
 	memcpy((char *)&pResp->anglepairs[0], (char *)&XYarr[0], sizeof(XYarr));
+
 	pResp->num_xfrms = GnOfTrans;
-        pResp->num_tgts = nTargets;
-        pResp->colineartgt = intColinear;
-        pResp->coplanartgts = intPlanar;
-        for (i=0; i < MAX_TARGETSFLEX; i++)
+
+	pResp->num_tgts = nTargets;
+
+	pResp->colineartgt = intColinear;
+
+	pResp->coplanartgts = intPlanar;
+
+	for (i=0; i < nTargets; i++)
 	  {
 	    if (savePoint[i] > 0)
 	      target_status[i] = 2;
@@ -171,6 +177,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
             pRespExp->worstTolOfAnyCalcXfrm = gWorstTolAll;
             pRespExp->worstTolOfAnyInTolXfrm = gWorstTolReg;
 	  }
+
         if (pLgMaster->gHeaderSpecialByte & 0x20)
 	  {
 	    HandleResponse(pLgMaster, (sizeof(struct parse_flexcalxfdbkexp_resp)-kCRCSize), respondToWhom);
@@ -181,5 +188,6 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
 	    HandleResponse(pLgMaster, (sizeof(struct parse_flexcalxfdbk_resp)-kCRCSize), respondToWhom);
 	    return;
 	  }
+
 	return;
 }

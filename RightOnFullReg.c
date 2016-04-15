@@ -58,7 +58,7 @@ void RightOnFullReg(struct lg_master *pLgMaster,
     int              numberOfFoundTargets = 0;
     int              searchResult;
     int              useTarget[MAX_TARGETSOLD];
-    uint32_t         respLen = (sizeof(struct parse_rightondofullreg_resp));
+    uint32_t         respLen = (sizeof(struct parse_rightondofullreg_resp)-kCRCSize);
     uint32_t         rc = 0;
     uint32_t         lostSensors;
     int16_t          Xarr[MAX_TARGETSOLD];

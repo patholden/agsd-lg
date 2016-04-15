@@ -65,7 +65,7 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     uint32_t         flexFailRespLen = (sizeof(struct parse_flexfail_resp));
     uint32_t         lostSensors;
     uint32_t         numberOfTargets;
-    uint32_t         respLen = (sizeof(struct parse_rightondofullregwithfeedback_resp));
+    uint32_t         respLen = (sizeof(struct parse_rightondofullregwithfeedback_resp)-kCRCSize);
     uint32_t         rc = 0;
     uint32_t         target_status[MAX_TARGETSFLEX];
     uint16_t         i, j;

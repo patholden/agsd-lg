@@ -28,7 +28,8 @@ void DoChangeTransformTolerance(struct lg_master *pLgMaster, struct parse_chngxf
   
     memset(pResp, 0, sizeof(struct parse_chngxfrmtol_resp));
     newTol = pInp->new_tolerance;
-    syslog(LOG_NOTICE,"change display  %f", newTol );
+
+    syslog(LOG_DEBUG,"change display  %f", newTol );
 
     if ((newTol >= 1.0e-10) && (newTol < 1.0))
       {
@@ -36,17 +37,19 @@ void DoChangeTransformTolerance(struct lg_master *pLgMaster, struct parse_chngxf
 	pLgMaster->gArgTol = newTol;
       }
     else if (fabs(newTol+1.0) < 0.00001)
-      pResp->hdr.status = RESPFAIL;
+      pResp->hdr.status = RESPGOOD;
     else if (fabs(newTol) < 1.0e-30)
       {
-	pLgMaster->gArgTol = GARGTOL_DEFAULT;
 	pResp->hdr.status = RESPGOOD;
+	pLgMaster->gArgTol = GARGTOL_DEFAULT;
       }
     else
       pResp->hdr.status = RESPFAIL;
 
     // Send new value back to caller
     pResp->new_tolerance = pLgMaster->gArgTol;
+
     HandleResponse(pLgMaster, (sizeof(struct parse_chngxfrmtol_resp)-kCRCSize), kRespondExtern);
+
     return;
 }
