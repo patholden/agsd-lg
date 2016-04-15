@@ -61,35 +61,30 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      }
 
      // Write buffer out to ttyS2
-     // Need to read one byte at a time due to FPGA limitations for serial port
-     // design
+     // Need to read one byte at a time due to FPGA limitations for serial port design
+     // A single operation at 115200 takes 69 usec, need to honor that time with usleep
      syslog(LOG_DEBUG, "AFtoWrite %d  fd %d ", AFtoWrite, pLgMaster->af_serial );
      if ( pLgMaster->af_serial > 0 ) {
        for (af_index = 0; af_index < AFtoWrite; af_index++)
        {
 	 cdata_out = pInp->inp_data[af_index];
 	 write_count = write(pLgMaster->af_serial, (void *)&cdata_out, 1);
-#ifdef AGS_DEBUG
-if (isalnum(cdata_out) ) {
-syslog(LOG_DEBUG, "afwrite %2x  %d index %d   %c ", cdata_out, write_count, af_index, cdata_out );
-} else {
-syslog(LOG_DEBUG, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index );
-}
-#endif
-
 	 if (write_count != 1)
 	   {
-	     syslog(LOG_ERR, "AFWRITE: WRITE fail error/count %x, syserr %x, err-count %x", write_count, errno, write_count);
+	     syslog(LOG_ERR, "AFWRITE: WRITE fail error/count %x, errno %d, err-count %x",
+		    write_count, errno, write_count);
 	     pResp->hdr.status = RESPFAIL;
 	     HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 	     return;
 	   }
+	 usleep(100);    // Let each write operation complete before trying next character.
        }
      }
      syslog(LOG_DEBUG, "AFtoWrite2 %d ", AFtoWrite );
-       usleep(1000);   // Wait 1msec to get data back
-       // Need to read one byte at a time due to FPGA limitations for serial port
-       // design
+
+     // Wait 1msec to get data back
+     usleep(1000);
+     // Need to read one byte at a time due to FPGA limitations for serial port design
        for (af_index = 0; af_index < MAX_DATA; af_index++)
 	 {
 	   read_count = read(pLgMaster->af_serial, &cdata_in, 1);
@@ -98,7 +93,7 @@ syslog(LOG_DEBUG, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index
 	     {
 	       pLgMaster->gAFInputBuffer[af_index] = cdata_in;
 	       num_read++;
-	       usleep( 100 );    // We can only read 1 byte at a time with FPGA comms
+	       usleep(100);    // Let each read operation complete before trying next character.
 	     }
 	   else
 	     {
@@ -108,7 +103,8 @@ syslog(LOG_DEBUG, "afwrite %2x  %d index %d  ", cdata_out, write_count, af_index
 		 {
 		   if ( errno != EAGAIN && errno != EWOULDBLOCK )
 		     {
-		       syslog(LOG_ERR,"AFREAD: FAIL: total_bytes %x, err %x, val %2x",read_count,num_read, (int)cdata_in);
+		       syslog(LOG_ERR,"AFREAD: FAIL: total_bytes %x, rc %x, read val %2x,errno %d",
+			      read_count,num_read, (int)cdata_in,errno);
 		       pResp->hdr.status = RESPFAIL;
 		       HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp) - kCRCSize), kRespondExtern);
 		       return;

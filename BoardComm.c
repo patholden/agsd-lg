@@ -476,24 +476,41 @@ void ReleaseBoard (struct lg_master *pLgMaster)
 
 int InitBoard (struct lg_master *pLgMaster)
 {
-  
-  pLgMaster->fd_laser = open("/dev/laser", O_RDWR);
-  if (pLgMaster->fd_laser < 0)
-    {
-      syslog(LOG_ERR,"\nlaser device %d not opened,errno %d", pLgMaster->fd_laser, errno);
-      return(-1);
-    }
-  doLGSTOP(pLgMaster);
+    int        rc;
+    uint32_t   fpga_version=0;
 
-  // initialize buffers
-
-  tmp_pattern = (struct lg_xydata *)malloc(MAX_LG_BUFFER);
-  if (!tmp_pattern)
-    return(-2);
-  out_pattern = (struct lg_xydata *)malloc(MAX_LG_BUFFER);
-  if (!out_pattern)
-    return(-3);
-  return(0);
+    pLgMaster->fd_laser = open("/dev/laser", O_RDWR);
+    if (pLgMaster->fd_laser < 0)
+      {
+	syslog(LOG_ERR,"laser device %d not opened,errno %d", pLgMaster->fd_laser, errno);
+	return(-1);
+      }
+    
+    // Check FPGA version
+    rc = ioctl(pLgMaster->fd_laser, LGGETFPGAVERSION, &fpga_version);
+    if (rc < 0)
+      {
+	syslog(LOG_ERR,"Cannot get FPGA version information,errno %d", errno);
+	return(-1);
+      }
+    if ((fpga_version & 0xffff) < CURRENT_FPGA_VERSION)
+      {
+	syslog(LOG_ERR,"Invalid FPGA version, Got %x, Expected at least %x", fpga_version, CURRENT_FPGA_VERSION);
+	return(-1);
+      }
+      
+    // Initialize driver & state machine to IDLE
+    doLGSTOP(pLgMaster);
+    
+    // initialize display-pattern buffers
+    tmp_pattern = (struct lg_xydata *)malloc(MAX_LG_BUFFER);
+    if (!tmp_pattern)
+      return(-2);
+    out_pattern = (struct lg_xydata *)malloc(MAX_LG_BUFFER);
+    if (!out_pattern)
+      return(-3);
+    syslog(LOG_NOTICE,"LaserVision laser device initialized, FPGA version is %x", fpga_version);
+    return(0);
 }
 
 int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,

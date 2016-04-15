@@ -2,6 +2,7 @@
 #define BOARDCOMM_H
 /*   $Id: BoardComm.h,v 1.20 2001/01/03 17:48:53 ags-sw Exp pickle $  */
 
+#define CURRENT_FPGA_VERSION 0x102
 #define DONTRESPOND  1      // command will NOT send response to PC host
 #define SENDRESPONSE  2     // command will send response to PC host
 #define  MAX_NUM_THREADS 1
