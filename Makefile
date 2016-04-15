@@ -21,7 +21,7 @@ EXTRA_CFLAGS = -DAGS_DEBUG
 USERINCLUDE    := \
 	-I./ \
 	-I$(LNXHDRDIR)/include
-CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall -Wmissing-prototypes -Wstrict-prototypes -Wunused $(USERINCLUDE)
+CFLAGS = -g -DLASER_DEFINED -march=atom  -Wall -Wmissing-prototypes -Wstrict-prototypes -Wunused -Werror $(USERINCLUDE)
 AGS_OBJECTS = Main.o \
 	      L3DTransform.o \
 	      AngleCorrections.o \

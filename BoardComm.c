@@ -587,7 +587,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     if (rc < 0)
       {
 	syslog(LOG_ERR, "Unable to send sense command to driver, rc %x,errno %x",rc,errno);
-	return(kCoarseNotFound);
+	return(kStop);
       }
     // Need to give driver time to complete the SENSE sequence
     // Should be only 2 * event handler period * number of points
@@ -637,7 +637,7 @@ int doWriteDevCmdNoData(struct lg_master *pLgMaster, uint32_t command)
 int doLGSTOP(struct lg_master *pLgMaster)
 {
   return(doWriteDevCmdNoData(pLgMaster, CMDW_STOP));
-};
+}
 int doSTOPCMD(struct lg_master *pLgMaster)
 {
   return(doWriteDevCmdNoData(pLgMaster, CMDW_STOPCMD));
