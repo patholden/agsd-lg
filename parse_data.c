@@ -59,6 +59,8 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   struct timeval  tv;
   struct timezone tz;
 #endif
+  uint32_t       *pCrc;
+  
   //  FIXME--PAH  int magic, magic_too, flag;
 
   if (!pLgMaster || !pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer || !pLgMaster->theResponseBuffer || !data || (data_len > kMaxDataLength))
@@ -99,16 +101,21 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	      syslog(LOG_ERR, "received 0xA1 & 0xA2, sending 0xA3" );
 	      SendA3(pLgMaster);
 	      pLgMaster->gotA1 = 0;  // Start all over for A1->A2->A3 resync
+	      
 	    }
 	  else
-	    syslog(LOG_ERR, "received 0xA2 with no 0xA1 predecessor");
+	    {
+	      syslog(LOG_ERR, "received 0xA2 with no 0xA1 predecessor");
+	      cmdState = 1;
+	    }
 	  return(0);
 	}
       else
 	{
 	  syslog(LOG_ERR, "PARSEDATA:  Extraneous data received %d, len %d",
 		  *pLgMaster->gRawBuffer, *rawindex);
-	  return(-2);
+	  cmdState = 1;
+	  return(0);
 	}
     }
 
@@ -116,7 +123,8 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   if (*rawindex < COMM_RECV_MIN_LEN)
     {
       syslog(LOG_ERR, "PARSEDATA:  Bad input length %x", *rawindex);
-      return(-3);
+      cmdState = 1;
+      return(0);
     }
   if (pLgMaster->gHEX == 1 ) {
     index = 0;
@@ -146,8 +154,8 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   pLgMaster->seqNo    =  (pLgMaster->gInputBuffer[2] << 8) + pLgMaster->gInputBuffer[3];
 
   // Track all commands incoming
-  syslog(LOG_NOTICE, "PARSEDATA:  newCommand rcvd %02x,  seqNo %04x", pLgMaster->newCommand, pLgMaster->seqNo );
-
+  syslog(LOG_NOTICE, "PARSEDATA:  newCommand rcvd %02x,  seqNo %04x, cmdLen = %d",
+	 pLgMaster->newCommand, pLgMaster->seqNo,index);
   switch(pLgMaster->newCommand) {
     // 0x02  kSTOP
   case kStop:
@@ -183,7 +191,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   case kDisplayChunksData:
     cmdSize = kSizeOfCommand
       + offsetof(struct parse_chunkdata_parms, chunk_apt_data);
-    
     if (index > cmdSize) {
       // NOTE INCOMING PARMS (UINT32) ARE BIG-ENDIAN
       dataLength = htonl(((struct parse_chunkdata_parms *)pInp)->chunk_len);
@@ -202,51 +209,28 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	{
 	  cmdState = 1;
 	  if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
-				   (kSizeOfCommand
-				    + offsetof(struct parse_chunkdata_parms, chunk_apt_data)
-				    + dataLength)))
+				  (kSizeOfCommand
+				   + offsetof(struct parse_chunkdata_parms, chunk_apt_data)
+				   + dataLength)))
 	    {
 	      SendConfirmation (pLgMaster, kDisplayChunksData);
 	      AddDisplayChunksData (pLgMaster, dataLength, dataOffset,
 				    (char *)((struct parse_chunkdata_parms *)pInp)->chunk_apt_data, kRespondExtern);
 	    }
 	  else
-	    SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-	}
-      else
-	SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-    }
-    else
-      SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-    break;
-#if 0
-// FIXME---PAH---IS THIS USED ANYMORE???  NOT ON LASERGUIDE LIST!
-  case kDisplay:
-    dataLength = ((struct parse_disp_parms *)pInp)->inp_dataLength;
-    if (index > 8)
-      {
-	cmdSize = kSizeOfCommand + kSizeOfDisplayParameters + dataLength;
-	if (index >= cmdSize + 2)
-	  {
-	    cmdState = 1;
-	    if (kCRC_OK == CheckCRC(pLgMaster->gInputBuffer,
-				    (kSizeOfCommand +
-				     kSizeOfDisplayParameters +
-				     dataLength)))
-	      {
-		SendConfirmation (pLgMaster, kDisplay);
-		gDisplayDataBuffer = (unsigned char *)&(pLgMaster->gParametersBuffer[kSizeOfDisplayParameters]);
-		DoDisplay(pLgMaster,
-			  dataLength,
-			  (unsigned char *)((struct parse_disp_parms *)pInp)->inp_dispdata,
-			  gDisplayDataBuffer);  
-	      }
-	    else
-	    SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
-	  }
-      }
-    break;
+	    {
+#ifdef AGS_DEBUG
+	      pCrc = (uint32_t *)((char *)pLgMaster->gInputBuffer + (kSizeOfCommand
+								     + offsetof(struct parse_chunkdata_parms, chunk_apt_data)
+								     + dataLength));
+	      
+	      syslog(LOG_DEBUG,"ADDCHUNKS CRC ERROR, CRC = %x",*pCrc);
 #endif
+	      SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
+	    }
+	}
+    }
+    break;
   case kFlexDisplay:
     dataLength = ((struct parse_flexdisp_parms *)pInp)->inp_dataLength;
     if (index > 8)

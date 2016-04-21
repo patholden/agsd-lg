@@ -353,7 +353,7 @@ unsigned char InitLaserInterface (struct lg_master *pLgMaster)
 	gQuarterPi = M_PI * .250;
 	gSqrtOfTwo = sqrt (2.0);
         gAPTunitsPerInch = 1.0;
-	gBinarySpanEachDirection = (double)(1 << 15) - .50;
+	gBinarySpanEachDirection = (double)(1 << 15);
 	gMaxPiledPts = 9;
 	gCoarseBabies = 1 << 3;
 	gFineBabies = 1 << 2;

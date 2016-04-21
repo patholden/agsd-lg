@@ -561,7 +561,7 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     // Should be only 2 * event handler period * number of points
     // Adding retries just in case it takes longer for driver to
     // complete
-    time_out = lg_sensor.poll_freq * nPoints  * 2;
+    time_out = SENSOR_READ_FREQ * nPoints;
     usleep(time_out);
     memset((void *)c_out, 0, buff_len);
     for (j=0; j < MAX_DOSENSE_RETRIES; j++)
@@ -582,17 +582,17 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		  struct lg_xydelta *pDeltaData, uint32_t nPoints, uint16_t *c_out, uint32_t do_coarse)
 {
     struct lg_move_data lg_sensor;
-    size_t             num;
-    uint32_t           time_out;
-    uint16_t           j;
-    int                rc;
+    size_t              num;
+    uint32_t            time_out;
+    uint16_t            i, sense_count;
+    int                 rc;
 
     // Move mirrors to XY in the dark to avoid ghost/tail
     move_dark(pLgMaster, pSrchData);
-    usleep(250);   // Wait for driver to write & mirrors to settle.
-    // Send SENSOR command to driver
+    usleep(250);
+    // Set up SENSOR command info for driver
     memset((char *)&lg_sensor, 0, sizeof(struct lg_move_data));
-    lg_sensor.poll_freq = pLgMaster->gSrchStpPeriod;
+    lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
     lg_sensor.xy_curpt.xdata = pSrchData->xdata;
     lg_sensor.xy_curpt.ydata = pSrchData->ydata;
     lg_sensor.xy_curpt.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
@@ -600,26 +600,36 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     lg_sensor.xy_delta.ydata = pDeltaData->ydata;
     lg_sensor.nPoints =  nPoints;
     lg_sensor.do_coarse = do_coarse;
+
+    // Send SENSOR command to driver
     rc = doSensor(pLgMaster, &lg_sensor);
     if (rc < 0)
       {
 	syslog(LOG_ERR, "Unable to send sense command to driver, rc %x,errno %x",rc,errno);
-	return(kStop);
+	return(kStopWasDone);
       }
     // Need to give driver time to complete the SENSE sequence
-    // Should be only 2 * event handler period * number of points
-    // Adding retries just in case it takes longer for driver to
-    // complete
-    time_out = lg_sensor.poll_freq * nPoints  * 2;
+    // Should be only event handler WRITE+READ period * number of points
+    // Adding fudge factor of times-2 to complete
+    time_out = SENSOR_READ_FREQ * nPoints;
     usleep(time_out);
     memset((void *)c_out, 0, nPoints * sizeof(int16_t));
-    for (j=0; j < MAX_DOSENSE_RETRIES; j++)
+    num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
+    sense_count = 0;
+    if (num > 0)
       {
-	num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
-	if (num >= 0)
-	  return(0);
-	else
-	  usleep(100);
+	for (i = 0; i < nPoints; i++)
+	  {
+	    if ((c_out[i] > 0) && (c_out[i] < SENSE_MAX_THRESHOLD))
+	      {
+		sense_count++;
+		if (sense_count > 3)
+		  {
+		    syslog(LOG_NOTICE,"Driver found %d valid points", sense_count);
+		    return(0);
+		  }
+	      }
+	  }
       }
     return(kCoarseNotFound);
 }

@@ -13,9 +13,9 @@
 #define kYtooLargeToSearch      -7
 #define kSuperFineNotFound      -8
 #define kSuperFineTooFew        -9
-
 #define kNumberDrift   12
 #define kMaxQuickSearches       3
+#define SENSE_BUF_SIZE          sizeof(int16_t) * 500000
 
 int QuickCheckASensor(struct lg_master *pLgMaster, int16_t centerX, int16_t centerY);
 int DoSearch(int16_t startX, int16_t startY, int16_t *foundX, int16_t *foundY);

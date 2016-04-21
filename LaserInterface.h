@@ -48,8 +48,7 @@ uint32_t ConvertGeometricAnglesToBinary(struct lg_master *pLgMaster,
 uint32_t ConvertMirrorAnglesToBinary( double xIn, double yIn,
 				int16_t *xOut, int16_t *yOut );
 void ConvertMirrorToGeometricAngles(double *x, double *y);
-void ConvertBinaryToMirrorAngles(int16_t xIn, int16_t yIn,
-				 double *xOut, double *yOut );
+void ConvertBinaryToMirrorAngles(int16_t xBin, int16_t yBin, double *xAng, double *yAng);
 void XYFromGeometricAnglesAndZ(struct lg_master *pLgMaster, double xa, double ya,
 			       double z,double *x, double *y);
 uint32_t ConvertExternalAnglesToBinary(struct lg_master *pLgMaster,
