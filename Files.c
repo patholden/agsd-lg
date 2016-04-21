@@ -146,37 +146,39 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
       }    
       
     if ( strcmp( ini_name, lcName ) == 0 ) {
+        size = INIT_SIZE;
         strcpy( FSName, "/etc/ags/conf/init" );
     }
     else if ( strcmp( nfo_name, lcName ) == 0 ) {
-       strcpy( FSName, "/etc/ags/conf/info" );
+        size = INFO_SIZE;
+        strcpy( FSName, "/etc/ags/conf/info" );
     }
     else if ( strcmp( cal_name, lcName ) == 0 ) {
+        size = CALIB_SIZE;
         strcpy( FSName, "/etc/ags/conf/calib" );
     }
     else if ( strcmp( ags_name, lcName ) == 0 ) {
+        size = AGS_SIZE;
         strcpy( FSName, "/agsd" );
     }
     else if ( strcmp( auto_name, lcName ) == 0 ) {
+        size = AUTO_SIZE;
         strcpy( FSName, "/etc/ags/conf/autofocus" );
     }
     else if ( strcmp( vision_name, lcName ) == 0 ) {
+        size = BIG_SIZE;
         strcpy( FSName, "/etc/ags/conf/vision" );
     }
     else if ( strcmp( polarizer_name, lcName ) == 0 ) {
-#if 0
+        size = DATA_SIZE;
         strcpy( FSName, "/etc/ags/conf/polarizer" );
-#else
-	syslog(LOG_ERR,"\nFILEGETSTART: Polarizer not supported right now");
-	pResp->hdr.cmd = RESPFAIL;
-	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
-	return;
-#endif
     }
     else if ( strcmp( focus_vision_name, lcName ) == 0 ) {
+        size = DATA_SIZE;
         strcpy( FSName, "/etc/ags/conf/focusvision" );
     }
     else if ( strcmp( hob_name, lcName ) == 0 ) {
+        size = HOBB_SIZE;
         strcpy( FSName, "/etc/ags/conf/hobbs" );
     }
     else if ( strcmp( ver_name, lcName ) == 0 ) {
@@ -284,6 +286,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
       }
     
     MaxSize = 0;
+
     if ( strcmp( ini_name, lcName ) == 0 ) {
       MaxSize = INIT_SIZE;
       strcpy( FSName, "/etc/ags/conf/init" );
@@ -328,7 +331,6 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
     else      
       sprintf(FSName, "etc/ags/conf/%s",lcName);
 
-    MaxSize = 0;
     err = GetFileSize(FSName, &MaxSize);
     if (err)
       {
@@ -479,6 +481,9 @@ void   DoFilePutStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     else if ( strcmp( vision_name, lcName ) == 0 ) {
         MaxSize =    BIG_SIZE;
     }
+    else if ( strcmp( polarizer_name, lcName ) == 0 ) {
+        MaxSize =    DATA_SIZE;
+    }
     else MaxSize = 0;
     err = 0;
     if ( request > MaxSize ) { err = -1; }
@@ -557,10 +562,10 @@ void   HandleFilePutData  (struct lg_master *pLgMaster, char * parameters, uint3
       }
 
     if ( strcmp( ini_name, lcName ) == 0 ) {
-      MaxSize =    INIT_SIZE;
+        MaxSize =    INIT_SIZE;
     }
     else if ( strcmp( nfo_name, lcName ) == 0 ) {
-      MaxSize =    INFO_SIZE;
+        MaxSize =    INFO_SIZE;
     }
     else if ( strcmp( cal_name, lcName ) == 0 ) {
         MaxSize =    CALIB_SIZE;
@@ -579,6 +584,9 @@ void   HandleFilePutData  (struct lg_master *pLgMaster, char * parameters, uint3
     }
     else if ( strcmp( vision_name, lcName ) == 0 ) {
         MaxSize =    BIG_SIZE;
+    }
+    else if ( strcmp( polarizer_name, lcName ) == 0 ) {
+        MaxSize =    DATA_SIZE;
     }
 
     if (((offset+length) > saveLength) || ((offset+length) > BIG_SIZE))
@@ -720,6 +728,10 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
         if ( itest != 0 ) {
              MaxSize = 0;
         }
+    }
+    else if ( strcmp( polarizer_name, lcName ) == 0 ) {
+        MaxSize =    DATA_SIZE;
+        strcpy( FSName, "/etc/ags/conf/polarizer" );
     }
     else
         sprintf(FSName, "/etc/ags/conf/%s",pInp->inp_filename);
@@ -912,7 +924,7 @@ static int ReadFromFS ( char *buff, char * name, int32_t offset, int32_t request
 
   return(0);
 }
-static int GetVersionSize(struct lg_master *pLgMaster, uint32_t*size)
+static int GetVersionSize(struct lg_master *pLgMaster, uint32_t *size)
 {
   if (!pLgMaster->vers_data.isVersInit)
     {
@@ -922,7 +934,7 @@ static int GetVersionSize(struct lg_master *pLgMaster, uint32_t*size)
   *size = pLgMaster->vers_data.version_size;
   return(0);
 }
-static int GetFileSize(char *filename, uint32_t*size)
+static int GetFileSize(char *filename, uint32_t *size)
 {
   FILE *handle;
   long  file_size;
@@ -934,7 +946,11 @@ static int GetFileSize(char *filename, uint32_t*size)
   // Figure out length of file
   fseek(handle, 0L, SEEK_END);
   file_size = ftell(handle);
-  fseek(handle, 0L, SEEK_SET);
+  if (file_size > *size)
+    {
+      fclose(handle);
+      return(-1);
+    }
   *size = (uint32_t)(file_size & 0xFFFFFFFF);
   fclose(handle);
   return(0);
