@@ -26,22 +26,18 @@ static char rcsid[] = "$Id: QuickCheckManager.c,v 1.15 2007/03/30 18:59:23 pickl
 #define	kMaxMissedInQuickCheck			3
 #define	kQCHistoryLength			1
 
+static	uint16_t	gNumberOfSets = 0;
+static	unsigned char	gFailureArray[kMaxNumberOfPlies][kNumberOfFlexPoints][kQCHistoryLength];
 
-
-static	uint16_t	gNumberOfSets=0;
-static	unsigned char	gFailureArray[kMaxNumberOfPlies]
-				[kNumberOfFlexPoints][kQCHistoryLength];
-int16_t  gCurrentQCSensor=0;
-uint16_t  gCurrentQC=0;
-int16_t  gCurrentQCSet=0;
-int     gRealTimeTransform = 0;
-int32_t gQCtimer = -1;
-uint32_t	gQuickCheckAngles[ kMaxNumberOfPlies * kNumberOfFlexPoints * 2 ];
-uint32_t	gRespondToWhom;
-
-int32_t gQuickCheckTargetNumber [ kMaxNumberOfPlies ];
-
-int32_t gQuickFailNumber = kMaxMissedInQuickCheck;
+int                     gRealTimeTransform = 0;
+int32_t                 gQCtimer = -1;
+int32_t                 gQuickCheckTargetNumber[kMaxNumberOfPlies];
+int32_t                 gQuickFailNumber = kMaxMissedInQuickCheck;
+uint32_t	        gQuickCheckAngles[kMaxNumberOfPlies * kNumberOfFlexPoints * 2];
+uint32_t	        gRespondToWhom;
+int16_t                 gCurrentQCSensor = 0;
+uint16_t                gCurrentQC = 0;
+int16_t                 gCurrentQCSet = 0;
 
 static	void		InitQuickCheckHistory ( void );
 static	void		AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom );
@@ -375,20 +371,27 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
     }
 }
 
-
 void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWhom )
 {
+  struct parse_basic_resp *pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
+  struct parse_quickcheckcount_parms *pInp = (struct parse_quickcheckcount_parms *)data;
   int itemp;
-  struct parse_basic_resp*pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  struct parse_quickcheckcount_parms*pInp=(struct parse_quickcheckcount_parms *)data;
 
-  stopQCcounter(pLgMaster);
-  resetQCcounter(pLgMaster);
+  syslog( LOG_DEBUG, "Entered DoQCcount" );
+  
+  stopQCcounter( pLgMaster );
 
-  // Prep buffer for response
-  memset(pResp, 0, sizeof(struct parse_basic_resp));
+  resetQCcounter( pLgMaster );
+
+  // prep buffer for response
+  memset( pResp, 0, sizeof(struct parse_basic_resp) );
   
   itemp = pInp->inp_qccount;
+
+  syslog( LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckCount: %d",
+	  pLgMaster->gHeaderSpecialByte,
+	  pInp->inp_qccount );
+
   if ( itemp <= 0 )
     {
       if ( itemp == -2 )
@@ -396,44 +399,57 @@ void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWho
       else
 	pLgMaster->gQCcount = -1;
 
-      SetQCcounter(pLgMaster, pLgMaster->gQCcount);
+      SetQCcounter( pLgMaster, pLgMaster->gQCcount );
       gQuickCheck = 0;
-      stopQCcounter(pLgMaster);
+      stopQCcounter( pLgMaster );
     }
   else
     {
       pLgMaster->gQCcount = itemp;
       gQuickCheck = 1;
-      SetQCcounter(pLgMaster, pLgMaster->gQCcount);
+      SetQCcounter( pLgMaster, pLgMaster->gQCcount );
     }
 
-  resetQCcounter(pLgMaster);
+  resetQCcounter( pLgMaster );
+
   pResp->hdr.status = RESPGOOD;
-  HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
+
+  HandleResponse( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+
   return;
 }
 
-void DoQCtimer (struct lg_master *pLgMaster, char * data, uint32_t respondToWhom )
+void DoQCtimer ( struct lg_master *pLgMaster, char *data, uint32_t respondToWhom )
 {
+  struct parse_quickchecktime_parms *pInp = (struct parse_quickchecktime_parms *)data;
+  struct parse_basic_resp *pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   int itemp;
-  struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-  struct parse_quickchecktime_parms *pInp=(struct parse_quickchecktime_parms *)data;
 
-  stopQCcounter(pLgMaster);
+  syslog( LOG_DEBUG, "Entered DoQCtimer" );
+
+  stopQCcounter( pLgMaster );
 
   itemp = pInp->inp_qctime;
+
+  syslog( LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckTimer: %d",
+	  pLgMaster->gHeaderSpecialByte,
+	  pInp->inp_qctime );
+
   if ( itemp < 0 ) {
     gQCtimer = -1;
     gQuickCheck = 0;
-    stopQCcounter(pLgMaster);
+    stopQCcounter( pLgMaster );
   } else {
     gQCtimer = itemp;
     if ( gQCtimer > 1000 ) gQCtimer = 1000;
     gQuickCheck = 1;
   }
 
- stopQCcounter(pLgMaster);
- pResp->hdr.status = RESPGOOD;
- HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
- return;
+  stopQCcounter( pLgMaster );
+
+  pResp->hdr.status = RESPGOOD;
+
+  HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
+
+  return;
 }
