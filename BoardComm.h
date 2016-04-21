@@ -17,13 +17,24 @@
 #define PROJ_VISION  1
 #define PROJ_LASER   2
 #define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
-#define MAX_DOSENSE_RETRIES 30
+#define MAX_DOSENSE_RETRIES 10
 #define DOSENSE_LEVEL       30
 #define DOSENSE_MID       0x300
 #define DOSENSE_MIN_SAMPLES   20
+#define GRIDPOS  30.0
+#define GRIDNEG  -30.0
+#define GRIDSPAN  60.0
+#define MINBINVAL  -0x7FFF
+#define MAXBINVAL  0x7FFF
+#define DBLRND     0.5
 #define kMaxUnsigned      0xFFFF
+#if 1
 #define kMaxSigned        0x7FFF
 #define kMinSigned        (-kMaxSigned)
+#else
+#define kMaxSigned        0xFFFF
+#define kMinSigned        0
+#endif
 #define kBinaryCenter	   0.50
 #define kCoarseFactorDef   8
 #define kCoarseFactorMin   1

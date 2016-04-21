@@ -308,7 +308,7 @@ int main ( int argc, char **argv )
       if (pConfigMaster->serial_ether_flag == 2)
 	{
 	  error = DoProcEnetPackets(pConfigMaster);
-	  if (error == -1)
+	  if (error < 0)
 	    {
 	      syslog(LOG_ERR, "COMMLOOP: Read  data failure, err = %x, try to re-open", error);
 	      // Try to open Comms interface to PC host

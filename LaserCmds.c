@@ -265,7 +265,7 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
     if ((dataLength + dataOffset) > pLgMaster->gDataChunksLength)
       {
 	pResp->hdr.status = RESPFAIL;
-	pResp->hdr.errtype = htons(RESPDATATOOLARGE);
+	pResp->hdr.errtype1 = RESPDATATOOLARGE;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
@@ -273,7 +273,7 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
     if (pLgMaster->gTransmitLengthSum > pLgMaster->gDataChunksLength)
       {
 	pResp->hdr.status = RESPFAIL;
-	pResp->hdr.errtype = htons(RESPDATATOOLARGE);
+	pResp->hdr.errtype1 = RESPDATATOOLARGE;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }

@@ -55,14 +55,16 @@ short CheckCRC(unsigned char *theBuffer, uint32_t lengthOfBufferWithoutCRC)
 	theCurrentByte = theBuffer;
 	i = lengthOfBufferWithoutCRC + 2;
 	
-	while ( i-- ) theCRC = ( theCRC << 8 ) ^
-		g256Lookup16bitWords[ ( theCRC >> 8 ) ^ *( theCurrentByte++ ) ];
+	while (i--)
+	  theCRC = (theCRC << 8) ^
+		g256Lookup16bitWords[(theCRC >> 8) ^ *(theCurrentByte++)];
 	
-	if ( theCRC ){
-		return kCRC_Bad;
-	} else {
-		return kCRC_OK;
-        }
+	if (theCRC)
+	  {
+	    syslog(LOG_ERR,"Command CRC failure, result %x",theCRC);
+	    return kCRC_Bad;
+	}
+	return(kCRC_OK);
 }
 
 
