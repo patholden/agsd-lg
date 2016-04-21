@@ -35,7 +35,4 @@ void DoDisplayVideoCheck(uint32_t dataLength, char *otherParameters,
 void DoSegmentDisplay(double x, double y, uint32_t respondToWhom);
 void DoDisplayChunksRaw(int32_t respondToWhom);
 void DimAngle (struct lg_master *pLgMaster, struct parse_dimangle_parms *pInp, uint32_t respondToWhom);
-
-double DoubleFromCharConv(unsigned char *theChar);
-void ShortConv(unsigned char *theChar);
 #endif

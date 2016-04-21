@@ -32,88 +32,95 @@ static  int gFirstTimer = 1;
 
 void DoSystemPeriodic (struct lg_master *pLgMaster)
 {
-  int doQuickCheck;
-  int result;
-  int32_t QCresult;
-  int32_t diff;
+    int doQuickCheck;
+    int result;
+    int32_t QCresult;
+    int32_t diff;
 
-  result = 0;
-  QCresult = 0;
-  if (pLgMaster->gDisplayFlag <= 0 ) {
-    gFirstTimer = 1;
-  }
-  if ( gQCtimer < 0 ) {
-    QCresult = GetQCflag(pLgMaster);
-  }
+    result = 0;
+    QCresult = 0;
+    if (pLgMaster->gDisplayFlag <= 0 )
+      gFirstTimer = 1;
+    if (gQCtimer < 0)
+      QCresult = GetQCflag(pLgMaster);
+
 #if defined(KITDEBUG)
-  LTemp = GetQCcounter(pLgMaster);
-  syslog(LOG_ERR, "SS42 %d %d %d %d", gQCtimer,QCresult,gFirstTimer,LTemp );
+    LTemp = GetQCcounter(pLgMaster);
+    syslog(LOG_ERR, "SS42 %d %d %d %d", gQCtimer,QCresult,gFirstTimer,LTemp );
 #endif
-  if ( gQCtimer > 0 ) {
-#ifdef KITDEBUG
-    syslog(LOG_ERR, "SS43 gDisplayFlag %d", pLgMaster->gDisplayFlag );
-    syslog(LOG_ERR, "SS44 gFirstTimer %d", gFirstTimer );
-    syslog(LOG_ERR, "SS45 gQCtimer %d", gQCtimer );
-#endif
-    if (pLgMaster->gDisplayFlag > 0)
+    if (gQCtimer > 0)
       {
-	if (gFirstTimer == 1)
+#ifdef KITDEBUG
+	syslog(LOG_ERR, "SS43 gDisplayFlag %d", pLgMaster->gDisplayFlag );
+	syslog(LOG_ERR, "SS44 gFirstTimer %d", gFirstTimer );
+	syslog(LOG_ERR, "SS45 gQCtimer %d", gQCtimer );
+#endif
+	if (pLgMaster->gDisplayFlag > 0)
 	  {
-	    InitQCtimer();
-	    gFirstTimer = 0;
+	    if (gFirstTimer == 1)
+	      {
+		InitQCtimer();
+		gFirstTimer = 0;
+	      }
+	    else
+	      {
+		diff = GetQCtimer();
+#ifdef KITDEBUG
+		syslog(LOG_ERR, "SS54 diff %d", diff );
+#endif
+		if (diff >= gQCtimer)
+		  QCresult = 1;
+		else
+		  QCresult = 0;
+	      }
+	  }
+      }
+
+    if (QCresult > 0)
+      {
+#ifdef KITDEBUG
+	syslog(LOG_ERR, "line 124 SystemSpecifics about to Stop QC %d", QCresult );
+#endif
+	gFirstTimer = 1;
+	if (gQuickCheck == 1)
+	  {
+	    doQuickCheck = ShouldDoQuickCheck(); 
+#ifdef KITDEBUG
+	    syslog(LOG_ERR, "SS67 doQC %d", doQuickCheck );
+#endif
+	    if (doQuickCheck)
+	      {
+		SlowDownAndStop(pLgMaster);
+		result = PerformPeriodicQuickCheck(pLgMaster);
+
+		resetQCcounter(pLgMaster);
+		if (result != kStopWasDone)
+		  ResumeDisplay(pLgMaster);
+	      }
+	    else
+	      {
+		DummyQuickCheck();
+		if (gQCtimer < 0)
+		  resetQCcounter(pLgMaster);
+	      }
 	  }
 	else
 	  {
-	    diff = GetQCtimer();
 #ifdef KITDEBUG
-	    syslog(LOG_ERR, "SS54 diff %d", diff );
+	    syslog(LOG_NOTICE, "line 124 SystemSpecifics about to Stop QC %d", QCresult);
+	    syslog(LOG_NOTICE, "line 125 SystemSpecifics gVideoCheck %d", gVideoCheck);
+	    syslog(LOG_NOTICE, "line 126 SystemSpecifics gVideoCount %d", gVideoCount);
 #endif
-	    if (diff >= gQCtimer)
-	      QCresult = 1;
-	    else
-	      QCresult = 0;
+	    if (gVideoCheck == 1)
+	      {
+		SlowDownAndStop(pLgMaster);
+		PerformVideoCheck (pLgMaster, 1);
+		SetQCcounter(pLgMaster, gVideoCount );
+		ResumeDisplay(pLgMaster);
+	      } 
 	  }
       }
-  }
-
-  if( QCresult > 0 ) {
-#ifdef KITDEBUG
-    syslog(LOG_ERR, "line 124 SystemSpecifics about to Stop QC %d", QCresult );
-#endif
-    gFirstTimer = 1;
-    if ( gQuickCheck == 1 ) {
-      doQuickCheck = ShouldDoQuickCheck(); 
-#ifdef KITDEBUG
-      syslog(LOG_ERR, "SS67 doQC %d", doQuickCheck );
-#endif
-      if ( doQuickCheck ) {
-	SlowDownAndStop(pLgMaster);
-	result = PerformPeriodicQuickCheck (pLgMaster);
-	
-	resetQCcounter(pLgMaster);
-	if ( result != kStopWasDone ) {
-	  ResumeDisplay(pLgMaster);
-	}
-      } else {
-	DummyQuickCheck();
-	if ( gQCtimer < 0 ) {
-	  resetQCcounter(pLgMaster);
-	}
-      }
-    } else {
-#ifdef KITDEBUG
-      syslog(LOG_NOTICE, "line 124 SystemSpecifics about to Stop QC %d", QCresult);
-      syslog(LOG_NOTICE, "line 125 SystemSpecifics gVideoCheck %d", gVideoCheck);
-      syslog(LOG_NOTICE, "line 126 SystemSpecifics gVideoCount %d", gVideoCount);
-#endif
-      if ( gVideoCheck == 1 ) {
-	SlowDownAndStop(pLgMaster);
-	PerformVideoCheck (pLgMaster, 1);
-	SetQCcounter(pLgMaster, gVideoCount );
-	ResumeDisplay(pLgMaster);
-      } 
-    }
-  }
+    return;
 }
 
 int32_t SystemGoAhead ( void )

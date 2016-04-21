@@ -21,6 +21,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 #define RESPFAIL 0xE8      // aka kFail
 #define RESPGOOD 0xE0      //  aka kOK
 #define RESPSTOPOK 0xE2    // aka kStopOK
+#define RESPQCPLYFAIL       0xEB    // AKA kQuickCheckPlyFail
 #define RESPDATATOOLARGE  0x6
 #define RESPTOOMANYPLIES  0x8
 #define RESPOTHERERROR    0xFFFF
@@ -33,6 +34,8 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 #define LCNAME_SIZE       32
 #define MAX_TARGETSOLD 6
 #define MAX_TGTANGLEOLD 6
+#define QCPLYCOUNTMASK      0xFFFFFF
+#define QCPLYCOUNT23MASK    0xFFFF
 
 struct k_targetinfo
 {
@@ -553,6 +556,14 @@ struct parse_calibxy_resp
   struct k_header  hdr;
   double           foundX;
   double           foundY;
+  uint16_t         resp_crc;
+} __attribute__ ((packed));
+struct parse_qcmgr_resp
+{
+  struct k_header  hdr;
+  uint32_t         unused;
+  uint16_t         currQCSet;
+  uint16_t         QCPlybyte23;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
 

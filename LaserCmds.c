@@ -650,32 +650,5 @@ void DoQuickCheck (struct lg_master *pLgMaster, struct parse_qkcheck_parms *pInp
     gRespondToWhom = respondToWhom;
       // must now set number of targets, hard-coded to max val for old max.
     PerformAndSendQuickCheck (pLgMaster, pInp->anglepairs, MAX_TARGETSOLD);
-}
-
-double DoubleFromCharConv ( unsigned char *theChar )
-{
-  double   return_val=0;
-
-  memcpy((char *)&return_val, theChar, sizeof(double));
-  return(return_val);
-}
-
-void ShortConv ( unsigned char *theChar )
-{
-#if GENERATING68K
-	return;
-#else
-	unsigned char theThing [ sizeof ( uint32_t ) ];
-	unsigned char *thing = theThing;
-	unsigned short i;
-	if ( gSameEndian ) return;
-	memcpy(thing, theChar, sizeof(uint16_t));
-#if 0
-	*(unsigned short *)thing = *(unsigned short *)theChar;
-#endif
-	i = sizeof ( unsigned short );
-	thing += i;
-	while ( i-- ) *(theChar++) = *(--thing);
-	return;
-#endif
+    return;
 }
