@@ -18,6 +18,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 #define OLDANGLEPAIRSLEN 48     // kNumberOfFlexPoints * 2 * sizeof(uint32_t)
 #define ANGLEPAIRSLENFLEX  192  // kNumberOfFlexPoints * 2 * sizeof(uint32_t)
 #define NUMDISPFLEXPOINTS 576      // kNumberOfFlexPoints * 3 * sizeof ( double )
+#define RESPFLEXFAIL 0xE7  // aka kFlexFail
 #define RESPFAIL 0xE8      // aka kFail
 #define RESPGOOD 0xE0      //  aka kOK
 #define RESPSTOPOK 0xE2    // aka kStopOK
