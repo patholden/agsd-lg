@@ -282,9 +282,9 @@ int PerformPeriodicQuickCheck (struct lg_master *pLgMaster)
                                                   = false;
   //NOTE: in general, plies will NOT necessarily have kNumberOfFlexPoints	
   gCurrentQCSensor++;
-  if ( gCurrentQCSensor == gQuickCheckTargetNumber[gCurrentQCSet] ) {
+  if (gCurrentQCSensor == gQuickCheckTargetNumber[gCurrentQCSet])
     gCurrentQCSensor = 0;
-  }
+
   if (gCurrentQCSensor > gQuickCheckTargetNumber[gCurrentQCSet])
     {
       syslog(LOG_ERR, "QuickCheckManager 301 BAD ERROR  %d %d %d", gNumberOfSets,
@@ -306,69 +306,59 @@ int PerformPeriodicQuickCheck (struct lg_master *pLgMaster)
 
 void InitQuickCheckHistory ( void )
 {
-	short i, j, k;
-	k = kMaxNumberOfPlies;
-	while ( k-- )
-	{
-		i = kNumberOfFlexPoints;
-		while ( i-- )
-		{
-			j = kQCHistoryLength;
-			while ( j-- ) gFailureArray[k][i][j] = false;
-		}
-	}
-	gCurrentQCSensor = 0;
-	gCurrentQC = 0;
-	gCurrentQCSet = 0;
-	return;
+    uint32_t i, j, k;
+
+    k = kMaxNumberOfPlies;
+    for (k = kMaxNumberOfPlies; k > 0; k--)
+      {
+	for (i = kNumberOfFlexPoints; i > 0; i--)
+	  {
+	    j = kQCHistoryLength;
+	    while (j--)
+	      gFailureArray[k][i][j] = false;
+	  }
+      }
+    gCurrentQCSensor = 0;
+    gCurrentQC = 0;
+    gCurrentQCSet = 0;
+    return;
 }
 
 //FIXME---PAH---NEED TO FIX CMD/RESP HERE
 void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
-  char *theResponseBuffer=(char *)pLgMaster->theResponseBuffer;
-  char *tmpPtr=theResponseBuffer;
-  short numberOfBadSensors = 0;
-  short numberOfMissesOnASensor, i, j;
-  uint32_t tempMsg;
-  uint32_t return_code;
-  uint16_t ret_16;
-  uint16_t byte3=0;
+  struct parse_qcmgr_resp *pResp;
+    uint16_t  numBadSensors = 0;
+    uint16_t  numMissOnASensor, i, j;
+    uint32_t  QCPlyCount=0;
 
-  memset(theResponseBuffer, 0, (sizeof(uint32_t) + (2 * sizeof(uint32_t) + kCRCSize)));
-  tempMsg = 0U;
-
-  i = kNumberOfFlexPoints;
-  while (i--)
-    {
-      numberOfMissesOnASensor = 0;
-      j = kQCHistoryLength;
-      while (j--)
-	{
-	  if (gFailureArray[gCurrentQCSet][i][j])
-	    numberOfMissesOnASensor++;
-	}
-      if (numberOfMissesOnASensor >= 1)
-	{
-	  tempMsg += (1U << i);
-	  numberOfBadSensors++;
-	}
-    }
-  if (numberOfBadSensors >= gQuickFailNumber)
-    {
-      byte3 = (0x00FF0000 & tempMsg) >> 16;
-      return_code = kQuickCheckPlyFail + byte3;
-      memcpy(theResponseBuffer, &return_code, sizeof(return_code));
-      tmpPtr = (char *)(theResponseBuffer + sizeof(uint32_t));
-      ret_16 = (uint16_t)(gCurrentQCSet + 1);
-      memcpy(tmpPtr, &ret_16, sizeof(uint16_t));
-      ShortConv((unsigned char *)(tmpPtr));
-      tmpPtr = (char *)(theResponseBuffer + sizeof(uint32_t) + sizeof(uint16_t));
-      ret_16 = (uint16_t)(0xFFFF & tempMsg);
-      memcpy(tmpPtr, &ret_16, sizeof(uint16_t));
-      ShortConv((unsigned char *)tmpPtr);
-      HandleResponse(pLgMaster, (sizeof(uint32_t) + 2 * sizeof(uint16_t)), kRespondExtern);
-    }
+    pResp = (struct parse_qcmgr_resp *)pLgMaster->theResponseBuffer;
+    memset(pResp, 0, ((sizeof(struct parse_qcmgr_resp) + kCRCSize)));
+  
+    for (i = kNumberOfFlexPoints; i > 0; i--)
+      {
+	numMissOnASensor = 0;
+	for (j = kQCHistoryLength; j > 0; j--)
+	  {
+	    if (gFailureArray[gCurrentQCSet][i][j])
+	      numMissOnASensor++;
+	  }
+	if (numMissOnASensor >= 1)
+	  {
+	    QCPlyCount += (1 << i);
+	    numBadSensors++;
+	  }
+      }
+    QCPlyCount &= QCPLYCOUNTMASK;
+    if (numBadSensors >= gQuickFailNumber)
+      {
+	pResp->hdr.status = RESPQCPLYFAIL;
+	pResp->hdr.qcply_byte1 = QCPlyCount >> 16;
+	pResp->currQCSet = gCurrentQCSet + 1;
+	pResp->QCPlybyte23 = htons(QCPlyCount & QCPLYCOUNT23MASK);
+	HandleResponse(pLgMaster, (sizeof(struct parse_qcmgr_resp)-kCRCSize), kRespondExtern);
+      }
+    return;
 }
 
 void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWhom )
@@ -377,18 +367,15 @@ void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWho
   struct parse_quickcheckcount_parms *pInp = (struct parse_quickcheckcount_parms *)data;
   int itemp;
 
-  syslog( LOG_DEBUG, "Entered DoQCcount" );
-  
-  stopQCcounter( pLgMaster );
-
-  resetQCcounter( pLgMaster );
+  stopQCcounter(pLgMaster);
+  resetQCcounter(pLgMaster);
 
   // prep buffer for response
   memset( pResp, 0, sizeof(struct parse_basic_resp) );
   
   itemp = pInp->inp_qccount;
 
-  syslog( LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckCount: %d",
+  syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckCount: %d",
 	  pLgMaster->gHeaderSpecialByte,
 	  pInp->inp_qccount );
 
@@ -411,11 +398,8 @@ void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWho
     }
 
   resetQCcounter( pLgMaster );
-
   pResp->hdr.status = RESPGOOD;
-
   HandleResponse( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-
   return;
 }
 
@@ -425,31 +409,28 @@ void DoQCtimer ( struct lg_master *pLgMaster, char *data, uint32_t respondToWhom
   struct parse_basic_resp *pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   int itemp;
 
-  syslog( LOG_DEBUG, "Entered DoQCtimer" );
-
   stopQCcounter( pLgMaster );
-
   itemp = pInp->inp_qctime;
-
-  syslog( LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckTimer: %d",
+  syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckTimer: %d",
 	  pLgMaster->gHeaderSpecialByte,
-	  pInp->inp_qctime );
+	  pInp->inp_qctime);
 
-  if ( itemp < 0 ) {
-    gQCtimer = -1;
-    gQuickCheck = 0;
-    stopQCcounter( pLgMaster );
-  } else {
-    gQCtimer = itemp;
-    if ( gQCtimer > 1000 ) gQCtimer = 1000;
-    gQuickCheck = 1;
-  }
+  if (itemp < 0)
+    {
+      gQCtimer = -1;
+      gQuickCheck = 0;
+      stopQCcounter(pLgMaster);
+    }
+  else
+    {
+      gQCtimer = itemp;
+      if (gQCtimer > 1000)
+	gQCtimer = 1000;
+      gQuickCheck = 1;
+    }
 
   stopQCcounter( pLgMaster );
-
   pResp->hdr.status = RESPGOOD;
-
   HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-
   return;
 }

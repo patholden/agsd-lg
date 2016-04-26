@@ -962,6 +962,9 @@ void ResumeDisplay(struct lg_master *pLgMaster)
 {
     int                   rc;
     
+#ifdef AGS_DEBUG
+    syslog(LOG_DEBUG, "Attempting to resume display");
+#endif
     RestoreBeamPosition(pLgMaster);
     StartHobbs(pLgMaster);
     pLgMaster->gDisplayFlag = 1;

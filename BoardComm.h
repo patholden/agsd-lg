@@ -91,6 +91,11 @@ struct k_header {
     struct {
       uint32_t      hdr;
     };
+    struct {
+      unsigned char status2;
+      unsigned char qcply_byte1;
+      uint16_t      unused;
+    };
   };
 } __attribute__ ((packed));
 struct version_info {

@@ -23,6 +23,7 @@
 #include "LaserCmds.h"
 #include "SystemMaint.h"
 #include "CRCHandler.h"
+#include "SystemSpecifics.h"
 
 #define MAXPENDING  5   // Max # connection requests
 #define AGS_PORT  1234
@@ -201,7 +202,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
       {
 	free(last_buff);
 	free(recv_data);
-	return(0);
+	return(-1);
       }
     // Process incoming data
     error = parse_data(pLgMaster, recv_data, total_count, &parsed_count);
@@ -214,7 +215,7 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
       }
     free(last_buff);
     free(recv_data);
-    return(data_len);
+    return(0);
 }
 static int IsOkToSend(struct lg_master *pLgMaster)
 {
@@ -443,20 +444,23 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
       {
 	error = ProcEnetPacketsFromHost(pLgMaster);
 	if (error < 0)
+	  return(error);
+	else
 	  {
 	    // Honor ping-heartbeat so partner knows we're alive
 	    // FIXME--PAH.  NEED TO PUT PING INTO PTHREAD & JUST CHECK STATUS.
 	    if ((pingClient(pLgMaster->webhost)) != 0)
-	      pLgMaster->ping_count = 0;
+	      {
+		pLgMaster->ping_count = 0;
+		return(-1);
+	      }
 	    else
 	      pLgMaster->ping_count++;
-	    return(0);
+	    
 	  }
+	DoSystemPeriodic(pLgMaster);
       }
-
     // Should never get here
-    if (pLgMaster->datafd == -1)
-      return(-1);
     return(0);
 }
 

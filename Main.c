@@ -1,7 +1,6 @@
-#include <stdint.h>
 //static char rcsid[] = "$Id: Main.c,v 1.29 2001/01/03 18:02:20 ags-sw Exp ags-sw $";
 
-#include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -10,6 +9,7 @@
 #include <termios.h>
 #include <errno.h>
 #include <signal.h>
+#include <pthread.h>
 #include <math.h>
 #include <sys/io.h>
 #include <sys/socket.h>
@@ -311,13 +311,21 @@ int main ( int argc, char **argv )
 	  if (error < 0)
 	    {
 	      syslog(LOG_ERR, "COMMLOOP: Read  data failure, err = %x, try to re-open", error);
-	      // Try to open Comms interface to PC host
-	      if ((CommConfigSockfd(pConfigMaster)) < 0)
+	      if (pConfigMaster->datafd >= 0)
 		{
-		  syslog(LOG_ERR, "COMMLOOP: Unable to restart Comms, shutting down\n");
-		  ags_cleanup(pConfigMaster);
-		  closelog();
-		  exit(EXIT_FAILURE);
+		  close(pConfigMaster->datafd);
+		  pConfigMaster->datafd = -1;
+		}
+	      else
+		{
+		  // Try to open Comms interface to PC host
+		  if ((CommConfigSockfd(pConfigMaster)) < 0)
+		    {
+		      syslog(LOG_ERR, "COMMLOOP: Unable to restart Comms, shutting down\n");
+		      ags_cleanup(pConfigMaster);
+		      closelog();
+		      exit(EXIT_FAILURE);
+		    }
 		}
 	    }
 	}
