@@ -38,9 +38,11 @@ static char rcsid[] = "$Id: FullRegWithFeedback.c,v 1.1 2006/06/05 18:40:30 ags-
 
 #define	kNumberOfSensorSearchAttempts 3
 
+#ifdef AGS_DEBUG
 void LogFullRegWithFeedbackCommand(struct parse_rightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster);
 
 void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_resp *pRespBuf, uint32_t respLen);
+#endif
 
 void FullRegWithFeedback(struct lg_master *pLgMaster,
 			 struct parse_rightondofullregwithfeedback_parms *param,
@@ -72,9 +74,11 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
     unsigned short   i, j;
     unsigned char    theResult;
    
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG, "Entered Routine: FullRegWithFeedback");
 
     LogFullRegWithFeedbackCommand(param, pLgMaster);
+#endif
     
     SlowDownAndStop(pLgMaster);
 
@@ -95,7 +99,7 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
     memset((char *)&Xarr, 0, sizeof(Xarr));
     memset((char *)&Yarr, 0, sizeof(Yarr));
 
-    for (i = 0; i < MAX_TARGETSFLEX; i++)
+    for (i = 0; i < MAX_TARGETSOLD; i++)
       {
         useTarget[i] = 1;
       }
@@ -269,14 +273,18 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
 
         if (theResult == true)
 	  {
-	    rc = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
-	    memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
+	    pRespBuf->hdr.status3 = RESPGOOD;
+	    pRespBuf->hdr.numTransforms = (unsigned char)(0xFF & GnOfTrans);
 	  }
 	else
 	  {
-            rc = kFail;
-	    memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
+            pRespBuf->hdr.status3 = RESPFAIL;
+	    pRespBuf->hdr.hdr |= lostSensors;
+	    
+#ifdef AGS_DEBUG
 	    LogFullRegWithFeedbackResponse(pRespBuf, sizeof(pRespBuf->hdr));
+#endif
+	    
             HandleResponse (pLgMaster, sizeof(pRespBuf->hdr), respondToWhom);
             return;
 	  }
@@ -296,7 +304,7 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
              pRespBuf->worsttoleranceofanyintolerancetransform = 1.0;
           }
 
-        pRespBuf->numberoftransforms = gSaved;
+        pRespBuf->numberoftransforms = GnOfTrans;
 
 	pRespBuf->numberoftargets = numberOfTargets;
 
@@ -308,8 +316,8 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
 
 	for (i = 0; i < numberOfTargets; i++)
 	  {
-	    pRespBuf->target_geo_angle[2*i+0].Xangle = XExternalAngles[i];
-	    pRespBuf->target_geo_angle[2*i+1].Yangle = YExternalAngles[i];
+	    pRespBuf->target_geo_angle[i].Xangle = XExternalAngles[i];
+	    pRespBuf->target_geo_angle[i].Yangle = YExternalAngles[i];
 	  }
 
 	for (i = 0; i < numberOfTargets; i++)
@@ -317,14 +325,17 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
 	    pRespBuf->target_status[i] = target_status[i];
 	  }
 
+#ifdef AGS_DEBUG
 	LogFullRegWithFeedbackResponse(pRespBuf, respLen);
+#endif
 
-	HandleResponse (pLgMaster, respLen, respondToWhom);
+	HandleResponse(pLgMaster, respLen, respondToWhom);
 
 	return;
 }
 
 
+#ifdef AGS_DEBUG
 void LogFullRegWithFeedbackCommand(struct parse_rightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster)
 {
     int32_t          i;
@@ -398,11 +409,11 @@ void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_re
 	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
       }
 
-    syslog(LOG_DEBUG, "RSP: besttolerance: %f", pRespBuf->besttolerance);
+    syslog(LOG_DEBUG, "RSP: besttolerance: %le", pRespBuf->besttolerance);
 
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %f", pRespBuf->worsttoleranceofanycalculatedtransform);
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %le", pRespBuf->worsttoleranceofanycalculatedtransform);
 
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %f", pRespBuf->worsttoleranceofanyintolerancetransform);
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %le", pRespBuf->worsttoleranceofanyintolerancetransform);
 
     syslog(LOG_DEBUG, "RSP: numberoftransforms: %d", pRespBuf->numberoftransforms);
 
@@ -423,10 +434,10 @@ void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_re
       {
         syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
 	       i + 1,
-	       2*i+0,
-	       pRespBuf->target_geo_angle[2*i+0].Xangle,
-	       2*i+1,
-  	       pRespBuf->target_geo_angle[2*i+0].Yangle);
+	       i,
+	       pRespBuf->target_geo_angle[i].Xangle,
+	       i,
+  	       pRespBuf->target_geo_angle[i].Yangle);
       }
 
     for (i = 0; i < numberOfTargets; i++)
@@ -436,3 +447,4 @@ void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_re
 
     return;
 }
+#endif

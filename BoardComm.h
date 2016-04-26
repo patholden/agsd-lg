@@ -2,6 +2,8 @@
 #define BOARDCOMM_H
 /*   $Id: BoardComm.h,v 1.20 2001/01/03 17:48:53 ags-sw Exp pickle $  */
 
+#define SENSE_MAX_THR3SHOLD  750
+
 #define CURRENT_FPGA_VERSION 0x102
 #define DONTRESPOND  1      // command will NOT send response to PC host
 #define SENDRESPONSE  2     // command will send response to PC host
@@ -17,7 +19,7 @@
 #define PROJ_VISION  1
 #define PROJ_LASER   2
 #define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
-#define MAX_DOSENSE_RETRIES 10
+#define MAX_DOSENSE_RETRIES 20
 #define DOSENSE_LEVEL       30
 #define DOSENSE_MID       0x300
 #define DOSENSE_MIN_SAMPLES   20
@@ -40,7 +42,7 @@
 #define kCoarseFactorMin   1
 #define kCoarseSrchStpDef  8
 #define kCoarseSrchStpMin  1
-#define kHatchFactorDef    100
+#define kHatchFactorDef    512
 #define kCoarseFactor      8
 #define kSIX	0
 #define kFOUR	0
@@ -95,6 +97,12 @@ struct k_header {
       unsigned char status2;
       unsigned char qcply_byte1;
       uint16_t      unused;
+    };
+    struct {
+      unsigned char status3;
+      unsigned char fill3A;
+      unsigned char numTransforms;
+      unsigned char fill3B;
     };
   };
 } __attribute__ ((packed));

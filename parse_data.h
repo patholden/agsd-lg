@@ -509,6 +509,7 @@ struct parse_rightondofullregwithfeedback_resp {
   unsigned char      anglepairsextra[16];
   struct k_xy_double target_geo_angle[MAX_TARGETSOLD + 2];
   uint32_t           target_status[MAX_TARGETSOLD + 2];
+  unsigned char      fill[2];
   uint16_t           resp_crc;
 } __attribute__ ((packed));
 

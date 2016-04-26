@@ -52,7 +52,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
     nTargets = pInp->num_targets;
     if ((nTargets < 4) || (nTargets > kNumberOfFlexPoints))
       {
-	pResp->hdr.status = RESPFAIL;
+	pResp->hdr.status = RESPFLEXFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
@@ -62,9 +62,13 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
     memset((char *)&foundAngles, 0, sizeof(foundAngles));
     memset((char *)&XYarr, 0, sizeof(XYarr));
     memset((char *)&foundTransform, 0, sizeof(foundTransform));
-    memset(target_status, 1, (nTargets * sizeof(int32_t)));
+
+    for (i = 0; i < MAX_TARGETSFLEX; i++)
+      target_status[i] = 1;
+    
     theTransformTolerance  = pLgMaster->gArgTol;
-    for (i=0; i < nTargets; i++)
+    
+    for (i = 0; i < nTargets; i++)
       {
 	pLgMaster->gColinear[i] = 0;
 	pLgMaster->foundTarget[i] = 1;
@@ -109,7 +113,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
     /* desperate attempt to get something */
     if ((gSaved == 0) && gForceTransform)
       {
-	pResp->hdr.status = RESPFAIL;
+	pResp->hdr.status = RESPFLEXFAIL;
 	theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
 					(double *)&foundAngles, (double *)&foundTransform);
 	// redo with the suggested tolerance
@@ -126,7 +130,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
 
     if (gSaved == 0)
       {
-	pResp->hdr.status = RESPFAIL;
+	pResp->hdr.status = RESPFLEXFAIL;
 	theResult = FindTransformMatrix(pLgMaster, nTargets, gDeltaMirror, 0.001,
 					(double *)&foundAngles, (double *)&foundTransform);
 	// redo with the suggested tolerance
@@ -149,7 +153,7 @@ void FlexCalWithFeedback(struct lg_master *pLgMaster, struct parse_flexcalxfdbk_
 	if (theResult)
 	  pResp->hdr.status = RESPGOOD;
 	else
-	  pResp->hdr.status = RESPFAIL;
+	  pResp->hdr.status = RESPFLEXFAIL;
 
 	TransformIntoArray(&foundTransform, (double *)&pResp->transform[0]);
 

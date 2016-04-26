@@ -458,10 +458,13 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
         ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0] = Xarr[i];
         ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1] = Yarr[i];
 
+#ifdef AGS_DEBUG
         syslog(LOG_DEBUG, "RSP: target #%d: xangle: %d   yangle: %d",
 	       i + 1,
 	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
   	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
+#endif
+	
       }
 
     for (i = 0; i < MAX_TARGETSFLEX; i++)
@@ -572,9 +575,9 @@ void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullr
 
     syslog(LOG_DEBUG, "RSP: besttolerance: %le", pRespBuf->besttolerance);
 
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %f", pRespBuf->worsttoleranceofanycalculatedtransform);
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %le", pRespBuf->worsttoleranceofanycalculatedtransform);
 
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %f", pRespBuf->worsttoleranceofanyintolerancetransform);
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %le", pRespBuf->worsttoleranceofanyintolerancetransform);
 
     syslog(LOG_DEBUG, "RSP: numberoftransforms: %d", pRespBuf->numberoftransforms);
 

@@ -47,7 +47,7 @@ void FlexCalculateTransform(struct lg_master *pLgMaster, struct parse_flexcalxfr
     nTargets = pInp->num_targets;
     if ((nTargets < 4) || (nTargets > kNumberOfFlexPoints))
       {
-	pResp->hdr.status = RESPFAIL;
+	pResp->hdr.status = RESPFLEXFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }
@@ -122,7 +122,7 @@ void FlexCalculateTransform(struct lg_master *pLgMaster, struct parse_flexcalxfr
     if (theResult)
       pResp->hdr.status = RESPGOOD;
     else
-      pResp->hdr.status = RESPFAIL;
+      pResp->hdr.status = RESPFLEXFAIL;
 
     TransformIntoArray(&foundTransform, (double *)&pResp->transform[0]);
 
