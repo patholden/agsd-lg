@@ -101,6 +101,12 @@ struct k_header {
       unsigned char qcply_byte1;
       uint16_t      unused;
     };
+    struct {
+      unsigned char status3;
+      unsigned char fill3A;
+      unsigned char numTransforms;
+      unsigned char fill3B;
+    };
   };
 } __attribute__ ((packed));
 struct version_info {
