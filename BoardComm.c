@@ -41,6 +41,8 @@ static char rcsid[] = "$Id: BoardComm.c,v 1.36 2007/03/30 20:13:58 pickle Exp pi
 #include "Hobbs.h"
 #include "QuickCheckManager.h"
 
+
+
 static time_t start_QC_timer;
 static time_t end_QC_timer;
 static struct lg_xydata *tmp_pattern=0;
@@ -584,22 +586,33 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     struct lg_move_data lg_sensor;
     size_t              num;
     uint32_t            time_out;
-    uint16_t            i, sense_count;
+    uint16_t            i, j, sense_count;
     int                 rc;
 
     // Move mirrors to XY in the dark to avoid ghost/tail
     move_dark(pLgMaster, pSrchData);
-    usleep(250);
+    usleep(1000);
+    // usleep(250);
     // Set up SENSOR command info for driver
     memset((char *)&lg_sensor, 0, sizeof(struct lg_move_data));
-    lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
+    // lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
+    // lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
+ 
+    lg_sensor.poll_freq = pLgMaster->gSrchStpPeriod;  // default
+    if ( pLgMaster->gSearchType == FINESEARCH )
+        lg_sensor.poll_freq = pLgMaster->gFinePeriod;
+    if ( pLgMaster->gSearchType == COARSESEARCH )
+        lg_sensor.poll_freq = pLgMaster->gCoarsePeriod;
+
     lg_sensor.xy_curpt.xdata = pSrchData->xdata;
     lg_sensor.xy_curpt.ydata = pSrchData->ydata;
     lg_sensor.xy_curpt.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
     lg_sensor.xy_delta.xdata = pDeltaData->xdata;
     lg_sensor.xy_delta.ydata = pDeltaData->ydata;
     lg_sensor.nPoints =  nPoints;
+    lg_sensor.start_index =  0;   // start_index seems to be a problem
     lg_sensor.do_coarse = do_coarse;
+
 
     // Send SENSOR command to driver
     rc = doSensor(pLgMaster, &lg_sensor);
@@ -614,13 +627,23 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     time_out = SENSOR_READ_FREQ * nPoints;
     usleep(time_out);
     memset((void *)c_out, 0, nPoints * sizeof(int16_t));
-    num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
+    j = 0;
+    num = 0;
+    time_out = 100;
+    while ( j < MAX_DOSENSE_RETRIES && (int)num <= 0 ) 
+      {
+        j++;
+	num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
+        usleep(time_out);
+        time_out *= 2;
+      }
+    // num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
     sense_count = 0;
     if (num > 0)
       {
 	for (i = 0; i < nPoints; i++)
 	  {
-	    if ((c_out[i] > 0) && (c_out[i] < SENSE_MAX_THRESHOLD))
+	    if ((c_out[i] > 0) && (c_out[i] < pLgMaster->gSenseThreshold))
 	      {
 		sense_count++;
 		if (sense_count > 3)

@@ -11,7 +11,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/ip_icmp.h>
 #include <arpa/inet.h>
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
@@ -27,9 +29,25 @@
 
 #define MAXPENDING  5   // Max # connection requests
 #define AGS_PORT  1234
+#define PACKETSIZE  64
+#define POLL_SIZE 4
+#define MAXTRIES 100
+
 
 extern int
 pingClient( char* peerAddr );
+
+extern int
+DoOnePing( char * hostip, uint8_t * buf, size_t bufsize );
+
+uint16_t checksum(void *b, int len);
+
+struct packet
+{
+    struct icmphdr hdr;
+    char msg[PACKETSIZE-sizeof(struct icmphdr)];
+};
+
 
 int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
@@ -146,7 +164,8 @@ static int ProcEnetPacketsFromHost(struct lg_master *pLgMaster)
     poll_fd.fd = pLgMaster->datafd;
     poll_fd.events = POLLIN | POLLHUP;
 
-    error = poll((struct pollfd *)&poll_fd, 1, 10000);
+    // error = poll((struct pollfd *)&poll_fd, 1, 10000);
+    error = poll((struct pollfd *)&poll_fd, 1, 300);  // try old .3 seconds
     if (error < 1)
       return(0);
     if (poll_fd.revents == 0)
@@ -380,9 +399,10 @@ void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint
 int
 pingClient(char* peerAddr )
 {
-  char buffer[256];
-  int return_code;
+  uint8_t buffer[256];
+  // int return_code;
   uint32_t inaddr;
+  int  bytes;
 
   // Make sure our PC webhost has been configured!
   if ((inaddr = inet_addr(peerAddr)) == INADDR_NONE)
@@ -391,11 +411,9 @@ pingClient(char* peerAddr )
       return(-1);
     }
    
-   memset(buffer, 0, sizeof(buffer));
-   sprintf(buffer, "ping %s -c 1 > /dev/null 2>&1", peerAddr);
-   return_code = system(buffer);
-   if (return_code != 0) {
-     syslog(LOG_ERR, "Ping to %s FAILED", peerAddr );
+   bytes = DoOnePing( peerAddr, buffer, sizeof(buffer) ); 
+   if (bytes <= 0) {
+     syslog(LOG_ERR, "Ping to %s FAILED return %d", peerAddr, bytes );
      return(-1);
    }
    return(0);
@@ -449,18 +467,152 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
 	  {
 	    // Honor ping-heartbeat so partner knows we're alive
 	    // FIXME--PAH.  NEED TO PUT PING INTO PTHREAD & JUST CHECK STATUS.
-	    if ((pingClient(pLgMaster->webhost)) != 0)
+	    if ((pingClient(pLgMaster->webhost)) == 0)
 	      {
 		pLgMaster->ping_count = 0;
-		return(-1);
 	      }
 	    else
-	      pLgMaster->ping_count++;
+             {
+	        pLgMaster->ping_count++;
+	     }
+             // wait for three failed pings
+             if ( pLgMaster->ping_count >= 3 ) 
+		return(-1);
 	    
 	  }
 	DoSystemPeriodic(pLgMaster);
       }
     // Should never get here
     return(0);
+}
+
+
+int
+DoOnePing( char * hostip, uint8_t * buf, size_t bufsize )
+{
+/*
+ *  DoOnePing just sends one ICMP ping packet
+ *  and tried to receive any return message
+ */
+
+        const int            val  =   2;
+        int                  i, sd;
+        struct packet        pckt;
+        socklen_t            len;
+        struct sockaddr_in   addr;
+        struct protoent      *protocol;
+        int                  bytes = 0;
+        in_addr_t            inaddr;
+
+        int try;
+        struct pollfd poll_set[POLL_SIZE];
+        int numfds = 0;
+        int status;
+
+        inaddr = inet_addr( hostip );
+
+        len   =  sizeof(struct sockaddr_in);
+
+        addr.sin_family        =  AF_INET;
+        addr.sin_port          =  0;
+
+        memcpy( (void *)&(addr.sin_addr.s_addr)
+              , (void *)&inaddr
+              , sizeof(inaddr));
+
+
+        protocol = getprotobyname("ICMP");
+
+        // open a socket for an ICMP ping packet
+        sd    =  socket(PF_INET, SOCK_RAW, protocol->p_proto);
+        if (sd < 0)
+        {
+                syslog(LOG_DEBUG, "DoOnePing socket error");
+                return(-1);
+        }
+
+        // set Time-To-Live
+        if (setsockopt(sd, SOL_IP, IP_TTL, &val, sizeof(val)) != 0)
+        {
+                syslog(LOG_DEBUG, "DoOnePing Set TTL option error");
+                close( sd );
+                return(-1);
+        }
+
+        // set socket status flag
+        if (fcntl(sd, F_SETFL, O_NONBLOCK) != 0)
+        {
+                syslog(LOG_DEBUG, "DoOnePing Request nonblocking I/O error");
+                close( sd );
+                return(-1);
+        }
+
+        // assemble ICMP ping packet
+        //
+        memset( (void *)(&pckt), 0, sizeof(pckt) );
+        pckt.hdr.type               =  ICMP_ECHO;
+        pckt.hdr.un.echo.id         =  321;  // should be set to something better
+        for (i = 0; i < sizeof(pckt.msg)-1; i++)
+                        pckt.msg[i] = i+'0';
+        pckt.msg[i]                 =  0;
+        pckt.hdr.un.echo.sequence   =  1;
+        pckt.hdr.checksum           =  checksum(&pckt, sizeof(pckt));
+
+        // send off ICMP ping packet
+        //
+        if (sendto(sd, &pckt, sizeof(pckt), 0, (struct sockaddr*)&addr, sizeof(addr)) <= 0) {
+                syslog(LOG_DEBUG, "DoOnePing sending ping failed");
+                close( sd );
+                return(-1);
+        }
+
+
+        len  =  sizeof(struct sockaddr_in);
+
+        memset( buf, 0, bufsize );
+
+
+        // set up a poll for response
+        numfds = 0;
+        poll_set[0].fd = sd;
+        poll_set[0].events = POLLIN;
+        numfds++;
+         
+        try = 0;
+        bytes = 0;
+        
+        while ( try < MAXTRIES && bytes == 0 ) {
+            try++;
+            status = poll( poll_set, numfds, 2 );
+            if ( (poll_set[0].revents & POLLIN) && status >= 1 ) {
+               usleep(1000);
+               bytes = recvfrom(sd, buf, bufsize, 0, (struct sockaddr*)&addr, &len);
+            }
+       }
+
+       // syslog(LOG_DEBUG, "DoOnePing bytes %d  try %d\n", bytes, try );
+
+       close( sd );
+
+       return ( bytes );
+}
+
+
+uint16_t checksum(void *b, int len)
+{
+        uint16_t   *buf = b;
+        uint32_t     sum=0;
+
+        for(sum=0; len>1; len-=2)
+        {
+                sum += *buf++;
+        }
+        if (len == 1)
+        {
+                sum += *(uint8_t*)buf;
+        }
+        sum     =  (sum >> 16) + (sum & 0xFFFF);
+        sum     += (sum >> 16);
+        return(~sum);
 }
 
