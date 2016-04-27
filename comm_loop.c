@@ -388,7 +388,7 @@ pingClient(char* peerAddr )
   if ((inaddr = inet_addr(peerAddr)) == INADDR_NONE)
     {
       perror("\nBad WebHost IP: ");
-      return(-1);
+      // ***debug*** return(-1);
     }
    
    memset(buffer, 0, sizeof(buffer));
@@ -396,7 +396,7 @@ pingClient(char* peerAddr )
    return_code = system(buffer);
    if (return_code != 0) {
      syslog(LOG_ERR, "Ping to %s FAILED", peerAddr );
-     return(-1);
+     // return(-1);
    }
    return(0);
 }

@@ -600,7 +600,13 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     memset((char *)&lg_sensor, 0, sizeof(struct lg_move_data));
     // lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
     // lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
-    lg_sensor.poll_freq = 200;
+ 
+    lg_sensor.poll_freq = pLgMaster->gSrchStpPeriod;  // default
+    if ( pLgMaster->gSearchType == FINESEARCH )
+        lg_sensor.poll_freq = pLgMaster->gFinePeriod;
+    if ( pLgMaster->gSearchType == COARSESEARCH )
+        lg_sensor.poll_freq = pLgMaster->gCoarsePeriod;
+
     lg_sensor.xy_curpt.xdata = pSrchData->xdata;
     lg_sensor.xy_curpt.ydata = pSrchData->ydata;
     lg_sensor.xy_curpt.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
@@ -660,7 +666,7 @@ syslog(LOG_ERR, "DLevel read  i %d  c_out %d n %d", i, c_out[i], nPoints );
       {
 	for (i = 0; i < nPoints; i++)
 	  {
-	    if ((c_out[i] > 0) && (c_out[i] < SENSE_MAX_THR3SHOLD))
+	    if ((c_out[i] > 0) && (c_out[i] < pLgMaster->gSenseThreshold))
 	      {
 		sense_count++;
 		if (sense_count > 3)

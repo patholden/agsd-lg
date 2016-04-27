@@ -29,6 +29,9 @@
 #define MINBINVAL  -0x7FFF
 #define MAXBINVAL  0x7FFF
 #define DBLRND     0.5
+#define COARSESEARCH  1
+#define FINESEARCH    2
+#define SUPERSEARCH   3
 #define kMaxUnsigned      0xFFFF
 #if 1
 #define kMaxSigned        0x7FFF
@@ -42,7 +45,7 @@
 #define kCoarseFactorMin   1
 #define kCoarseSrchStpDef  8
 #define kCoarseSrchStpMin  1
-#define kHatchFactorDef    512
+#define kHatchFactorDef    128
 #define kCoarseFactor      8
 #define kSIX	0
 #define kFOUR	0
@@ -98,12 +101,6 @@ struct k_header {
       unsigned char qcply_byte1;
       uint16_t      unused;
     };
-    struct {
-      unsigned char status3;
-      unsigned char fill3A;
-      unsigned char numTransforms;
-      unsigned char fill3B;
-    };
   };
 } __attribute__ ((packed));
 struct version_info {
@@ -158,6 +155,10 @@ struct lg_master {
   uint32_t        gPeriod;
   uint32_t        gDisplayFlag;
   uint32_t        gSrchStpPeriod;
+  uint32_t        gCoarsePeriod;
+  uint32_t        gFinePeriod;
+  uint32_t        gSearchType;
+  uint32_t        gSenseThreshold;
   uint32_t        gTransmitLengthSum;
   uint32_t        gBestTargetNumber;
   uint32_t        gPlysToDisplay;
