@@ -127,7 +127,7 @@ int QuickCheckASensor(struct lg_master *pLgMaster, int16_t centerX, int16_t cent
  *    - minimum of 2 quick checks must succeed
  *    try up to 30 times.
  */
-#ifdef FINESEARCH
+#ifdef DOFINESEARCH
         theResult = DoFineSearch( &tempX, &tempY );
         if(theResult == kStopWasDone) {
                    return theResult;
