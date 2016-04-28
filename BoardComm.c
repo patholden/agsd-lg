@@ -569,6 +569,9 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     for (j=0; j < MAX_DOSENSE_RETRIES; j++)
       {
 	num = read(pLgMaster->fd_laser, c_out, (nPoints * sizeof(int16_t)));
+#ifdef ZDEBUG
+syslog(LOG_ERR, "DLineS574 read num %d\n", (int)num );
+#endif
 	if (num >= 0)
 	  {
 	    free(c_out);

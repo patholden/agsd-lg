@@ -327,9 +327,15 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	negStepSize = -pLgMaster->gCoarse2SearchStep;
 	xSteps = (eolXPos - eolXNeg) / posStepSize;
 	ySteps = (eolYPos - eolYNeg) / posStepSize;
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"xySteps %x %x %x %x", posStepSize, negStepSize, xSteps, ySteps );
+#endif
 	// Search around XNeg & Y
 	theResult = CoarseLeg(pLgMaster, eolXNeg, tempY, posStepSize, 0, xSteps,
 			      foundX, foundY);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", eolXNeg, tempY, *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
 	if (theResult == kStopWasDone)
 	  return theResult;
 	if (theResult == 0)
@@ -337,6 +343,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	// Search around X & NegY
 	theResult = CoarseLeg(pLgMaster, tempX, eolYNeg, 0, posStepSize, ySteps,
 			      foundX, foundY);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", tempX, eolYNeg, *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
 	if (theResult == kStopWasDone)
 	  return theResult;
 	if (theResult == 0)
@@ -364,6 +373,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	    // Search around NegX/NegY
 	    theResult = CoarseLeg(pLgMaster, eolXNeg, eolYNeg, posStepSize, 0, xSteps,
 				  foundX, foundY);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", eolXNeg, eolYNeg, *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
 	    if (theResult == kStopWasDone)
 	      return(theResult);
 	    if (theResult == 0)
@@ -371,6 +383,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	    // Search around PosX/NegY
 	    theResult = CoarseLeg(pLgMaster, eolXPos, eolYNeg, 0, posStepSize, ySteps,
 				  foundX, foundY);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", eolXPos, eolYNeg, *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
 	    if (theResult == kStopWasDone)
 	      return theResult;
 	    if (theResult == 0)
@@ -378,6 +393,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	    // Search around PosX/PosY
 	    theResult = CoarseLeg(pLgMaster, eolXPos, eolYPos, negStepSize, 0, xSteps,
 				  foundX, foundY);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", eolXPos, eolYPos, *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
 	    if (theResult == kStopWasDone)
 	      return(theResult);
 	    if (theResult == 0)
@@ -385,6 +403,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	    // Search around NegX/PosY
 	    theResult = CoarseLeg(pLgMaster, eolXNeg, eolYPos, 0, negStepSize, ySteps,
 				  foundX, foundY);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", eolXNeg, eolYPos, *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
 	    if (theResult == kStopWasDone)
 	      return theResult;
 	    if (theResult == 0)
@@ -425,6 +446,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
 	      }
 	  }
       }
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"S4ASxy fnd %x %x result %x", *foundX, *foundY, theResult );
+#endif  /* ZDEBUG */
     if (theResult == 0)
       {
 	xydata.xdata =  *foundX;
@@ -473,6 +497,15 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
     pLgMaster->gSearchType = COARSESEARCH;
     theResult = DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 		       (struct lg_xydelta*)&xydelta, nStepsIn, gLout, 1);
+#ifdef ZDEBUG
+    count = 0;
+    for (i = 0; i < nStepsIn; i++)
+      {
+	tmpX = Xin + (i * delX);
+	tmpY = Yin + (i * delY);
+syslog(LOG_DEBUG, "coarser %d %d %d %d del %d %d i %d", tmpX, tmpY, gLout[i], nStepsIn, delX, delY, i );
+      }
+#endif  /* ZDEBUG */
     if (theResult)
       return(theResult);
 
@@ -1164,6 +1197,9 @@ static int findFirstLast(struct lg_master *pLgMaster, int16_t *firstX, int16_t *
         int16_t           tmpX, tmpY;
         int               firstFlag = 1;
 
+#ifdef ZDEBUG
+syslog(LOG_DEBUG, "1stL xy %x %x step %x %x n %x", currentX, currentY, xStep, yStep, nSteps );
+#endif
 	memset((char *)&xydata, 0, sizeof(struct lg_xydata));
 	memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
 
@@ -1363,6 +1399,10 @@ static int SearchWithTwoSetsOutY(struct lg_master *pLgMaster, int sweep, int16_t
       {
 	outY1 = inpY1 + (i * delY1);
 	outY2 = inpY2 + (i * delY2);
+#ifdef ZDEBUG
+syslog(LOG_DEBUG,"sw2y1 %d %d %d", inpX1, outY1, inpBuf1[i] );
+syslog(LOG_DEBUG,"sw2y2 %d %d %d", inpX2, outY2, inpBuf2[i] );
+#endif
 	gSaveMatch[gLoutIndex] = 0;
 	gSaveSweep[gLoutIndex] = 0;
 	if (inpBuf2[i] < pLgMaster->gSenseThreshold)

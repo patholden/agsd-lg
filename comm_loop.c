@@ -408,7 +408,7 @@ pingClient(char* peerAddr )
   if ((inaddr = inet_addr(peerAddr)) == INADDR_NONE)
     {
       perror("\nBad WebHost IP: ");
-      return(-1);
+      // ***debug*** return(-1);
     }
    
    bytes = DoOnePing( peerAddr, buffer, sizeof(buffer) ); 

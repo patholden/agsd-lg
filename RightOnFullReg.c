@@ -1,3 +1,4 @@
+
 /*
 static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Exp $";
 */
@@ -35,9 +36,11 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 
 #define	kNumberOfSensorSearchAttempts 3
 
+#ifdef AGS_DEBUG
 void LogRightOnFullRegCommand(struct parse_rightondofullreg_parms *param, struct lg_master *pLgMaster);
 
 void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uint32_t respLen);
+#endif
 
 void RightOnFullReg(struct lg_master *pLgMaster,
 		    struct parse_rightondofullreg_parms *param,
@@ -67,9 +70,11 @@ void RightOnFullReg(struct lg_master *pLgMaster,
     unsigned short   i, j;
     unsigned char    theResult;
 				
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG, "Entered Routine: RighOnFullReg");
 
     LogRightOnFullRegCommand(param, pLgMaster);
+#endif
 
     SlowDownAndStop(pLgMaster);
  
@@ -211,8 +216,8 @@ void RightOnFullReg(struct lg_master *pLgMaster,
 
     if (theResult)
       {
-	rc = kOK | ((0xFF & (uint32_t)GnOfTrans) << 8);
-	memcpy(pRespBuf, &rc, sizeof(uint32_t));
+	pRespBuf->hdr.status3 = RESPGOOD;
+	pRespBuf->hdr.numTransforms = (unsigned char)(0xFF & GnOfTrans);
 	
 	if (gTargetDrift)
 	  InitDrift(Xarr, Yarr);
@@ -234,15 +239,17 @@ void RightOnFullReg(struct lg_master *pLgMaster,
 	    pRespBuf->target_geo_angle[i].Yangle = YExternalAngles[i];
 	  }
 
+#ifdef AGS_DEBUG
 	LogRightOnFullRegResponse(pRespBuf, respLen);
+#endif
 	
 	HandleResponse (pLgMaster, respLen, respondToWhom );
       }
     else
       {
-	rc = kFail | lostSensors;
+	pRespBuf->hdr.status3 = RESPFAIL;
 
-	memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr.hdr));
+	pRespBuf->hdr.hdr |= lostSensors;
 
 	HandleResponse (pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom );
 
@@ -252,7 +259,7 @@ void RightOnFullReg(struct lg_master *pLgMaster,
     return;
 }
 
-
+#ifdef AGS_DEBUG
 void LogRightOnFullRegCommand(struct parse_rightondofullreg_parms *param, struct lg_master *pLgMaster)
 {
     int32_t          i;
@@ -336,11 +343,12 @@ void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uin
       {
         syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
 	       i + 1,
-	       2*i+0,
-	       pRespBuf->target_geo_angle[2*i+0].Xangle,
-	       2*i+1,
-  	       pRespBuf->target_geo_angle[2*i+0].Yangle);
+	       i,
+	       pRespBuf->target_geo_angle[i].Xangle,
+	       i,
+  	       pRespBuf->target_geo_angle[i].Yangle);
       }
 
     return;
 }
+#endif

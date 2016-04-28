@@ -36,9 +36,11 @@ static char rcsid[] = "$Id$";
 #include "FOM.h"
 #include "parse_data.h"
 
+#ifdef AGS_DEBUG
 void LogFlexRightOnDoFullRegWithFeedbackCommand(struct parse_flexrightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster);
 
 void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullregwithfeedback_resp *pRespBuf, uint32_t respLen);
+#endif
 
 void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
 			     struct parse_flexrightondofullregwithfeedback_parms *param,
@@ -62,10 +64,10 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     int              numberOfFoundTargets;
     int              searchResult;
     int              useTarget[MAX_TARGETSFLEX];
-    uint32_t         flexFailRespLen = (sizeof(struct parse_flexfail_resp));
+    uint32_t         flexFailRespLen;
     uint32_t         lostSensors;
     uint32_t         numberOfTargets;
-    uint32_t         respLen = (sizeof(struct parse_rightondofullregwithfeedback_resp)-kCRCSize);
+    uint32_t         respLen;
     uint32_t         rc = 0;
     uint32_t         target_status[MAX_TARGETSFLEX];
     uint16_t         i, j;
@@ -76,13 +78,17 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     unsigned char    saveHeaderSpecialByte;
     unsigned char    theResult;
 
+#ifdef AGS_DEBUG
     syslog(LOG_DEBUG, "Entered Routine: FlexFullRegWithFeedback");
 
     LogFlexRightOnDoFullRegWithFeedbackCommand(param, pLgMaster);
+#endif
     
     SlowDownAndStop(pLgMaster);
 
     // Initialize variables
+    flexFailRespLen = (sizeof(struct parse_flexfail_resp));
+    respLen = (sizeof(struct parse_flexrightondofullregwithfeedback_resp)-kCRCSize);
     pFlexFailResp = (struct parse_flexfail_resp *)pLgMaster->theResponseBuffer;
     pRespBuf = (struct parse_flexrightondofullregwithfeedback_resp *)pLgMaster->theResponseBuffer;
     saveHeaderSpecialByte = pLgMaster->gHeaderSpecialByte;
@@ -91,6 +97,10 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     intPlanar = 0;
     pLgMaster->gBestTargetNumber = 0;
     gWorstTolReg = 1.0;
+
+#ifdef AGS_DEBUG
+    syslog(LOG_DEBUG,"respLen1 %d  2Who %x  status %02x  failsize %d", respLen, respondToWhom, pRespBuf->hdr.status, flexFailRespLen );
+#endif
 
     //Initialize buffers
     memset(pRespBuf, 0, respLen);
@@ -108,6 +118,8 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     for (i = 0; i < MAX_TARGETSFLEX; i++)
       {
         useTarget[i] = 1;
+        theAngleBuffer[i].xdata = 0;
+        theAngleBuffer[i].ydata = 0;
       }
 				      
     RawGeomFlag = param->angleflag;  // 1: raw binary angles, 2: geometric angles
@@ -119,7 +131,6 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
         for (i = 0; i < numberOfTargets; i++)
 	  {
 	    theAngleBuffer[i].xdata = param->target_raw_angle[i].xangle & kMaxUnsigned;
-	    theAngleBuffer[i].ydata = param->target_raw_angle[i].yangle & kMaxUnsigned;
 
 	    if (numberOfTargets == 4)
 	      {
@@ -136,6 +147,10 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
 					       param->target_geo_angle[i].Yangle,
 					       &theAngleBuffer[i].xdata,
 					       &theAngleBuffer[i].ydata);
+#ifdef AGS_DEBUG
+	    syslog(LOG_DEBUG, "FRWF binar %lf %lf  i %d",param->target_geo_angle[i].Xangle,param->target_geo_angle[i].Yangle,i);
+	    syslog(LOG_DEBUG, "FRWF binar %d %d  i %d",theAngleBuffer[i].xdata,theAngleBuffer[i].ydata,i );
+#endif
 	    
 	    if (numberOfTargets == 4)
 	      {
@@ -145,7 +160,7 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
            }
       }
 
-      
+
     if (numberOfTargets > 4)
       {
 	for (i = 0; i < numberOfTargets; i++)
@@ -173,6 +188,8 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
         SaveFullRegCoordinates (8, theCoordinateBuffer);
       }
     
+	
+
     // *****************************************************
     // if numberOfTargets is 4, change it to 8 at this point
     // *****************************************************
@@ -196,10 +213,18 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
 	    pLgMaster->gCoarse2Factor     = kCoarseFactorDef;
 	    pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
 
+            ClearSensorBuffers();  // Make sure all the buffers used by SearchForASensor are zeroed to start
+
 	    while (j--)
 	      {
                 ptX = theAngleBuffer[i].xdata;
                 ptY = theAngleBuffer[i].ydata;
+                fndX = 0;
+                fndY = 0;
+
+#ifdef AGS_DEBUG
+		syslog(LOG_DEBUG, "ptXY %x %x", ptX, ptY );
+#endif
 			
                 if (useTarget[i] == 1)
 		  {
@@ -257,7 +282,7 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
 		  ConvertBinaryToExternalAngles(pLgMaster, fndX, fndY,  &(XExternalAngles[i]), &(YExternalAngles[i]));
                 }
 	  }
-	
+      
 	  numberOfFoundTargets = 0;
 
 	  for (i = 0; i < numberOfTargets; i++)
@@ -371,16 +396,26 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     if (theResult != true)
       {
         rc = kFlexFail;
+        pRespBuf->hdr.status = RESPFLEXFAIL;
         gWorstTolReg = 0.0;
+      }
+    else
+      {
+        rc = kOK;
+        pRespBuf->hdr.status = RESPGOOD;
       }
 
     if ((saveHeaderSpecialByte & 0x20) != 0x20)
       {
         if (theResult == true)
-          rc = kOK;
+          {
+            rc = kOK;
+            pRespBuf->hdr.status = RESPGOOD;
+          }
         else
 	  {
             rc = kFlexFail;
+            pRespBuf->hdr.status = RESPFLEXFAIL;
             gWorstTolReg = 0.0;
 	    pFlexFailResp->colineartargets = intColinear;
 	    pFlexFailResp->coplanartargets = intPlanar;
@@ -390,7 +425,7 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
           }
       }
 
-    memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
+    // memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
     
     TransformIntoArray(&foundTransform, (double *)&pRespBuf->transform);
 
@@ -423,16 +458,19 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
         ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0] = Xarr[i];
         ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1] = Yarr[i];
 
+#ifdef AGS_DEBUG
         syslog(LOG_DEBUG, "RSP: target #%d: xangle: %d   yangle: %d",
 	       i + 1,
 	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
   	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
+#endif
+	
       }
 
     for (i = 0; i < MAX_TARGETSFLEX; i++)
       {
-        pRespBuf->target_geo_angle[2*i+0].Xangle = XExternalAngles[i];
-        pRespBuf->target_geo_angle[2*i+1].Yangle = YExternalAngles[i];
+        pRespBuf->target_geo_angle[i].Xangle = XExternalAngles[i];
+        pRespBuf->target_geo_angle[i].Yangle = YExternalAngles[i];
       }
 
     for (i = 0; i < MAX_TARGETSFLEX; i++)
@@ -449,14 +487,18 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
         pRespBuf->coplanartargets = intPlanar;
       }
 
+#ifdef AGS_DEBUG
+    syslog(LOG_DEBUG,"respLen2 %d  2Who %x  status %02x", respLen, respondToWhom, pRespBuf->hdr.status );
+
     LogFlexRightOnDoFullRegWithFeedbackResponse(pRespBuf, respLen);
+#endif
 
     HandleResponse (pLgMaster, respLen, respondToWhom);
 
     return;
 }
 
-
+#ifdef AGS_DEBUG
 void LogFlexRightOnDoFullRegWithFeedbackCommand(struct parse_flexrightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster)
 {
     int32_t          i;
@@ -519,7 +561,8 @@ void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullr
     int32_t          i;
     int32_t          numberOfTargets;
     
-    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+    syslog(LOG_DEBUG, "RSP: hdr.status: %02x", pRespBuf->hdr.status);
+    syslog(LOG_DEBUG, "RSP: hdr.errtyp: %04x", pRespBuf->hdr.errtype);
 
     if (respLen <= sizeof(pRespBuf->hdr.hdr))
       return;
@@ -530,11 +573,11 @@ void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullr
 	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
       }
 
-    syslog(LOG_DEBUG, "RSP: besttolerance: %f", pRespBuf->besttolerance);
+    syslog(LOG_DEBUG, "RSP: besttolerance: %le", pRespBuf->besttolerance);
 
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %f", pRespBuf->worsttoleranceofanycalculatedtransform);
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %le", pRespBuf->worsttoleranceofanycalculatedtransform);
 
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %f", pRespBuf->worsttoleranceofanyintolerancetransform);
+    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %le", pRespBuf->worsttoleranceofanyintolerancetransform);
 
     syslog(LOG_DEBUG, "RSP: numberoftransforms: %d", pRespBuf->numberoftransforms);
 
@@ -555,10 +598,10 @@ void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullr
       {
         syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
 	       i + 1,
-	       2*i+0,
-	       pRespBuf->target_geo_angle[2*i+0].Xangle,
-	       2*i+1,
-  	       pRespBuf->target_geo_angle[2*i+0].Yangle);
+	       i,
+	       pRespBuf->target_geo_angle[i].Xangle,
+	       i,
+  	       pRespBuf->target_geo_angle[i].Yangle);
       }
 
     for (i = 0; i < numberOfTargets; i++)
@@ -572,3 +615,4 @@ void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullr
 
     return;
 }
+#endif
