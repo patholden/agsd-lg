@@ -68,7 +68,7 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, unsigned char *pAngle
   if (pLgMaster->gQCcount == -2)
     theResult = 0;
   else {
-    for (i = 0; i < kNumberOfFlexPoints; i++)
+    for (i = 0; i < nTargets; i++)
       {
 	gCurrentQCSensor = i;
 	theResult = QuickCheckASensor(pLgMaster, *ptrX, *ptrY );
@@ -331,16 +331,15 @@ void InitQuickCheckHistory ( void )
     return;
 }
 
-//FIXME---PAH---NEED TO FIX CMD/RESP HERE
 void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
   struct parse_qcmgr_resp *pResp;
     uint16_t  numBadSensors = 0;
     uint16_t  numMissOnASensor, i, j;
-    uint32_t  QCPlyCount=0;
+    uint32_t  QCPlyCount = 0;
 
     pResp = (struct parse_qcmgr_resp *)pLgMaster->theResponseBuffer;
-    memset(pResp, 0, ((sizeof(struct parse_qcmgr_resp) + kCRCSize)));
+    memset(pResp, 0, sizeof(struct parse_qcmgr_resp));
   
     for (i = kNumberOfFlexPoints; i > 0; i--)
       {
@@ -356,14 +355,16 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 	    numBadSensors++;
 	  }
       }
+
     QCPlyCount &= QCPLYCOUNTMASK;
+    
     if (numBadSensors >= gQuickFailNumber)
       {
-	pResp->hdr.status = RESPQCPLYFAIL;
+	pResp->hdr.status2 = RESPQCPLYFAIL;
 	pResp->hdr.qcply_byte1 = QCPlyCount >> 16;
-	pResp->currQCSet = gCurrentQCSet + 1;
+       	pResp->currQCSet = htons(++gCurrentQCSet);
 	pResp->QCPlybyte23 = htons(QCPlyCount & QCPLYCOUNT23MASK);
-	HandleResponse(pLgMaster, (sizeof(struct parse_qcmgr_resp)-kCRCSize), kRespondExtern);
+	HandleResponse(pLgMaster, (sizeof(struct parse_qcmgr_resp) - kCRCSize), kRespondExtern);
       }
     return;
 }
