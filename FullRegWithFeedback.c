@@ -398,7 +398,7 @@ void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_re
     int32_t          i;
     int32_t          numberOfTargets;
     
-    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+    syslog(LOG_DEBUG, "RSP: hdr: %08x", htonl(pRespBuf->hdr.hdr));
 
     if (respLen <= sizeof(pRespBuf->hdr.hdr))
       return;

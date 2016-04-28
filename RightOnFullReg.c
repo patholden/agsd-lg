@@ -318,7 +318,7 @@ void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uin
     double           transform[MAX_NEW_TRANSFORM_ITEMS];
     int32_t          i;
     
-    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+    syslog(LOG_DEBUG, "RSP: hdr: %08x", htonl(pRespBuf->hdr.hdr));
 
     if (respLen <= sizeof(pRespBuf->hdr.hdr))
 	return;
