@@ -561,10 +561,10 @@ struct parse_calibxy_resp
   double           foundY;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_qcmgr_resp
 {
   struct k_header  hdr;
-  uint32_t         unused;
   uint16_t         currQCSet;
   uint16_t         QCPlybyte23;
   uint16_t         resp_crc;
