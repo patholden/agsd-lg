@@ -4,9 +4,11 @@
 #ifndef RTONCRT_H
 #define RTONCRT_H
 
+#ifdef AGS_DEBUG
 void LogRightOnCertCommand(struct parse_rtoncert_parms *param, struct lg_master *pLgMaster);
 
 void LogRightOnCertResponse(struct parse_rtoncert_resp *pRespBuf, uint32_t respLen);
+#endif
 
 void RightOnCert(struct lg_master *pLgMaster,
 		 struct parse_rtoncert_parms *param,
