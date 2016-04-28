@@ -158,7 +158,8 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	    sscanf( token, "arcsteps = %lf", &ArcSteps );
 	    if (ArcSteps < 60.0)
 	      ArcSteps = 60.0;
-	    pLgMaster->dmax = 4294967296.0 / ArcSteps;
+	    //  old 32bit range pLgMaster->dmax = 4294967296.0 / ArcSteps;
+	    pLgMaster->dmax = 65536.0 / ArcSteps;
 	  }
 	strcpy( testStr, "beamlinearrangex =" );
 	if ( strncmp( tmpline, testStr, strlen(testStr) ) == 0 ) {
@@ -306,7 +307,8 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gSearchType = SUPERSEARCH;
   pLgMaster->gSenseThreshold = 750;
   pLgMaster->gQCcount = GQCCOUNT_DEFAULT;
-  pLgMaster->dmax = 4294967296.0 / 60.0;
+  // old 32-bit range pLgMaster->dmax = 4294967296.0 / 60.0;
+  pLgMaster->dmax = 65536.0 / 60.0;
   pLgMaster->gCALIBFileOK = false;
   pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
   pLgMaster->gCoarse2Factor= kCoarseFactorDef;
