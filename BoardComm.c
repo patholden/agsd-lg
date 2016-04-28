@@ -77,7 +77,7 @@ static int doDarkMove(struct lg_master *pLgMaster, struct lg_move_data *pDarkMov
 static int doLiteMove(struct lg_master *pLgMaster, struct lg_move_data *pLiteMove);
 static void SaveBeamPosition(struct lg_master *pLgMaster, char *data);
  
-static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
+static int FillDispBuff(struct lg_master *pLgMaster, uint32_t *ptn_len)
 {
     struct lg_xydata first_xypos;
     struct lg_xydata cur_xypos;
@@ -87,8 +87,8 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
     struct cmd_rw    *cmd_buff;
     double           n,dx,dy,dsqr,dlen;
     int              rc;
-    uint32_t         i,count, Npoints;
-    uint16_t         k,xstep, ystep;
+    int32_t         i,count, Npoints;
+    int16_t         k,xstep, ystep;
 
     // Set up buffer for laser-dev data  
     cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
@@ -110,7 +110,7 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
     first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
     first_xypos.ctrl_flags = last_xypos.ctrl_flags = pXYtmp->ctrl_flags;
     count = 0;
-    Npoints = ptn_len / sizeof(struct lg_xydata);
+    Npoints = *ptn_len / sizeof(struct lg_xydata);
     for (i=0; i < Npoints; i++)
       {
 	pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
@@ -130,8 +130,8 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
 	  {
 	    n = ((dlen / pLgMaster->dmax) + 0.001);
 	    n += 2.0;
-	    xstep =  (uint16_t)(dx / n);
-	    ystep =  (uint16_t)(dy / n);
+	    xstep =  (int16_t)(dx / n);
+	    ystep =  (int16_t)(dy / n);
 	    for (k = 0; k < n; k++)
 	      {
 		pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
@@ -158,8 +158,8 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
       {
 	n = (sqrt(dsqr / pLgMaster->dmax));
 	n += 2.0;
-	xstep =  (uint16_t)(dx / n);
-	ystep =  (uint16_t)(dy / n);
+	xstep =  (int16_t)(dx / n);
+	ystep =  (int16_t)(dy / n);
 	for (k = 0; k < n ; k++)
 	  {
 	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
@@ -169,22 +169,23 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
 	    count++;
 	  }
       }
-    ptn_len = count * sizeof(struct lg_xydata);
+    *ptn_len = count * sizeof(struct lg_xydata);
     
     SaveBeamPosition(pLgMaster, (char *)out_pattern);
     // Don't send if too much data for laser-dev to handle
-    if (ptn_len > MAX_LG_BUFFER)
+    if (*ptn_len > MAX_LG_BUFFER)
       {
-	syslog(LOG_ERR,"%d length is too much data for laser device to handle",ptn_len);
+	syslog(LOG_ERR,"%d length is too much data for laser device to handle",*ptn_len);
 	return(-1);
       }
-    memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, ptn_len);
+    memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, *ptn_len);
     cmd_buff->base.hdr.cmd = CMDW_BUFFER;
-    cmd_buff->base.hdr.length = ptn_len;
+    cmd_buff->base.hdr.length = *ptn_len;
+syslog(LOG_ERR, "Write %d length, count %d ",*ptn_len, count);
     rc = write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
     if (rc < 0)
       {
-	syslog(LOG_ERR, "Write command to laser device failed for %d length, rc=%x,errno=%x",ptn_len,rc,errno);
+	syslog(LOG_ERR, "Write command to laser device failed for %d length, rc=%x,errno=%x",*ptn_len,rc,errno);
 	return(-1);
       }
     cur_num_disp_points = Npoints;
@@ -232,7 +233,9 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 
     // Get pattern data
     memcpy (tmp_pattern, (char *)p_dispdata->pattern, ptn_len);
-    rc = FillDispBuff(pLgMaster, ptn_len);
+    // note that FillDispBuff can add additional points
+    // to the pattern and increase ptn_len
+    rc = FillDispBuff(pLgMaster, &ptn_len);
     if (rc)
       {
 	syslog(LOG_ERR, "Unable to send display command to driver, rc %x,errno %x",rc,errno);
@@ -1110,7 +1113,7 @@ int JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
     stopQCcounter(pLgMaster);   /* never quick check */
     // Set the data up for driver
     memcpy((char *)tmp_pattern, wr_ptr, ptn_len);
-    rc = FillDispBuff(pLgMaster, ptn_len);
+    rc = FillDispBuff(pLgMaster, &ptn_len);
     if (rc)
       return(rc);
     // Send display command to driver

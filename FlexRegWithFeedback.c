@@ -131,6 +131,7 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
         for (i = 0; i < numberOfTargets; i++)
 	  {
 	    theAngleBuffer[i].xdata = param->target_raw_angle[i].xangle & kMaxUnsigned;
+	    theAngleBuffer[i].ydata = param->target_raw_angle[i].yangle & kMaxUnsigned;
 
 	    if (numberOfTargets == 4)
 	      {
