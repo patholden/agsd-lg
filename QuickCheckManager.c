@@ -108,13 +108,12 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, unsigned char *pAngle
 
 void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char *data, uint32_t nTargets, uint32_t nThresh)
 {
-	uint32_t *ptrX, *ptrY;
-	uint32_t return_code;
 	struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-	uint32_t lostSensors;
-	int theResult;
+	uint32_t       *ptrX, *ptrY;
+	uint32_t       lostSensors;
+	int            theResult;
 	unsigned short lostSum, i;
-        char localdata[ 1024 ];
+        char           localdata[1024];
 
 
 	// Initialize response buffer area
@@ -129,7 +128,9 @@ void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char *data, uint32_
 	lostSensors = 0;
 	lostSum = 0;
 
-	ptrX = (uint32_t *)localdata; ptrY = ptrX; ptrY++;
+	ptrX = (uint32_t *)localdata;
+	ptrY = ptrX;
+	ptrY++;
 	
 	if (pLgMaster->gQCcount == -2)
 	  theResult = 0;
@@ -154,27 +155,33 @@ void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char *data, uint32_
 		      }
 		    else break;
 		  }
-		ptrX++; ptrX++; ptrY++, ptrY++;
+		ptrX++;
+		ptrX++;
+		ptrY++,
+		ptrY++;
 	      }
 	  }
 	
         SlowDownAndStop(pLgMaster);
+
 	if (theResult)
 	  pResp->hdr.status = RESPFAIL;
 	else
 	  {
 	    if ( lostSum >= gQuickFailNumber )
 	      {
-		return_code = htonl(kFail | lostSensors);
-		memcpy(pResp, &return_code, sizeof(uint32_t));
+		pResp->hdr.status = RESPFAIL;
+		pResp->hdr.hdr |= htonl(lostSensors);
 	      }
 	    else
 	      {
-		return_code = htonl(kOK | lostSensors);
-		memcpy(pResp, &return_code, sizeof(uint32_t));
+		pResp->hdr.status = RESPGOOD;
+		pResp->hdr.hdr |= htonl(lostSensors);
 	      }
 	  }
+	
 	HandleResponse ( pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), kRespondExtern );
+
 	return;
 }
 
