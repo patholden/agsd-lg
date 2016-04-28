@@ -249,7 +249,7 @@ void RightOnFullReg(struct lg_master *pLgMaster,
       {
 	pRespBuf->hdr.status3 = RESPFAIL;
 
-	pRespBuf->hdr.hdr |= lostSensors;
+	pRespBuf->hdr.hdr |= htonl(lostSensors);
 
 	HandleResponse (pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom );
 

@@ -1432,8 +1432,7 @@ syslog(LOG_DEBUG,"sw2y2 %d %d %d", inpX2, outY2, inpBuf2[i] );
 	    gSaveMatch[gLoutIndex] = 1;
 	    gSaveSweep[gLoutIndex] = sweep;
 #ifdef AGS_DEBUG
-	    syslog(LOG_DEBUG,"SRCH2SETSY:  SWEEP%d JACKPOT sumX=%x, sumY=%x,i=%d,count %d",
-		   sweep,*sumX,*sumY,i,hit_count);
+	    //syslog(LOG_DEBUG,"SRCH2SETSY:  SWEEP%d JACKPOT sumX=%x, sumY=%x,i=%d,count %d", sweep,*sumX,*sumY,i,hit_count);
 #endif
 	  }
 	gSaveLout1[gLoutIndex] = inpBuf2[i];
@@ -1514,7 +1513,7 @@ static int SearchWithTwoSetsOutX(struct lg_master *pLgMaster, int sweep, int16_t
 		gSaveMatch[gLoutIndex] = 1;
 		gSaveSweep[gLoutIndex] = sweep;
 #ifdef AGS_DEBUG
-		syslog(LOG_DEBUG,"SRCH2SETSX:  SWEEP%d JACKPOT sumX=%x, sumY=%x,i=%d,hit count %d",sweep,*sumX,*sumY,i,hit_count);
+		//syslog(LOG_DEBUG,"SRCH2SETSX:  SWEEP%d JACKPOT sumX=%x, sumY=%x,i=%d,hit count %d",sweep,*sumX,*sumY,i,hit_count);
 #endif
 	      }
 	    gSaveLout1[gLoutIndex] = inpBuf2[i];

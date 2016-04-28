@@ -279,7 +279,7 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
 	else
 	  {
             pRespBuf->hdr.status3 = RESPFAIL;
-	    pRespBuf->hdr.hdr |= lostSensors;
+	    pRespBuf->hdr.hdr |= htonl(lostSensors);
 	    
 #ifdef AGS_DEBUG
 	    LogFullRegWithFeedbackResponse(pRespBuf, sizeof(pRespBuf->hdr));

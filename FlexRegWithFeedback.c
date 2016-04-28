@@ -395,13 +395,11 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
 
     if (theResult != true)
       {
-        rc = kFlexFail;
         pRespBuf->hdr.status = RESPFLEXFAIL;
         gWorstTolReg = 0.0;
       }
     else
       {
-        rc = kOK;
         pRespBuf->hdr.status = RESPGOOD;
       }
 
@@ -409,12 +407,10 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
       {
         if (theResult == true)
           {
-            rc = kOK;
             pRespBuf->hdr.status = RESPGOOD;
           }
         else
 	  {
-            rc = kFlexFail;
             pRespBuf->hdr.status = RESPFLEXFAIL;
             gWorstTolReg = 0.0;
 	    pFlexFailResp->colineartargets = intColinear;
@@ -424,8 +420,6 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
             return;
           }
       }
-
-    // memcpy(pRespBuf, &rc, sizeof(pRespBuf->hdr));
     
     TransformIntoArray(&foundTransform, (double *)&pRespBuf->transform);
 
