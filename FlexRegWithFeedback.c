@@ -556,9 +556,8 @@ void LogFlexRightOnDoFullRegWithFeedbackResponse(struct parse_flexrightondofullr
     int32_t          i;
     int32_t          numberOfTargets;
     
-    syslog(LOG_DEBUG, "RSP: hdr.status: %02x", pRespBuf->hdr.status);
-    syslog(LOG_DEBUG, "RSP: hdr.errtyp: %04x", pRespBuf->hdr.errtype);
-
+    syslog(LOG_DEBUG, "RSP: hdr: %08x", htonl(pRespBuf->hdr.hdr));
+    
     if (respLen <= sizeof(pRespBuf->hdr.hdr))
       return;
 
