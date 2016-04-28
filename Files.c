@@ -831,7 +831,7 @@ void ReadVersion(struct lg_master *pLgMaster)
   strncat(pLgMaster->vers_data.pVersions, (void *)time_buffer, buff_len);
   uname(&utsbuff);
   // Get kernel version info
-  buff_len = sprintf(kernel_buffer, "laserguide 2016  version 201.001\r\nkernel version %s %s\r\n",
+  buff_len = sprintf(kernel_buffer, "laserguide 2016  version 201.002\r\nkernel version %s %s\r\n",
 		 utsbuff.release, utsbuff.version);
   strncat(pLgMaster->vers_data.pVersions, kernel_buffer, buff_len);
   // Get hobbs counts
