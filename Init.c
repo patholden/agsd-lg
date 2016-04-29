@@ -158,7 +158,8 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	    sscanf( token, "arcsteps = %lf", &ArcSteps );
 	    if (ArcSteps < 60.0)
 	      ArcSteps = 60.0;
-	    pLgMaster->dmax = 4294967296.0 / ArcSteps;
+	    //  old 32bit range pLgMaster->dmax = 4294967296.0 / ArcSteps;
+	    pLgMaster->dmax = 65536.0 / ArcSteps;
 	  }
 	strcpy( testStr, "beamlinearrangex =" );
 	if ( strncmp( tmpline, testStr, strlen(testStr) ) == 0 ) {
@@ -175,6 +176,15 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	strcpy( testStr, "searchstepperiod =" );
 	if ( strncmp( tmpline, testStr, strlen(testStr) ) == 0 ) {
 	  sscanf( tmpline, "searchstepperiod = %d", &pLgMaster->gSrchStpPeriod ); }
+	strcpy( testStr, "coarseperiod =" );
+	if ( strncmp( tmpline, testStr, strlen(testStr) ) == 0 ) {
+	  sscanf( tmpline, "coarseperiod = %d", &pLgMaster->gCoarsePeriod ); }
+	strcpy( testStr, "fineperiod =" );
+	if ( strncmp( tmpline, testStr, strlen(testStr) ) == 0 ) {
+	  sscanf( tmpline, "fineperiod = %d", &pLgMaster->gFinePeriod ); }
+	strcpy( testStr, "sensethreshold =" );
+	if ( strncmp( tmpline, testStr, strlen(testStr) ) == 0 ) {
+	  sscanf( tmpline, "sensethreshold = %d", &pLgMaster->gSenseThreshold ); }
 	strcpy( testStr, "superfinecount =" );
 	if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
 	  sscanf( token, "superfinecount = %d", &gSuperFineCount ); }
@@ -292,8 +302,13 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gArgTol = GARGTOL_DEFAULT;
   pLgMaster->gProjectorSerialNumber = -1L;
   pLgMaster->gSrchStpPeriod = KETIMER_75U;
+  pLgMaster->gCoarsePeriod = KETIMER_75U;
+  pLgMaster->gFinePeriod = KETIMER_75U;
+  pLgMaster->gSearchType = SUPERSEARCH;
+  pLgMaster->gSenseThreshold = 750;
   pLgMaster->gQCcount = GQCCOUNT_DEFAULT;
-  pLgMaster->dmax = 4294967296.0 / 60.0;
+  // old 32-bit range pLgMaster->dmax = 4294967296.0 / 60.0;
+  pLgMaster->dmax = 65536.0 / 60.0;
   pLgMaster->gCALIBFileOK = false;
   pLgMaster->gCoarse2SearchStep = kCoarseSrchStpDef;
   pLgMaster->gCoarse2Factor= kCoarseFactorDef;

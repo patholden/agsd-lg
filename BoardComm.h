@@ -2,6 +2,7 @@
 #define BOARDCOMM_H
 /*   $Id: BoardComm.h,v 1.20 2001/01/03 17:48:53 ags-sw Exp pickle $  */
 
+
 #define CURRENT_FPGA_VERSION 0x102
 #define DONTRESPOND  1      // command will NOT send response to PC host
 #define SENDRESPONSE  2     // command will send response to PC host
@@ -17,7 +18,7 @@
 #define PROJ_VISION  1
 #define PROJ_LASER   2
 #define TGFIND_BUFF_SIZE  MAX_TGFIND_BUFFER * sizeof(int16_t)
-#define MAX_DOSENSE_RETRIES 10
+#define MAX_DOSENSE_RETRIES 20
 #define DOSENSE_LEVEL       30
 #define DOSENSE_MID       0x300
 #define DOSENSE_MIN_SAMPLES   20
@@ -27,6 +28,9 @@
 #define MINBINVAL  -0x7FFF
 #define MAXBINVAL  0x7FFF
 #define DBLRND     0.5
+#define COARSESEARCH  1
+#define FINESEARCH    2
+#define SUPERSEARCH   3
 #define kMaxUnsigned      0xFFFF
 #if 1
 #define kMaxSigned        0x7FFF
@@ -40,7 +44,7 @@
 #define kCoarseFactorMin   1
 #define kCoarseSrchStpDef  8
 #define kCoarseSrchStpMin  1
-#define kHatchFactorDef    100
+#define kHatchFactorDef    128
 #define kCoarseFactor      8
 #define kSIX	0
 #define kFOUR	0
@@ -96,6 +100,12 @@ struct k_header {
       unsigned char qcply_byte1;
       uint16_t      unused;
     };
+    struct {
+      unsigned char status3;
+      unsigned char fill3A;
+      unsigned char numTransforms;
+      unsigned char fill3B;
+    };
   };
 } __attribute__ ((packed));
 struct version_info {
@@ -150,6 +160,10 @@ struct lg_master {
   uint32_t        gPeriod;
   uint32_t        gDisplayFlag;
   uint32_t        gSrchStpPeriod;
+  uint32_t        gCoarsePeriod;
+  uint32_t        gFinePeriod;
+  uint32_t        gSearchType;
+  uint32_t        gSenseThreshold;
   uint32_t        gTransmitLengthSum;
   uint32_t        gBestTargetNumber;
   uint32_t        gPlysToDisplay;

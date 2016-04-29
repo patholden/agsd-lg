@@ -18,7 +18,9 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 #define OLDANGLEPAIRSLEN 48     // kNumberOfFlexPoints * 2 * sizeof(uint32_t)
 #define ANGLEPAIRSLENFLEX  192  // kNumberOfFlexPoints * 2 * sizeof(uint32_t)
 #define NUMDISPFLEXPOINTS 576      // kNumberOfFlexPoints * 3 * sizeof ( double )
+#define RESPFLEXFAIL 0xE7  // aka kFlexFail
 #define RESPFAIL 0xE8      // aka kFail
+#define RESPFLEXFAIL 0xE7      // aka kFlexFail
 #define RESPGOOD 0xE0      //  aka kOK
 #define RESPSTOPOK 0xE2    // aka kStopOK
 #define RESPQCPLYFAIL       0xEB    // AKA kQuickCheckPlyFail
@@ -508,6 +510,7 @@ struct parse_rightondofullregwithfeedback_resp {
   unsigned char      anglepairsextra[16];
   struct k_xy_double target_geo_angle[MAX_TARGETSOLD + 2];
   uint32_t           target_status[MAX_TARGETSOLD + 2];
+  unsigned char      fill[2];
   uint16_t           resp_crc;
 } __attribute__ ((packed));
 
@@ -558,10 +561,10 @@ struct parse_calibxy_resp
   double           foundY;
   uint16_t         resp_crc;
 } __attribute__ ((packed));
+
 struct parse_qcmgr_resp
 {
   struct k_header  hdr;
-  uint32_t         unused;
   uint16_t         currQCSet;
   uint16_t         QCPlybyte23;
   uint16_t         resp_crc;

@@ -76,15 +76,17 @@ void RightOnCert(struct lg_master *pLgMaster,
    int32_t   XrawAngle;
    int32_t   YrawAngle;
    int       status;
-   uint32_t  respLen = (sizeof(struct parse_rtoncert_resp));
+   uint32_t  respLen = (sizeof(struct parse_rtoncert_resp) - kCRCSize);
    int16_t   bXe;
    int16_t   bXf;
    int16_t   bYe;
    int16_t   bYf;
 
+#ifdef AGS_DEBUG
    syslog(LOG_DEBUG, "Entered Routine: RightOnCert");
 
    LogRightOnCertCommand(param, pLgMaster);
+#endif
 
    pRespBuf = (struct parse_rtoncert_resp *)pLgMaster->theResponseBuffer;
    memset(pRespBuf, 0, sizeof(respLen));
@@ -182,7 +184,9 @@ void RightOnCert(struct lg_master *pLgMaster,
      {
        SearchBeamOff(pLgMaster);
        pRespBuf->hdr.status = RESPGOOD;
+#ifdef AGS_DEBUG
        LogRightOnCertResponse(pRespBuf, sizeof(pRespBuf->hdr.hdr));
+#endif
        HandleResponse(pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom);
        return;
      }
@@ -207,7 +211,9 @@ void RightOnCert(struct lg_master *pLgMaster,
    if (status)
      {
        pRespBuf->hdr.status = RESPFAIL;
+#ifdef AGS_DEBUG
        LogRightOnCertResponse(pRespBuf, sizeof(pRespBuf->hdr.hdr));
+#endif
        HandleResponse(pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom);
        return;
      }
@@ -226,7 +232,9 @@ void RightOnCert(struct lg_master *pLgMaster,
        ConvertBinaryToExternalAngles(pLgMaster, bXf, bYf, &Xexternal, &Yexternal);
        pRespBuf->Xexternal = Xexternal;
        pRespBuf->Yexternal = Yexternal;
+#ifdef AGS_DEBUG
        LogRightOnCertResponse(pRespBuf, respLen);
+#endif
        HandleResponse(pLgMaster, respLen, respondToWhom);
        return;
      }
@@ -263,6 +271,7 @@ static double uptime(void)
 }
 
 
+#ifdef AGS_DEBUG
 void LogRightOnCertCommand(struct parse_rtoncert_parms *param, struct lg_master *pLgMaster)
 {
     double           transform[MAX_NEW_TRANSFORM_ITEMS];
@@ -298,7 +307,7 @@ void LogRightOnCertCommand(struct parse_rtoncert_parms *param, struct lg_master 
 
 void LogRightOnCertResponse(struct parse_rtoncert_resp *pRespBuf, uint32_t respLen)
 {    
-    syslog(LOG_DEBUG, "RSP: hdr: %08x", pRespBuf->hdr.hdr);
+  syslog(LOG_DEBUG, "RSP: hdr: %08x",htonl(pRespBuf->hdr.hdr));
 
     if (respLen <= sizeof(pRespBuf->hdr.hdr))
 	return;
@@ -327,3 +336,4 @@ void LogRightOnCertResponse(struct parse_rtoncert_resp *pRespBuf, uint32_t respL
 
     return;
 }
+#endif

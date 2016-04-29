@@ -41,6 +41,8 @@ static char rcsid[] = "$Id: BoardComm.c,v 1.36 2007/03/30 20:13:58 pickle Exp pi
 #include "Hobbs.h"
 #include "QuickCheckManager.h"
 
+
+
 static time_t start_QC_timer;
 static time_t end_QC_timer;
 static struct lg_xydata *tmp_pattern=0;
@@ -75,7 +77,7 @@ static int doDarkMove(struct lg_master *pLgMaster, struct lg_move_data *pDarkMov
 static int doLiteMove(struct lg_master *pLgMaster, struct lg_move_data *pLiteMove);
 static void SaveBeamPosition(struct lg_master *pLgMaster, char *data);
  
-static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
+static int FillDispBuff(struct lg_master *pLgMaster, uint32_t *ptn_len)
 {
     struct lg_xydata first_xypos;
     struct lg_xydata cur_xypos;
@@ -85,8 +87,8 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
     struct cmd_rw    *cmd_buff;
     double           n,dx,dy,dsqr,dlen;
     int              rc;
-    uint32_t         i,count, Npoints;
-    uint16_t         k,xstep, ystep;
+    int32_t         i,count, Npoints;
+    int16_t         k,xstep, ystep;
 
     // Set up buffer for laser-dev data  
     cmd_buff = (struct cmd_rw *)malloc(sizeof(struct cmd_rw));
@@ -108,7 +110,7 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
     first_xypos.ydata = last_xypos.ydata = pXYtmp->ydata;
     first_xypos.ctrl_flags = last_xypos.ctrl_flags = pXYtmp->ctrl_flags;
     count = 0;
-    Npoints = ptn_len / sizeof(struct lg_xydata);
+    Npoints = *ptn_len / sizeof(struct lg_xydata);
     for (i=0; i < Npoints; i++)
       {
 	pXYtmp = (struct lg_xydata *)((char *)tmp_pattern + (sizeof(struct lg_xydata) * i));
@@ -128,8 +130,8 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
 	  {
 	    n = ((dlen / pLgMaster->dmax) + 0.001);
 	    n += 2.0;
-	    xstep =  (uint16_t)(dx / n);
-	    ystep =  (uint16_t)(dy / n);
+	    xstep =  (int16_t)(dx / n);
+	    ystep =  (int16_t)(dy / n);
 	    for (k = 0; k < n; k++)
 	      {
 		pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
@@ -156,8 +158,8 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
       {
 	n = (sqrt(dsqr / pLgMaster->dmax));
 	n += 2.0;
-	xstep =  (uint16_t)(dx / n);
-	ystep =  (uint16_t)(dy / n);
+	xstep =  (int16_t)(dx / n);
+	ystep =  (int16_t)(dy / n);
 	for (k = 0; k < n ; k++)
 	  {
 	    pXYout = (struct lg_xydata *)((char *)out_pattern + (sizeof(struct lg_xydata) * count));
@@ -167,22 +169,23 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t ptn_len)
 	    count++;
 	  }
       }
-    ptn_len = count * sizeof(struct lg_xydata);
+    *ptn_len = count * sizeof(struct lg_xydata);
     
     SaveBeamPosition(pLgMaster, (char *)out_pattern);
     // Don't send if too much data for laser-dev to handle
-    if (ptn_len > MAX_LG_BUFFER)
+    if (*ptn_len > MAX_LG_BUFFER)
       {
-	syslog(LOG_ERR,"%d length is too much data for laser device to handle",ptn_len);
+	syslog(LOG_ERR,"%d length is too much data for laser device to handle",*ptn_len);
 	return(-1);
       }
-    memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, ptn_len);
+    memcpy((char *)&cmd_buff->xydata[0], (char *)out_pattern, *ptn_len);
     cmd_buff->base.hdr.cmd = CMDW_BUFFER;
-    cmd_buff->base.hdr.length = ptn_len;
+    cmd_buff->base.hdr.length = *ptn_len;
+syslog(LOG_ERR, "Write %d length, count %d ",*ptn_len, count);
     rc = write(pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
     if (rc < 0)
       {
-	syslog(LOG_ERR, "Write command to laser device failed for %d length, rc=%x,errno=%x",ptn_len,rc,errno);
+	syslog(LOG_ERR, "Write command to laser device failed for %d length, rc=%x,errno=%x",*ptn_len,rc,errno);
 	return(-1);
       }
     cur_num_disp_points = Npoints;
@@ -228,9 +231,10 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
     if ( gVideoCheck == 0 )
       initQCcounter(pLgMaster);
 
+
     // Get pattern data
     memcpy (tmp_pattern, (char *)p_dispdata->pattern, ptn_len);
-    rc = FillDispBuff(pLgMaster, ptn_len);
+    rc = FillDispBuff(pLgMaster, &ptn_len);
     if (rc)
       {
 	syslog(LOG_ERR, "Unable to send display command to driver, rc %x,errno %x",rc,errno);
@@ -436,15 +440,11 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
 	}
       DoRespond (pLgMaster, (struct k_header*)&gResponseBuffer);
       break;
-#if 0
-      //FIXME---PAH---need to do separate function for this one.
-    case kQuickCheck:
-      PerformAndSendQuickCheck (pLgMaster, data, gRespondToWhom );
-      break;
-#endif
+
       case kQuickCheckSensor:
       break;
-    default:
+
+      default:
       break;
     }
   return;
@@ -584,21 +584,31 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     struct lg_move_data lg_sensor;
     size_t              num;
     uint32_t            time_out;
-    uint16_t            i, sense_count;
+    uint16_t            i, j, sense_count;
     int                 rc;
 
     // Move mirrors to XY in the dark to avoid ghost/tail
     move_dark(pLgMaster, pSrchData);
-    usleep(250);
+    usleep(1000);
+    // usleep(250);
     // Set up SENSOR command info for driver
     memset((char *)&lg_sensor, 0, sizeof(struct lg_move_data));
-    lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
+    // lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
+    // lg_sensor.poll_freq = SENSOR_WRITE_FREQ;
+ 
+    lg_sensor.poll_freq = pLgMaster->gSrchStpPeriod;  // default
+    if ( pLgMaster->gSearchType == FINESEARCH )
+        lg_sensor.poll_freq = pLgMaster->gFinePeriod;
+    if ( pLgMaster->gSearchType == COARSESEARCH )
+        lg_sensor.poll_freq = pLgMaster->gCoarsePeriod;
+
     lg_sensor.xy_curpt.xdata = pSrchData->xdata;
     lg_sensor.xy_curpt.ydata = pSrchData->ydata;
     lg_sensor.xy_curpt.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
     lg_sensor.xy_delta.xdata = pDeltaData->xdata;
     lg_sensor.xy_delta.ydata = pDeltaData->ydata;
     lg_sensor.nPoints =  nPoints;
+    lg_sensor.start_index =  0;   // start_index seems to be a problem
     lg_sensor.do_coarse = do_coarse;
 
     // Send SENSOR command to driver
@@ -614,13 +624,23 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     time_out = SENSOR_READ_FREQ * nPoints;
     usleep(time_out);
     memset((void *)c_out, 0, nPoints * sizeof(int16_t));
-    num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
+    j = 0;
+    num = 0;
+    time_out = 100;
+    while ( j < MAX_DOSENSE_RETRIES && (int)num <= 0 ) 
+      {
+        j++;
+	num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
+        usleep(time_out);
+        time_out *= 2;
+      }
+    // num = read(pLgMaster->fd_laser, (char *)c_out, (nPoints * sizeof(int16_t)));
     sense_count = 0;
     if (num > 0)
       {
 	for (i = 0; i < nPoints; i++)
 	  {
-	    if ((c_out[i] > 0) && (c_out[i] < SENSE_MAX_THRESHOLD))
+	    if ((c_out[i] > 0) && (c_out[i] < pLgMaster->gSenseThreshold))
 	      {
 		sense_count++;
 		if (sense_count > 3)
@@ -695,6 +715,7 @@ int doDevDisplay(struct lg_master *pLgMaster, uint32_t ptn_len, uint32_t do_rest
   
   p_cmd_data->hdr.cmd = CMDW_DISPLAY;
   p_cmd_data->hdr.length = sizeof(struct lg_disp_data);
+   // poll_freq is the first member of a lg_disp_data struct
   memcpy((char *)&p_cmd_data->dispdata.poll_freq, (char *)&lg_display.poll_freq, sizeof(struct lg_disp_data));
   rc = write(pLgMaster->fd_laser, (char *)p_cmd_data, sizeof(struct cmd_rw_dispdata));
   if (rc < 0)
@@ -1084,7 +1105,7 @@ int JustDoDisplay(struct lg_master *pLgMaster, char *wr_ptr, int pattern_len)
     stopQCcounter(pLgMaster);   /* never quick check */
     // Set the data up for driver
     memcpy((char *)tmp_pattern, wr_ptr, ptn_len);
-    rc = FillDispBuff(pLgMaster, ptn_len);
+    rc = FillDispBuff(pLgMaster, &ptn_len);
     if (rc)
       return(rc);
     // Send display command to driver
@@ -1107,26 +1128,45 @@ int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
     pLgMaster->gPeriod = KETIMER_50U;
     lg_litemove.poll_freq = pLgMaster->gPeriod;
-    lg_litemove.xy_curpt.xdata = pNewData->xdata;
-    lg_litemove.xy_curpt.ydata = pNewData->ydata;
-    lg_litemove.xy_curpt.ctrl_flags = pNewData->ctrl_flags;
+
     // Get current xy spot to see if need to travel to move to new point
     ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
+
+          // need to start at current point
+    lg_litemove.xy_curpt.xdata = xydata.xdata;
+    lg_litemove.xy_curpt.ydata = xydata.ydata;
+    lg_litemove.xy_curpt.ctrl_flags = pNewData->ctrl_flags;
+
     // Figure out delta point
     dx = (double)pNewData->xdata - (double)xydata.xdata;
     dy = (double)pNewData->ydata - (double)xydata.ydata;
     dsqr = dx*dx + dy*dy;
     dlen = sqrt(dsqr);
+      // if start and end are more than a degree apart
+      // take intermediate steps
+      // otherwise, go straight to end point
     if (dlen > pLgMaster->dmax)
       {
 	n = dlen / pLgMaster->dmax;
-	n += 60;
+	n += 20;
 	lg_litemove.xy_delta.xdata =  (int16_t)(dx / n);
 	lg_litemove.xy_delta.ydata =  (int16_t)(dy / n);
 	lg_litemove.nPoints =  (uint32_t)n;
-	usleep(2 * (uint32_t)n * 150  + 2000);
+      }
+    else
+      {
+        lg_litemove.xy_curpt.xdata = pNewData->xdata;
+        lg_litemove.xy_curpt.ydata = pNewData->ydata;
+        lg_litemove.xy_curpt.ctrl_flags = pNewData->ctrl_flags;
       }
     rc = doLiteMove(pLgMaster, &lg_litemove);
+
+      // need to sleep after the move
+      // if there are intermediate points
+    if (dlen > pLgMaster->dmax)
+      {
+         usleep(2 * (uint32_t)n * 150  + 2000);
+      }
     if (rc < 0)
       syslog(LOG_ERR, "Unable to send litemove command to driver %x,errno %x",rc,errno);
     /* end of lite move */
@@ -1146,30 +1186,56 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
     struct lg_xydata    xydata;
     double              n, dx, dy, dsqr, dlen;
     int                 rc;
+    useconds_t          dark_wait;
     
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
     memset((char *)&lg_darkmove, 0, sizeof(struct lg_move_data));
-    lg_darkmove.xy_curpt.xdata = pNewData->xdata;
-    lg_darkmove.xy_curpt.ydata = pNewData->ydata;
-    lg_darkmove.xy_curpt.ctrl_flags = 0;
     pLgMaster->gPeriod = KETIMER_50U;
     lg_darkmove.poll_freq = pLgMaster->gPeriod;
     lg_darkmove.nPoints = 1; // Going to write at least 1 point
     // Get current xy spot and calculate delta to move to new point.
     ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
+       
+    lg_darkmove.xy_curpt.xdata = xydata.xdata;
+    lg_darkmove.xy_curpt.ydata = xydata.ydata;
+    lg_darkmove.xy_curpt.ctrl_flags = 0;
+
     dx = (double)pNewData->xdata - (double)xydata.xdata;
     dy = (double)pNewData->ydata - (double)xydata.ydata;
     dsqr = dx*dx + dy*dy;
     dlen = sqrt(dsqr);
-    n = dlen / pLgMaster->dmax;
-    n += 20;
-    lg_darkmove.xy_delta.xdata =  (int16_t)(dx / n);
-    lg_darkmove.xy_delta.ydata =  (int16_t)(dy / n);
-    lg_darkmove.nPoints = n;
+      // if start and end are more than a degree apart
+      // take intermediate steps
+      // otherwise, go straight to end point
+    if ( dlen > pLgMaster->dmax )
+     {
+        n = dlen / pLgMaster->dmax;
+        n += 20;
+        lg_darkmove.xy_delta.xdata =  (int16_t)(dx / n);
+        lg_darkmove.xy_delta.ydata =  (int16_t)(dy / n);
+        lg_darkmove.nPoints = n;
+     }
+    else
+     {
+        lg_darkmove.xy_curpt.xdata = pNewData->xdata;
+        lg_darkmove.xy_curpt.ydata = pNewData->ydata;
+        lg_darkmove.xy_curpt.ctrl_flags = 0;
+     }
     rc = doDarkMove(pLgMaster, &lg_darkmove);
     if (rc < 0)
       syslog(LOG_ERR, "Unable to send darkmove command to driver, rc %x,errno %x",rc,errno);
-    usleep((3 * (int)n * pLgMaster->gPeriod) + 2000);
+
+      // need to wait for darkmove to complete
+    if ( dlen > pLgMaster->dmax )
+     {
+       dark_wait = (100 * (int)n * pLgMaster->gPeriod) + 20000;
+       usleep( dark_wait );
+     }
+    else
+     {
+       usleep( 2000 );
+     }
+
   /* end of dark move */
   return(0);
 }
