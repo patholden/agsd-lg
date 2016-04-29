@@ -109,7 +109,6 @@ burnusb:
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
-	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick/boot/bzImage
 	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/stick
 	sudo umount /dev/sdb1
 	sudo umount $(BUILDROOTDIR)/output/ext2
