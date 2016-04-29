@@ -102,7 +102,6 @@ install:
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
-	chmod 777 $(AGSCFGDIR)/S99agsd
 burnusb:
 	sudo umount /dev/sdb1
 	sudo mount /dev/sdb1 /mnt/stick
