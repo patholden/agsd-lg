@@ -38,12 +38,12 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	case 1:
 	  // unblank intensity  (DIM?)
 	  doLGSTOP(pLgMaster);
-	  ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
+	  ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
 	  doClearSearchBeam(pLgMaster);
 	  if (bitValue == 0)
 	    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
-	  else if ( bitValue == 1 ) {
-	    xydata.ctrl_flags = BEAMONISSET | LASERENBISSET;
+	  else if (bitValue == 1) {
+	    xydata.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
 	    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	  }
 	  else
@@ -52,17 +52,17 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	case 2:
 	  // search intensity (HIGH?)
           doLGSTOP(pLgMaster);
-	  ioctl( pLgMaster->fd_laser, LGGETANGLE, &xydata);
-	  if (bitValue == 0)
+	  ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
+	  if (bitValue == 0)  
 	    {
 	      doClearSearchBeam(pLgMaster);
-	      xydata.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
+	      xydata.ctrl_flags = 0;
 	      doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	    }
-	  else if ( bitValue == 1)
+	  else if (bitValue == 1)
 	    {
 	      doSetSearchBeam(pLgMaster);
-	      xydata.ctrl_flags = 0;
+	      xydata.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
 	      doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
 	    }
 	  else {

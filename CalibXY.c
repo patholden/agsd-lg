@@ -16,8 +16,7 @@
 #include "CalibXY.h"
 #include "Protocol.h"
 
-void CalibXY(struct lg_master *pLgMaster, struct parse_calibxy_parms* pInp,
-	     uint32_t respondToWhom)
+void CalibXY(struct lg_master *pLgMaster, struct parse_calibxy_parms* pInp, uint32_t respondToWhom)
 {
     struct parse_calibxy_resp *pResp=(struct parse_calibxy_resp *)pLgMaster->theResponseBuffer;
     double xgotoang,  ygotoang;
@@ -27,13 +26,13 @@ void CalibXY(struct lg_master *pLgMaster, struct parse_calibxy_parms* pInp,
     uint32_t theError;
 
     memset ((char *)pResp, 0, sizeof(struct parse_calibxy_resp));
+
     xgotoang = pInp->steerX;
     ygotoang = pInp->steerY;
     Ztr      = pInp->inp_Z;
 
-    theError  = ConvertExternalAnglesToBinary(pLgMaster, xgotoang,
-                                              ygotoang, &xbinary,
-                                              &ybinary);
+    theError  = ConvertExternalAnglesToBinary(pLgMaster, xgotoang, ygotoang, &xbinary, &ybinary);
+
     if (theError)
       {
 	pResp->hdr.status = RESPFAIL;
@@ -41,12 +40,17 @@ void CalibXY(struct lg_master *pLgMaster, struct parse_calibxy_parms* pInp,
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), kRespondExtern);
 	return;
       }
+
     ConvertBinaryToMirrorAngles(xbinary, ybinary, &aXf, &aYf);
+
     ConvertMirrorToGeometricAngles( &aXf, &aYf );
+
     XYFromGeometricAnglesAndZ(pLgMaster, aXf, aYf, Ztr, &Xf, &Yf );
+
     pResp->hdr.status = RESPGOOD;
     pResp->foundX = Xf;
     pResp->foundY = Yf;
     HandleResponse(pLgMaster, (sizeof(struct parse_calibxy_resp)-kCRCSize), kRespondExtern);
+
     return;
 }
