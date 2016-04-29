@@ -16,6 +16,7 @@
 #include <linux/tcp.h>
 #include <linux/laser_api.h>
 #include <syslog.h>
+#include <poll.h>
 #include "BoardComm.h"
 #include "AppCommon.h"
 #include "comm_loop.h"
@@ -286,12 +287,23 @@ void AddDisplayChunksData(struct lg_master *pLgMaster, uint32_t dataLength,
 
 int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster)
 {
-  //FIXME---PAH---RETURN 0 FOR NOW
-  return(0);
-    // If we received a stop command, flag caller but clear master flag since we're done now
-    // and caller will return to comm-loop to look for new commands.
-    if (pLgMaster->rcvdStopCmd)
-      {
+    struct pollfd poll_set[4];  // 4 is somewhat arbitary
+    int numfds = 0;
+    int status;
+
+    // use poll function to see if any data
+    // came in
+    // if so, return a "1"
+    // otherwise return "0"
+
+    numfds = 0;
+    poll_set[0].fd = pLgMaster->datafd;
+    poll_set[0].events = POLLIN;
+    numfds++;
+    status = poll( poll_set, numfds, 0 );
+   
+    if (  (poll_set[0].revents & POLLIN) && status >= 1 ) {
+        syslog(LOG_DEBUG, "IfStopThenStopAndNeg1Else0 stopping" );
 	pLgMaster->rcvdStopCmd = 0;
 	return(1);
       }
