@@ -270,7 +270,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 void PostCmdEtherAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData)
 {
     pLgMaster->gDisplayFlag = 0;
-    SetHighBeam(pAngleData);
+    SetLowBeam(pAngleData);
     move_lite(pLgMaster, pAngleData);
     doWriteDevPoints(pLgMaster, pAngleData);
     return;
@@ -282,7 +282,7 @@ void PostCmdGoAngle(struct lg_master *pLgMaster, struct lg_xydata *pAngleData, u
   memset((char *)&gResponseBuffer, 0, sizeof(struct k_header));
   
   gResponseBuffer.status = RESPGOOD;
-  SetHighBeam(pAngleData);
+  SetLowBeam(pAngleData);
   move_lite(pLgMaster, pAngleData);
   doWriteDevPoints(pLgMaster, pAngleData);
   if (!(pLgMaster->gHeaderSpecialByte & 0x80))
