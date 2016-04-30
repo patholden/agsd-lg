@@ -975,7 +975,7 @@ static uint32_t PutAPoint(struct lg_master *pLgMaster, int32_t newXBin, int32_t 
     if (!gRawInput)
       {
 	if (gBeamOn)
-	  SetHighBeam (pCurXYData);
+	  SetLowBeam (pCurXYData);  // display beam is now "Low"
 	else
 	  SetDarkBeam(pCurXYData);
       }
