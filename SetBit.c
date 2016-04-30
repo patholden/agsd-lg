@@ -40,12 +40,16 @@ void DoSetBit(struct lg_master *pLgMaster, struct parse_setbit_parms *pInp, uint
 	  doLGSTOP(pLgMaster);
 	  ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
 	  doClearSearchBeam(pLgMaster);
+	  xydata.ctrl_flags = 0;
 	  if (bitValue == 0)
-	    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
-	  else if (bitValue == 1) {
-	    xydata.ctrl_flags = BRIGHTBEAMISSET | BEAMONISSET | LASERENBISSET;
-	    doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
-	  }
+	    {
+	      doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
+	    }
+	  else if (bitValue == 1)
+	    {
+	      xydata.ctrl_flags = BEAMONISSET | LASERENBISSET;
+	      doWriteDevPoints(pLgMaster, (struct lg_xydata *)&xydata);
+	    }
 	  else
 	    pResp->hdr.status = RESPFAIL;
 	  break;
