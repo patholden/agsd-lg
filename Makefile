@@ -102,14 +102,13 @@ install:
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
-	chmod 777 $(AGSCFGDIR)/S99agsd
+
 burnusb:
 	sudo umount /dev/sdb1
 	sudo mount /dev/sdb1 /mnt/stick
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
-	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick/boot/bzImage
 	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/stick
 	sudo umount /dev/sdb1
 	sudo umount $(BUILDROOTDIR)/output/ext2
