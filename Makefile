@@ -95,8 +95,6 @@ install:
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTDIR)/output/target/etc/init.d
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTDIR)/output/target/etc/ssh
-	cp *.c $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
-	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/.gdbinit
 	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
