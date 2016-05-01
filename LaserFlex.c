@@ -46,6 +46,8 @@ enum
 	kInitializingLaserCmd
 };
 
+struct displayData dispData;  // this must be persistent
+
 #define MAXLINE 1024
 #define BUFFSIZE  (2048+3*512*512)
 
@@ -60,17 +62,15 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 			  uint32_t respondToWhom )
 {
     struct parse_basic_resp *pResp=(struct parse_basic_resp *)pLgMaster->theResponseBuffer;
-    struct displayData dispData;
     int      i,index;
     int      numberOfTargets;
-    double   *tmpDoubleArr;
+    double   tmpDoubleArr[12];
     char     *tmpPtr;
     double   *p_transform;
     int      checkQC=0;
     int      error=0;
   
     pLgMaster->gAbortDisplay = false;
-    memset((char *)&dispData, 0, sizeof(struct displayData));
     memset((char *)pResp, 0, sizeof(struct parse_basic_resp));
   
     // Do some validations before continuing
@@ -143,15 +143,22 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	ResetPlyCounter(pLgMaster);
 	return;
       }
-    if (pLgMaster->gPlysReceived++)
-      ChangeTransform((double *)&tmpDoubleArr);
+
+
+    if (pLgMaster->gPlysReceived++) 
+      {
+        ChangeTransform((double *)&(tmpDoubleArr[0]));
+      }
     else
-    {
-      // All is good, do display
-      dispData.numberOfSensorSets = pLgMaster->gPlysToDisplay;
-      dispData.sensorAngles = (int32_t *)pLgMaster->gSensorBuffer;
-      dispData.pattern = SetUpLaserPattern(pLgMaster, tmpDoubleArr);
-    }
+      {
+        // All is good, do display
+            // zero out dispData on first pass
+        memset((char *)&dispData, 0, sizeof(struct displayData));
+        dispData.numberOfSensorSets = pLgMaster->gPlysToDisplay;
+        dispData.sensorAngles = (int32_t *)pLgMaster->gSensorBuffer;
+        dispData.pattern = SetUpLaserPattern(pLgMaster, tmpDoubleArr);
+      }
+syslog(LOG_DEBUG, "DoFlex ply rec %d pattern %p", pLgMaster->gPlysReceived, dispData.pattern );
   
   pResp->hdr.errtype = ProcessPatternData(pLgMaster, pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
   if (pResp->hdr.errtype)
@@ -162,6 +169,7 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       ResetPlyCounter(pLgMaster);
       return;
     }
+
   
   if (pLgMaster->gPlysReceived < pLgMaster->gPlysToDisplay)
     {
@@ -185,7 +193,6 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
       pResp->hdr.status = RESPGOOD;
       if (!(pLgMaster->gHeaderSpecialByte & 0x80))
 	HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
-      ResetPlyCounter(pLgMaster);
       return;
     }
   else
@@ -215,8 +222,8 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
 	  PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, DONTRESPOND, respondToWhom);
       else
 	  PostCmdDisplay(pLgMaster,(struct displayData *)&dispData, SENDRESPONSE, respondToWhom);
+      ResetPlyCounter(pLgMaster);
     }
-  ResetPlyCounter(pLgMaster);
   return;
 }
 

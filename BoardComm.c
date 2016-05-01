@@ -103,7 +103,12 @@ static int FillDispBuff(struct lg_master *pLgMaster, uint32_t *ptn_len)
 
     // Send delta for first xy val
     pXYtmp = tmp_pattern;
+    SaveBeamPosition(pLgMaster, (char *)tmp_pattern);
+
+
     move_dark(pLgMaster, pXYtmp);
+
+
     usleep(250);         // let mirrors settle
     // Start with first & last pointing to initial XY points
     first_xypos.xdata = last_xypos.xdata = pXYtmp->xdata;
@@ -197,6 +202,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
     struct k_header      pRespHdr;
     uint32_t             ptn_len;
     int                  rc;
+    struct lg_xydata     *pXYtmp;
     
     // Prepare for response back to PC host
     memset((void *)&pRespHdr, 0, sizeof(struct k_header));
@@ -231,6 +237,7 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
     if ( gVideoCheck == 0 )
       initQCcounter(pLgMaster);
 
+    
 
     // Get pattern data
     memcpy (tmp_pattern, (char *)p_dispdata->pattern, ptn_len);
@@ -242,6 +249,11 @@ void PostCmdDisplay(struct lg_master *pLgMaster, struct displayData *p_dispdata,
 	DoRespond (pLgMaster, (struct k_header *)&pRespHdr);
 	return;
       }
+
+    // do a dark move to start of display
+    pXYtmp = p_dispdata->pattern;
+    move_dark(pLgMaster, pXYtmp);
+
     // Send command to start display
     if ( gVideoCheck == 0 )
       SaveAnglesForQuickCheck(p_dispdata, kRespondExtern );
@@ -440,11 +452,9 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
 	}
       DoRespond (pLgMaster, (struct k_header*)&gResponseBuffer);
       break;
-
       case kQuickCheckSensor:
       break;
-
-      default:
+    default:
       break;
     }
   return;
@@ -610,6 +620,7 @@ int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
     lg_sensor.nPoints =  nPoints;
     lg_sensor.start_index =  0;   // start_index seems to be a problem
     lg_sensor.do_coarse = do_coarse;
+
 
     // Send SENSOR command to driver
     rc = doSensor(pLgMaster, &lg_sensor);
@@ -1004,6 +1015,7 @@ static void SaveBeamPosition(struct lg_master *pLgMaster, char *data)
 
 void RestoreBeamPosition(struct lg_master *pLgMaster)
 {
+
     move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
 #ifdef AGS_DEBUG
     syslog(LOG_DEBUG,"\nRESTOREBEAM: x=%d,y=%d",pLgMaster->gSaveXY.xdata, pLgMaster->gSaveXY.ydata);
@@ -1129,6 +1141,9 @@ int move_lite(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
     pLgMaster->gPeriod = KETIMER_50U;
     lg_litemove.poll_freq = pLgMaster->gPeriod;
 
+    // make sure the projector is IDLE
+    // before getting current scanner angles
+    doLGSTOP(pLgMaster);
     // Get current xy spot to see if need to travel to move to new point
     ioctl(pLgMaster->fd_laser, LGGETANGLE, &xydata);
 
@@ -1187,6 +1202,10 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
     double              n, dx, dy, dsqr, dlen;
     int                 rc;
     useconds_t          dark_wait;
+
+    // before trying to LGGETANGLE,
+    // make sure that the projector is not displaying
+    doLGSTOP( pLgMaster );
     
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
     memset((char *)&lg_darkmove, 0, sizeof(struct lg_move_data));
@@ -1233,6 +1252,7 @@ int move_dark(struct lg_master *pLgMaster, struct lg_xydata *pNewData)
      }
     else
      {
+       dark_wait = 2000;
        usleep( 2000 );
      }
 
