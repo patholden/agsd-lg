@@ -1053,14 +1053,13 @@ static int DoFineLevel(struct lg_master *pLgMaster, int16_t inpX, int16_t inpY,
 {
     int16_t MinX, MinY, MaxX, MaxY; 
     int    result;
-    int    stepTest = 0;
     int32_t stepSize, negStep, nSteps;
     int16_t eolXPos=0, eolYPos=0, eolXNeg=0, eolYNeg=0;
     int16_t currentX, currentY, centerX, centerY;
     int16_t firstX, firstY, lastX, lastY;
     int16_t Xm, Ym;
         
-    // nSteps = 140;
+    nSteps = 140;
     // Seed with starting input XY pair
     centerX = inpX;
     centerY = inpY;
@@ -1077,25 +1076,16 @@ static int DoFineLevel(struct lg_master *pLgMaster, int16_t inpX, int16_t inpY,
     // Start with NegX/NegY pair
     // starting Y, NegX
     // also try to find dot size
-    nSteps = 4;
-    stepTest = 0;
-    while ( nSteps <=  128 && stepTest == 0 ) {
-       nSteps *= 2;
-       limitCalc(centerX, centerY, &eolXNeg, &eolXPos, &eolYNeg, &eolYPos, stepSize * (nSteps/2));
-       currentX = eolXNeg;
-       currentY = centerY;
-       result =  findFirstLast(pLgMaster, &firstX, &firstY, &lastX, &lastY, &Xm, &Ym, currentX,
+
+    limitCalc(centerX, centerY, &eolXNeg, &eolXPos, &eolYNeg, &eolYPos, stepSize * (nSteps/2));
+    currentX = eolXNeg;
+    currentY = centerY;
+    result =  findFirstLast(pLgMaster, &firstX, &firstY, &lastX, &lastY, &Xm, &Ym, currentX,
 			    currentY, stepSize, 0, nSteps);
-       if (result == kStopWasDone)
+    if (result == kStopWasDone)
          return(result);
 
 
-       if (result == 0)
-          {
-             stepTest = 1;
-          }
-       
-    }
     // Set up for next round, look for min/max of current XY pair
     SetFineLevelResults(firstX, firstY, lastX, lastY, &MinX, &MinY, &MaxX, &MaxY);
     // Starting X, NegY
