@@ -141,29 +141,28 @@ newusb:
 	sudo mkdir /mnt/lvdata
 	sudo mount /dev/sdb1 /mnt/lvboot
 	sudo mount /dev/sdb2 /mnt/lvdata
-	sudo mkdir /mnt/lvdata/laservision
-	sudo mkdir /mnt/lvdata/laservision/data
-	sudo mkdir /mnt/lvdata/laservision/sbin
+	sudo mkdir /mnt/lvdata/data
+	sudo mkdir /mnt/lvdata/sbin
 	sudo chmod 777 agsd
-	sudo cp agsd /mnt/lvdata/laservision/sbin
-	sudo cp -avrf $(AGSCFGDIR)/autofocus.txt /mnt/lvdata/laservision/data/autofocus
-	sudo dos2unix /mnt/lvdata/laservision/data/autofocus
-	sudo cp -avrf $(AGSCFGDIR)/visionfocus.txt /mnt/lvdata/laservision/data/focusvision
-	sudo dos2unix /mnt/lvdata/laservision/data/focusvision
-	sudo cp -avrf $(AGSCFGDIR)/visionparameters.txt /mnt/lvdata/laservision/data/vision
-	sudo dos2unix /mnt/lvdata/laservision/data/vision
-	sudo cp -avrf $(AGSCFGDIR)/calibration.txt /mnt/lvdata/laservision/data/calib
-	sudo dos2unix /mnt/lvdata/laservision/data/calib
-	sudo cp -avrf $(AGSCFGDIR)/version.txt /mnt/lvdata/laservision/data/version
-	sudo dos2unix /mnt/lvdata/laservision/data/version
-	sudo cp -avrf $(AGSCFGDIR)/information.txt /mnt/lvdata/laservision/data/info
-	sudo dos2unix /mnt/lvdata/laservision/data/info
-	sudo cp -avrf $(AGSCFGDIR)/initialization.txt /mnt/lvdata/laservision/data/init
-	sudo dos2unix /mnt/lvdata/laservision/data/init
-	sudo cp -avrf $(AGSCFGDIR)/polarizer.txt /mnt/lvdata/laservision/data/polarizer
-	sudo dos2unix /mnt/lvdata/laservision/data/polarizer
+	sudo cp agsd /mnt/lvdata/sbin
+	sudo cp -avrf $(AGSCFGDIR)/autofocus.txt /mnt/lvdata/data/autofocus
+	sudo dos2unix /mnt/lvdata/data/autofocus
+	sudo cp -avrf $(AGSCFGDIR)/visionfocus.txt /mnt/lvdata/data/focusvision
+	sudo dos2unix /mnt/lvdata/data/focusvision
+	sudo cp -avrf $(AGSCFGDIR)/visionparameters.txt /mnt/lvdata/data/vision
+	sudo dos2unix /mnt/lvdata/data/vision
+	sudo cp -avrf $(AGSCFGDIR)/calibration.txt /mnt/lvdata/data/calib
+	sudo dos2unix /mnt/lvdata/data/calib
+	sudo cp -avrf $(AGSCFGDIR)/version.txt /mnt/lvdata/data/version
+	sudo dos2unix /mnt/lvdata/data/version
+	sudo cp -avrf $(AGSCFGDIR)/information.txt /mnt/lvdata/data/info
+	sudo dos2unix /mnt/lvdata/data/info
+	sudo cp -avrf $(AGSCFGDIR)/initialization.txt /mnt/lvdata/data/init
+	sudo dos2unix /mnt/lvdata/data/init
+	sudo cp -avrf $(AGSCFGDIR)/polarizer.txt /mnt/lvdata/data/polarizer
+	sudo dos2unix /mnt/lvdata/data/polarizer
 	sudo echo "\n" > hobbs
-	sudo mv hobbs /mnt/lvdata/laservision/data
+	sudo mv hobbs /mnt/lvdata/data
 	sudo chmod -R 777 /mnt/lvdata/*
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
