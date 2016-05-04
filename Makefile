@@ -141,7 +141,6 @@ newusb:
 	sudo mkdir /mnt/lvdata
 	sudo mount /dev/sdb1 /mnt/lvboot
 	sudo mount /dev/sdb2 /mnt/lvdata
-	sudo mkdir /mnt/lvdata
 	sudo mkdir /mnt/lvdata/laservision
 	sudo mkdir /mnt/lvdata/laservision/data
 	sudo mkdir /mnt/lvdata/laservision/sbin
