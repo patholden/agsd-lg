@@ -222,6 +222,13 @@ int QuickCheckOne(struct lg_master *pLgMaster, int16_t centerX, int16_t centerY,
         
         *foundX = tempX;
         *foundY = tempY;
+
+           // turn off beam, also centerX/Y should be good and close
+        xydata.xdata =  centerX;
+        xydata.ydata =  centerY;
+        move_dark(pLgMaster, (struct lg_xydata *)&xydata);
+        usleep(250);
+
         return theResult;
 }
 int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY,
@@ -651,10 +658,13 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
     int16_t          tmpX, tmpY;
     uint16_t         numberOfXScansToAverage;
     uint16_t         numberOfYScansToAverage;
+    int16_t          QuickFineStep;
         
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
     memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
-    theSpan = kSuperFineSearchStep * kSuperFineSearchSpanSteps;
+    theSpan = (kSuperFineSearchStep * kSuperFineSearchSpanSteps) / 2;
+
+    QuickFineStep = 2 * kSuperFineSearchStep;
 
     centerX = *foundX;
     centerY = *foundY;
@@ -672,8 +682,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	/* Go right */
 	currentX = centerX - theSpan;
 	currentY = centerY;
-	delX = 2*gSuperFineSearchStep;
-	nSteps = theSpan / gSuperFineSearchStep;
+	delX = 2*QuickFineStep;
+	nSteps = theSpan / QuickFineStep;
 #ifdef AGS_DEBUG
 	syslog(LOG_DEBUG,"QKFINESRCH: DOLVL1 for x=%x,y=%x,delta x=%x,y=%x,nSteps %d",
 	       currentX,currentY,delX,0,nSteps);
@@ -709,8 +719,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	/* Go left */
 	currentX = centerX + theSpan;
 	currentY = centerY;
-	delX = -2 * gSuperFineSearchStep;
-	nSteps = theSpan / gSuperFineSearchStep;
+	delX = -2 * QuickFineStep;
+	nSteps = theSpan / QuickFineStep;
 	xydata.xdata =  currentX;
 	xydata.ydata =  currentY;
 	xydelta.xdata = delX;
@@ -739,8 +749,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	/* Go up    */
 	currentX = centerX;
 	currentY = centerY - theSpan;
-	delY = 2*gSuperFineSearchStep;
-	nSteps = theSpan / gSuperFineSearchStep;
+	delY = 2*QuickFineStep;
+	nSteps = theSpan / QuickFineStep;
 	xydata.xdata =  currentX;
 	xydata.ydata =  currentY;
 	xydelta.ydata = delY;
@@ -775,8 +785,8 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	/* Go down */
 	currentX = centerX;
 	currentY = centerY + theSpan;
-	delY = -2 * gSuperFineSearchStep;
-	nSteps = theSpan / gSuperFineSearchStep;
+	delY = -2 * QuickFineStep;
+	nSteps = theSpan / QuickFineStep;
 	xydata.xdata =  currentX;
 	xydata.ydata =  currentY;
 	xydelta.ydata = delY;
