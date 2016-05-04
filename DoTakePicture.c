@@ -25,6 +25,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
 		     uint32_t respondToWhom)
 {
   struct parse_basic_resp *pResp;
+  struct lg_xydata dark_angles;
   double tmpDoubleArr[MAX_NEW_TRANSFORM_ITEMS];
   double partPoint[3];
   double outputPoint[3];
@@ -53,6 +54,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   theError = PointToBinary(pLgMaster, outputPoint, &data[0], &data[1]);
   if (theError)
     {
+      syslog(LOG_DEBUG, "DoTakePicture failed out of range" );
       pResp->hdr.status = RESPFAIL;
       pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE; 
       HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );
@@ -64,7 +66,12 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   syslog(LOG_NOTICE, "Picture78 tv %d %d", tv.tv_sec, tv.tv_usec );
 #endif
 
-  PostCommand(pLgMaster, kDarkAngle, (char *)&data[0], kRespondExtern );
+//  note kDarkAngle  no longer works in PostCommand
+//  PostCommand(pLgMaster, kDarkAngle, (char *)&data[0], kRespondExtern );
+  dark_angles.xdata = data[0];
+  dark_angles.ydata = data[1];
+
+  PostCmdDarkAngle(pLgMaster, &dark_angles );
 
 #ifdef SPECIAL
   gettimeofday( &tv, &tz );
