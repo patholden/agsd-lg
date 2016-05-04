@@ -88,30 +88,8 @@ jigqc.o: jigqc.c
 oneside.o: oneside.c
 	$(CC) -c -o oneside.o $(CFLAGS) $(EXTRA_CFLAGS) oneside.c
 clean:
-	rm -f *.o agsd $(BUILDROOTFSDIR)/etc
-	rm -rf $(BUILDROOTFSDIR)/debug
-	rm -rf $(BUILDROOTTGTDIR)/etc/ags
+	rm -rf *.o agsd $(BUILDROOTFSDIR)/*
 usb_install:
-	cp $(AGSCFGDIR)/autofocus.txt $(BUILDROOTFSDIR)/lv/data/autofocus
-	dos2unix $(BUILDROOTFSDIR)/lv/data/autofocus
-	cp $(AGSCFGDIR)/visionfocus.txt $(BUILDROOTFSDIR)/lv/data/focusvision
-	dos2unix $(BUILDROOTFSDIR)/lv/data/focusvision
-	cp $(AGSCFGDIR)/visionparameters.txt $(BUILDROOTFSDIR)/lv/data/vision
-	dos2unix $(BUILDROOTFSDIR)/lv/data/vision
-	cp $(AGSCFGDIR)/calibration.txt $(BUILDROOTFSDIR)/lv/data/calib
-	dos2unix $(BUILDROOTFSDIR)/lv/data/calib
-	cp $(AGSCFGDIR)/version.txt $(BUILDROOTFSDIR)/lv/data/version
-	dos2unix $(BUILDROOTFSDIR)/lv/data/version
-	cp $(AGSCFGDIR)/information.txt $(BUILDROOTFSDIR)/lv/data/info
-	dos2unix $(BUILDROOTFSDIR)/lv/data/info
-	cp $(AGSCFGDIR)/initialization.txt $(BUILDROOTFSDIR)/lv/data/init
-	dos2unix $(BUILDROOTFSDIR)/lv/data/init
-	cp $(AGSCFGDIR)/polarizer.txt $(BUILDROOTFSDIR)/lv/data/polarizer
-	dos2unix $(BUILDROOTFSDIR)/lv/data/polarizer
-	echo "\0" > $(BUILDROOTFSDIR)/lv/data/hobbs
-	chmod +w $(BUILDROOTFSDIR)/lv/data/*
-	chmod 777 agsd
-	cp agsd $(BUILDROOTFSDIR)/lv/sbin
 	chmod 777 $(AGSCFGDIR)/S95agsd
 	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d
 	chmod 777 $(AGSCFGDIR)/S50sshd
@@ -119,30 +97,11 @@ usb_install:
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/usb_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
+	mkdir $(BUILDROOTFSDIR)/laservision
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
 mmc_install:
-	cp $(AGSCFGDIR)/autofocus.txt $(BUILDROOTFSDIR)/lv/data/autofocus
-	dos2unix $(BUILDROOTFSDIR)/lv/data/autofocus
-	cp $(AGSCFGDIR)/visionfocus.txt $(BUILDROOTFSDIR)/lv/data/focusvision
-	dos2unix $(BUILDROOTFSDIR)/lv/data/focusvision
-	cp $(AGSCFGDIR)/visionparameters.txt $(BUILDROOTFSDIR)/lv/data/vision
-	dos2unix $(BUILDROOTFSDIR)/lv/data/vision
-	cp $(AGSCFGDIR)/calibration.txt $(BUILDROOTFSDIR)/lv/data/calib
-	dos2unix $(BUILDROOTFSDIR)/lv/data/calib
-	cp $(AGSCFGDIR)/version.txt $(BUILDROOTFSDIR)/lv/data/version
-	dos2unix $(BUILDROOTFSDIR)/lv/data/version
-	cp $(AGSCFGDIR)/information.txt $(BUILDROOTFSDIR)/lv/data/info
-	dos2unix $(BUILDROOTFSDIR)/lv/data/info
-	cp $(AGSCFGDIR)/initialization.txt $(BUILDROOTFSDIR)/lv/data/init
-	dos2unix $(BUILDROOTFSDIR)/lv/data/init
-	cp $(AGSCFGDIR)/polarizer.txt $(BUILDROOTFSDIR)/lv/data/polarizer
-	dos2unix $(BUILDROOTFSDIR)/lv/data/polarizer
-	touch $(BUILDROOTFSDIR)/lv/data/hobbs
-	chmod +w $(BUILDROOTFSDIR)/lv/data/*
-	chmod 777 agsd
-	cp agsd $(BUILDROOTFSDIR)/lv/sbin
 	chmod 777 $(AGSCFGDIR)/S95agsd
 	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d
 	chmod 777 $(AGSCFGDIR)/S50sshd
@@ -150,27 +109,71 @@ mmc_install:
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/mmc_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
+	mkdir $(BUILDROOTFSDIR)/laservision
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
 
+# burnusb copies rootfs to boot partition and ALL files to data partition
 burnusb:
 	sudo umount /dev/sdb1
-	sudo mount /dev/sdb1 /mnt/stick
+	sudo umount /dev/sdb2
+	sudo mkdir /mnt/lvboot
+	sudo mkdir /mnt/lvdata
+	sudo mount /dev/sdb1 /mnt/lvboot
+	sudo mount /dev/sdb2 /mnt/lvdata
+	chmod 777 agsd
+	cp agsd /mnt/lvdata/sbin/agsd
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
-	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
-	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
-	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/stick
+	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
+	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/lvboot
+	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/lvboot
 	sudo umount /dev/sdb1
+	sudo umount /dev/sdb2
+	sudo rm -rf /mnt/lvdata
+	sudo rm -rf /mnt/lvboot
 	sudo umount $(BUILDROOTDIR)/output/ext2
-burnflash:
+
+# newusb copies rootfs to boot partition and ALL files to data partition
+newusb:
 	sudo umount /dev/sdb1
-	sudo mount /dev/sdb1 /mnt/stick
+	sudo mkdir /mnt/lvboot
+	sudo mkdir /mnt/lvdata
+	sudo mount /dev/sdb1 /mnt/lvboot
+	sudo mount /dev/sdb2 /mnt/lvdata
+	sudo mkdir /mnt/lvdata
+	sudo mkdir /mnt/lvdata/laservision
+	sudo mkdir /mnt/lvdata/laservision/data
+	sudo mkdir /mnt/lvdata/laservision/sbin
+	sudo chmod 777 agsd
+	sudo cp agsd /mnt/lvdata/laservision/sbin
+	sudo cp -avrf $(AGSCFGDIR)/autofocus.txt /mnt/lvdata/laservision/data/autofocus
+	sudo dos2unix /mnt/lvdata/laservision/data/autofocus
+	sudo cp -avrf $(AGSCFGDIR)/visionfocus.txt /mnt/lvdata/laservision/data/focusvision
+	sudo dos2unix /mnt/lvdata/laservision/data/focusvision
+	sudo cp -avrf $(AGSCFGDIR)/visionparameters.txt /mnt/lvdata/laservision/data/vision
+	sudo dos2unix /mnt/lvdata/laservision/data/vision
+	sudo cp -avrf $(AGSCFGDIR)/calibration.txt /mnt/lvdata/laservision/data/calib
+	sudo dos2unix /mnt/lvdata/laservision/data/calib
+	sudo cp -avrf $(AGSCFGDIR)/version.txt /mnt/lvdata/laservision/data/version
+	sudo dos2unix /mnt/lvdata/laservision/data/version
+	sudo cp -avrf $(AGSCFGDIR)/information.txt /mnt/lvdata/laservision/data/info
+	sudo dos2unix /mnt/lvdata/laservision/data/info
+	sudo cp -avrf $(AGSCFGDIR)/initialization.txt /mnt/lvdata/laservision/data/init
+	sudo dos2unix /mnt/lvdata/laservision/data/init
+	sudo cp -avrf $(AGSCFGDIR)/polarizer.txt /mnt/lvdata/laservision/data/polarizer
+	sudo dos2unix /mnt/lvdata/laservision/data/polarizer
+	sudo echo "\n" > hobbs
+	sudo mv hobbs /mnt/lvdata/laservision/data
+	sudo chmod -R 777 /mnt/lvdata/*
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
-	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
-	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
-	sudo cp $(AGSCFGDIR)/mmc_extlinux.conf /mnt/stick/extlinux.conf
-	sudo chmod -R 777 /mnt/stick/lv/data
-	sudo chmod -R 777 /mnt/stick/usr/sbin/agsd
+	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
+	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/lvboot
+	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/lvboot
+	sync
 	sudo umount /dev/sdb1
+	sudo umount /dev/sdb2
 	sudo umount $(BUILDROOTDIR)/output/ext2
+	sudo rm -rf /mnt/lvdata
+	sudo rm -rf /mnt/lvboot
+	sudo umount /dev/sdb2

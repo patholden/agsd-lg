@@ -82,8 +82,8 @@ static char default_auto[] =
     "24 = 0\r\n"
     "25 = 0\r\n"
     ;
-static char lvdata_dir[] = "/laser/data/";
-static char lvsbin_dir[] = "/laser/sbin/";
+static char lvdata_dir[] = "/laservision/data/";
+static char lvsbin_dir[] = "/laservision/sbin/";
 static char autotext[] = " = ";
 static char cal_name[] = "calibration";
 static char ini_name[] = "initialization";
@@ -150,11 +150,14 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     if ( strcmp( ini_name, lcName ) == 0 ) {
         size = INIT_SIZE;
         sprintf(FSName, "%sinit",lvdata_dir );
+#ifdef AGS_DEBUG
+	syslog(LOG_DEBUG, "input %s, file name %s", lcName, FSName);
+#endif
     }
     else if ( strcmp( nfo_name, lcName ) == 0 ) {
         size = INFO_SIZE;
         sprintf(FSName, "%sinfo",lvdata_dir);
-    }
+   }
     else if ( strcmp( cal_name, lcName ) == 0 ) {
         size = CALIB_SIZE;
         sprintf(FSName, "%scalib",lvdata_dir);
@@ -188,11 +191,17 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     }
     else
       {
+#ifdef AGS_DEBUG
+	syslog(LOG_DEBUG, "input %s, file name %s", lcName, FSName);
+#endif
 	syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error, unknown input file %s",lcName);
 	pResp->hdr.cmd = RESPFAIL;
 	HandleResponse(pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom);
 	return;
       }    
+#ifdef AGS_DEBUG
+    syslog(LOG_DEBUG, "input %s, file name %s", lcName, FSName);
+#endif
     if (strcmp(return_name, lcName) == 0)
       size = gLoutSize;
     // Special-case version "file"
@@ -201,7 +210,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
       {
 	err = (GetVersionSize(pLgMaster, &size));
 	if (err)
-	    syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error");
+	  syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error for %s",lcName);
       }
     else
       {
@@ -210,7 +219,7 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
 	system(system_buff);
 	err = GetFileSize(FSName, &size);
 	if (err)
-	    syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error");
+	  syslog(LOG_ERR,"\nFILEGETSTART: Get-Filesize error for %s", FSName);
       }
 
     if (err || (size == 0))
@@ -758,18 +767,7 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
       }
     else
       {
-	// Check to see if we're updating ags daemon
-	if (strcmp(ags_name, lcName) == 0)
-	  {
-	    sprintf(FSName, "%s%s", lvsbin_dir,ags_name);
-	    sprintf(system_buff, "sudo gunzip %s", FSName);
-	    system(system_buff);
-	    sprintf(system_buff,"sudo mv %sags %sagsd", lvsbin_dir, lvsbin_dir);
-	    system(system_buff);
-	    sprintf(system_buff,"sudo chmod 777 %sagsd", lvsbin_dir);
-	    system(system_buff);
-	  }
-	  pResp->hdr.cmd = RESPGOOD;
+	pResp->hdr.cmd = RESPGOOD;
 	memcpy(pResp->filename, (void *)lcName, 32 );
 	pResp->filelen = size;
 	HandleResponse (pLgMaster, (sizeof(struct parse_putdone_resp)-kCRCSize), respondToWhom );
