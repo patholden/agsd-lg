@@ -674,10 +674,6 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	currentY = centerY;
 	delX = 2*gSuperFineSearchStep;
 	nSteps = theSpan / gSuperFineSearchStep;
-#ifdef AGS_DEBUG
-	syslog(LOG_DEBUG,"QKFINESRCH: DOLVL1 for x=%x,y=%x,delta x=%x,y=%x,nSteps %d",
-	       currentX,currentY,delX,0,nSteps);
-#endif
 	xydata.xdata =  currentX;
 	xydata.ydata =  currentY;
 	xydelta.xdata = delX;
@@ -745,10 +741,6 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	xydata.ydata =  currentY;
 	xydelta.ydata = delY;
 	xydelta.xdata = 0;
-#ifdef AGS_DEBUG
-	syslog(LOG_DEBUG,"QKFINESRCH: DOLVL3 for x=%x,y=%x,delta x=%x,y=%x,nSteps %d",
-	       currentX,currentY,0,delY,nSteps);
-#endif
         pLgMaster->gSearchType = FINESEARCH;
 	rc = DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 		      (struct lg_xydelta*)&xydelta, nSteps, gLout,1);
@@ -781,10 +773,6 @@ static int DoQuickFineSearch(struct lg_master *pLgMaster, int16_t *foundX, int16
 	xydata.ydata =  currentY;
 	xydelta.ydata = delY;
 	xydelta.xdata = 0;
-#ifdef AGS_DEBUG
-	syslog(LOG_DEBUG,"QKFINESRCH: DOLVL4 for x=%x,y=%x,delta x=%x,y=%x,nSteps %d",
-	       currentX,currentY,0,delY,nSteps);
-#endif
         pLgMaster->gSearchType = FINESEARCH;
 	rc = DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
 		      (struct lg_xydelta*)&xydelta, nSteps, gLout, 1);
@@ -1431,9 +1419,6 @@ syslog(LOG_DEBUG,"sw2y2 %d %d %d", inpX2, outY2, inpBuf2[i] );
 	  {
 	    gSaveMatch[gLoutIndex] = 1;
 	    gSaveSweep[gLoutIndex] = sweep;
-#ifdef AGS_DEBUG
-	    //syslog(LOG_DEBUG,"SRCH2SETSY:  SWEEP%d JACKPOT sumX=%x, sumY=%x,i=%d,count %d", sweep,*sumX,*sumY,i,hit_count);
-#endif
 	  }
 	gSaveLout1[gLoutIndex] = inpBuf2[i];
 	gSaveLout2[gLoutIndex] = inpBuf1[i];
@@ -1512,9 +1497,6 @@ static int SearchWithTwoSetsOutX(struct lg_master *pLgMaster, int sweep, int16_t
 	      {
 		gSaveMatch[gLoutIndex] = 1;
 		gSaveSweep[gLoutIndex] = sweep;
-#ifdef AGS_DEBUG
-		//syslog(LOG_DEBUG,"SRCH2SETSX:  SWEEP%d JACKPOT sumX=%x, sumY=%x,i=%d,hit count %d",sweep,*sumX,*sumY,i,hit_count);
-#endif
 	      }
 	    gSaveLout1[gLoutIndex] = inpBuf2[i];
 	    gSaveLout2[gLoutIndex] = inpBuf1[i];
@@ -1560,9 +1542,6 @@ static int SearchSingleSetOutXY(struct lg_master *pLgMaster, int16_t inpX, int16
 	    hit_count++;
 	  }
       }
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"SRCH1SETXY: sumX=%x, sumY=%x,i=%d,hit count %d",*sumX,*sumY,i,hit_count);
-#endif
     *count += hit_count;
     return(0);
 }
@@ -1613,11 +1592,6 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
     sumY = 0;
     count = 0;
     Dstep = delPos;
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"SuperSearch: MinX=%x,MaxX=%x,MinY=%x,MaxY=%x",*MinX,*MaxX,*MinY,*MaxY);
-    syslog(LOG_DEBUG,"SuperSearch: Xmid=%x,Ymid=%x,Xlow=%x,Xhigh=%x,Ylow=%x,Yhigh=%x",Xmid,Ymid,Xlow,Xhigh,Ylow,Yhigh);
-    syslog(LOG_DEBUG,"SuperSearch: Xspan=%d,Yspan=%d,steps=%d,delta=%d,dstep=%d,delPos=%x",XSpan,YSpan,nXsteps,delPos,Dstep,delPos);
-#endif
     for (currentX = *MinX; currentX < *MaxX; currentX +=  Dstep )
       {
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
@@ -1783,43 +1757,8 @@ int SuperSearch(struct lg_master *pLgMaster, int16_t *foundX, int16_t *foundY,
       *foundY = avgY;
       return(0);
     }
-#if 0
-  else if (gSuperIndex > 0)
-    {
-      sumX = 0;
-      sumY = 0;
-      for (i = 0; i < gSuperIndex; i++)
-	{
-	  sumX += gXsuperSave[i];
-	  sumY += gYsuperSave[i];
-	}
-      avgX = (int16_t)(sumX / gSuperIndex);
-      avgY = (int16_t)(sumY / gSuperIndex);
-      *foundX = avgX;
-      *foundY = avgY;
-    }
-#endif
-#ifdef AGS_DEBUG
-  syslog(LOG_DEBUG,"SuperSearch:  MEGAMILLIONS SWEEP %d, hit count1 %d, count2 %d,foundX=%x,foundY=%x",sweep, count,gSuperIndex,*foundX,*foundY);
-#endif
   return(0);
 }
-
-#if 0
- static int sensor_sort(const void *elem1, const void *elem2)
-{
-    int16_t numone, numtwo;
-
-    numone = *(const int16_t *)elem1;
-    numtwo = *(const int16_t *)elem2;
-
-    if (numone < numtwo)
-      return(-1);
-    if (numone > numtwo)
-      return(1);
-    return(0);
-}
-#endif
 
 void SensorInitLog(void)
 {

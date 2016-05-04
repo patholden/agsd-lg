@@ -60,8 +60,8 @@ int HobbsCountersInit(struct lg_master *pLgMaster)
   FILE  *filefd;
   long   file_size;
   int    rc=0;
-  
-  filefd = fopen("/etc/ags/conf/newhobbs", "w+");
+
+  filefd = fopen("/laservision/data/hobbs", "w+");
   if (!filefd)
     return(-1);
 
@@ -234,7 +234,7 @@ int WriteHobbs(struct lg_master *pLgMaster)
   FILE  *filefd;
   int    rc;
   
-  filefd = fopen("/etc/ags/conf/newhobbs", "w+");
+  filefd = fopen("/laservision/data/hobbs", "w+");
   if (!filefd)
     return(-1);
   rc = WriteHobbsToFile(filefd, pLgMaster);

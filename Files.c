@@ -82,6 +82,8 @@ static char default_auto[] =
     "24 = 0\r\n"
     "25 = 0\r\n"
     ;
+static char lvdata_dir[] = "/laser/data/";
+static char lvsbin_dir[] = "/laser/sbin/";
 static char autotext[] = " = ";
 static char cal_name[] = "calibration";
 static char ini_name[] = "initialization";
@@ -147,42 +149,42 @@ void   DoFileGetStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
       
     if ( strcmp( ini_name, lcName ) == 0 ) {
         size = INIT_SIZE;
-        strcpy( FSName, "/etc/ags/conf/init" );
+        sprintf(FSName, "%sinit",lvdata_dir );
     }
     else if ( strcmp( nfo_name, lcName ) == 0 ) {
         size = INFO_SIZE;
-        strcpy( FSName, "/etc/ags/conf/info" );
+        sprintf(FSName, "%sinfo",lvdata_dir);
     }
     else if ( strcmp( cal_name, lcName ) == 0 ) {
         size = CALIB_SIZE;
-        strcpy( FSName, "/etc/ags/conf/calib" );
+        sprintf(FSName, "%scalib",lvdata_dir);
     }
     else if ( strcmp( ags_name, lcName ) == 0 ) {
         size = AGS_SIZE;
-        strcpy( FSName, "/agsd" );
+        sprintf(FSName, "%s%s",lvsbin_dir, ags_name);
     }
     else if ( strcmp( auto_name, lcName ) == 0 ) {
         size = AUTO_SIZE;
-        strcpy( FSName, "/etc/ags/conf/autofocus" );
+        sprintf( FSName, "%sautofocus",lvdata_dir);
     }
     else if ( strcmp( vision_name, lcName ) == 0 ) {
         size = BIG_SIZE;
-        strcpy( FSName, "/etc/ags/conf/vision" );
+        sprintf(FSName, "%svision",lvdata_dir);
     }
     else if ( strcmp( polarizer_name, lcName ) == 0 ) {
         size = DATA_SIZE;
-        strcpy( FSName, "/etc/ags/conf/polarizer" );
+        sprintf(FSName, "%spolarizer",lvdata_dir);
     }
     else if ( strcmp( focus_vision_name, lcName ) == 0 ) {
         size = DATA_SIZE;
-        strcpy( FSName, "/etc/ags/conf/focusvision" );
+        sprintf(FSName, "%sfocusvision",lvdata_dir);
     }
     else if ( strcmp( hob_name, lcName ) == 0 ) {
         size = HOBB_SIZE;
-        strcpy( FSName, "/etc/ags/conf/hobbs" );
+        sprintf(FSName, "%shobbs",lvdata_dir);
     }
     else if ( strcmp( ver_name, lcName ) == 0 ) {
-        strcpy( FSName, "/etc/ags/conf/version" );
+      sprintf(FSName, "%sversion",lvdata_dir);
     }
     else
       {
@@ -289,39 +291,39 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 
     if ( strcmp( ini_name, lcName ) == 0 ) {
       MaxSize = INIT_SIZE;
-      strcpy( FSName, "/etc/ags/conf/init" );
+      sprintf(FSName, "%sinit",lvdata_dir);
     }
     else if ( strcmp( nfo_name, lcName ) == 0 ) {
       MaxSize = INFO_SIZE;
-      strcpy( FSName, "/etc/ags/conf/info" );
+      sprintf(FSName, "%sinfo",lvdata_dir);
     }
     else if ( strcmp( cal_name, lcName ) == 0 ) {
       MaxSize = CALIB_SIZE;
-      strcpy( FSName, "/etc/ags/conf/calib" );
+      sprintf(FSName, "%scalib", lvdata_dir);
     }
     else if ( strcmp( ags_name, lcName ) == 0 ) {
       MaxSize = AGS_SIZE;
-      strcpy( FSName, "/agsd" );
+      sprintf(FSName, "%s%s",lvsbin_dir,ags_name);
     }
     else if ( strcmp( auto_name, lcName ) == 0 ) {
       MaxSize = AUTO_SIZE;
-      strcpy( FSName, "/etc/ags/conf/autofocus" );
+      sprintf(FSName, "%sautofocus",lvdata_dir);
     }
     else if ( strcmp( vision_name, lcName ) == 0 ) {
       MaxSize = BIG_SIZE;
-      strcpy( FSName, "/etc/ags/conf/vision" );
+      sprintf(FSName, "%svision",lvdata_dir);
     }
     else if ( strcmp( focus_vision_name, lcName ) == 0 ) {
       MaxSize = DATA_SIZE;
-      strcpy( FSName, "/etc/ags/conf/focusvision" );
+      sprintf(FSName, "%sfocusvision",lvdata_dir);
     }
     else if ( strcmp( polarizer_name, lcName ) == 0 ) {
       MaxSize = DATA_SIZE;
-      strcpy( FSName, "/etc/ags/conf/polarizer" );
+      sprintf(FSName, "%spolarizer",lvdata_dir);
     }
     else if ( strcmp( hob_name, lcName ) == 0 ) {
       MaxSize = HOBB_SIZE;
-      strcpy( FSName, "/etc/ags/conf/hobbs" );
+      sprintf(FSName, "%shobbs",lvdata_dir);
     }
     else if (strcmp(ver_name, lcName) == 0 )
       {
@@ -329,7 +331,7 @@ void DoFileGetData  (struct lg_master *pLgMaster, char * parameters, uint32_t re
 	goto handle_resp;
       }
     else      
-      sprintf(FSName, "etc/ags/conf/%s",lcName);
+      sprintf(FSName, "%s%s",lvdata_dir,lcName);
 
     err = GetFileSize(FSName, &MaxSize);
     if (err)
@@ -620,23 +622,24 @@ void   HandleFilePutData  (struct lg_master *pLgMaster, char * parameters, uint3
 void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t respondToWhom )
 {
     int32_t MaxSize=0;
-    char lcName[LCNAME_SIZE];
-    char FSName[128];
-    int i,j;
-    int itest;
-    int err;
+    char    system_buff[512];
+    char    lcName[LCNAME_SIZE];
+    char    FSName[128];
+    int     i,j;
+    int     itest;
+    int     err=0;
     int32_t size;
     int32_t inp_filelen;
     int32_t local_len;
-    char * ptr;
-    char localcopy[INIT_SIZE];
-    char ttstring[] = "transformtolerance";
+    char    *ptr;
+    char    localcopy[INIT_SIZE];
+    char    ttstring[] = "transformtolerance";
     struct parse_putdone_parms *pInp=(struct parse_putdone_parms *)parameters;
     struct parse_putdone_resp *pResp=(struct parse_putdone_resp *)pLgMaster->theResponseBuffer;
     
-    err = 0;
     memset(FSName, 0, sizeof(FSName));
     memset(lcName, 0, sizeof(lcName));
+    memset(system_buff, 0, sizeof(system_buff));
     memset(pResp, 0, sizeof(struct parse_putdone_resp));
     
     inp_filelen = strlen(pInp->inp_filename);
@@ -663,7 +666,7 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
       {
 	syslog(LOG_ERR, "PUTDONE: file %s, length %d\n", lcName, saveLength );
         MaxSize = INIT_SIZE;
-        strcpy( FSName, "/etc/ags/conf/init" );
+        sprintf(FSName, "%sinit",lvdata_dir);
         memset( (void *)localcopy, 0, INIT_SIZE );
         if (saveLength >= INIT_SIZE)
 	  {
@@ -693,27 +696,27 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
       }
     else if ( strcmp( nfo_name, lcName ) == 0 ) {
         MaxSize = INFO_SIZE;
-        strcpy( FSName, "/etc/ags/conf/info" );
+        sprintf(FSName, "%sinfo",lvdata_dir);
     }
     else if ( strcmp( cal_name, lcName ) == 0 ) {
         MaxSize = CALIB_SIZE;
-        strcpy( FSName, "/etc/ags/conf/calib" );
+        sprintf(FSName, "%scalib",lvdata_dir);
     }
     else if ( strcmp( ags_name, lcName ) == 0 ) {
         MaxSize = AGS_SIZE;
-        strcpy( FSName, "/agsd" );
+        sprintf(FSName, "%s%s",lvsbin_dir,ags_name);
     }
     else if ( strcmp( hob_name, lcName ) == 0 ) {
         MaxSize =    HOBB_SIZE;
-        strcpy( FSName, "/etc/ags/conf/hobbs" );
+        sprintf(FSName, "%shobbs",lvdata_dir);
     }
     else if ( strcmp( vision_name, lcName ) == 0 ) {
         MaxSize =    BIG_SIZE;
-        strcpy( FSName, "/etc/ags/conf/vision" );
+        sprintf(FSName, "%svision", lvdata_dir);
     }
     else if ( strcmp( auto_name, lcName ) == 0 ) {
         MaxSize =    AUTO_SIZE;
-        strcpy( FSName, "/etc/ags/conf/autofocus" );
+        sprintf(FSName, "%sautofocus",lvdata_dir);
            // parse buffer to check file
         itest = ParseAutoFocus(saveLength, BIG_Buffer);
         if ( itest != 0 ) {
@@ -722,7 +725,7 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
     }
     else if ( strcmp( focus_vision_name, lcName ) == 0 ) {
         MaxSize =    DATA_SIZE;
-        strcpy( FSName, "/etc/ags/conf/focusvision" );
+        sprintf(FSName, "%sfocusvision",lvdata_dir);
            // parse buffer to check file
         itest = ParseVisionFocus( saveLength, BIG_Buffer );
         if ( itest != 0 ) {
@@ -731,12 +734,12 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
     }
     else if ( strcmp( polarizer_name, lcName ) == 0 ) {
         MaxSize =    DATA_SIZE;
-        strcpy( FSName, "/etc/ags/conf/polarizer" );
+        sprintf(FSName, "%spolarizer",lvdata_dir);
     }
     else
-        sprintf(FSName, "/etc/ags/conf/%s",pInp->inp_filename);
+      sprintf(FSName, "%s%s",lvdata_dir,pInp->inp_filename);
 
-    syslog(LOG_ERR, "\nPUTDONE: file %s, write-len %d  MaxSize %d\n", FSName, saveLength, MaxSize );
+    syslog(LOG_NOTICE, "\nPUTDONE: file %s, write-len %d  MaxSize %d\n", FSName, saveLength, MaxSize );
 
     if (MaxSize)
       {
@@ -755,7 +758,18 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
       }
     else
       {
-	pResp->hdr.cmd = RESPGOOD;
+	// Check to see if we're updating ags daemon
+	if (strcmp(ags_name, lcName) == 0)
+	  {
+	    sprintf(FSName, "%s%s", lvsbin_dir,ags_name);
+	    sprintf(system_buff, "sudo gunzip %s", FSName);
+	    system(system_buff);
+	    sprintf(system_buff,"sudo mv %sags %sagsd", lvsbin_dir, lvsbin_dir);
+	    system(system_buff);
+	    sprintf(system_buff,"sudo chmod 777 %sagsd", lvsbin_dir);
+	    system(system_buff);
+	  }
+	  pResp->hdr.cmd = RESPGOOD;
 	memcpy(pResp->filename, (void *)lcName, 32 );
 	pResp->filelen = size;
 	HandleResponse (pLgMaster, (sizeof(struct parse_putdone_resp)-kCRCSize), respondToWhom );
@@ -982,11 +996,14 @@ int InitCheckVersion(struct lg_master *pLgMaster)
 }
 int InitVision(struct lg_master *pLgMaster)
 {
-    int err;
-    int size;
+    char     FSName[128];
+    int      err;
+    int      size;
 
     memset(BIG_Buffer, 0, CALIB_SIZE );
-    err = ReadFromFS(BIG_Buffer, "/etc/ags/conf/vision" , 0, CALIB_SIZE);
+    memset(FSName, 0, sizeof(FSName));
+    sprintf(FSName, "%svision",lvdata_dir);
+    err = ReadFromFS(BIG_Buffer, FSName , 0, CALIB_SIZE);
     if (err == 0)
       {
 	size = strlen(BIG_Buffer);

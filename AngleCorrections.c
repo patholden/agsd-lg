@@ -323,7 +323,7 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
 	gSortedPoints = 0;
 	
         
-	filenum = open( "/etc/ags/conf/calib", O_RDONLY );
+	filenum = open( "/laservision/data/calib", O_RDONLY );
 	if ( filenum <= 0 ) { 
 	  syslog(LOG_ERR, "calibration file missing");
              return(false);
