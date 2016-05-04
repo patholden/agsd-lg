@@ -690,18 +690,8 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	    SendConfirmation(pLgMaster, kTFS);
 	    doClearReadyLED(pLgMaster);
 	    doClearLinkLED(pLgMaster);
-	    // FIXME---PAH---THIS SHOULD BE JUST STOPPING
-	    // AND RESTARTING THE AGS DAEMON
-	    //	  magic     = 0xfee1dead;
-	    //	  magic_too =  672274793;
-	    //	  flag      =  0x1234567;
 	    usleep( 2000000L );
-	    //	  reboot( magic, magic_too, flag );
-	    syslog(LOG_ERR, "I'm freezing!" );
-	    /* just in case */
-	    usleep( 2000000L );
-	    //	  reboot( flag );
-	    //	  reboot( flag );
+	    system("sh /agslaser/LVDrestart");
 	  }
 	else
 	  SendConfirmation(pLgMaster, kCRC16NoMatchMsg);

@@ -88,28 +88,38 @@ jigqc.o: jigqc.c
 oneside.o: oneside.c
 	$(CC) -c -o oneside.o $(CFLAGS) $(EXTRA_CFLAGS) oneside.c
 clean:
-	rm -rf *.o agsd $(BUILDROOTFSDIR)/*
+	rm -rf *.o agsd
+fsclean:
+	rm -rf $(BUILDROOTFSDIR)/*
 usb_install:
 	chmod 777 $(AGSCFGDIR)/S95agsd
-	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d
+	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/usb_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
+	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
 	mkdir $(BUILDROOTFSDIR)/laservision
+	mkdir $(BUILDROOTFSDIR)/agslaser
+	chmod 777 $(AGSCFGDIR)/LVDrestart
+	cp $(AGSCFGDIR)/LVDrestart $(BUILDROOTFSDIR)/agslaser
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
 mmc_install:
-	chmod 777 $(AGSCFGDIR)/S95agsd
-	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d
+	chmod 777 $(AGSCFGDIR)/S95agsd-mmc
+	cp $(AGSCFGDIR)/S95agsd-mmc $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/mmc_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
+	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
 	mkdir $(BUILDROOTFSDIR)/laservision
+	mkdir $(BUILDROOTFSDIR)/agslaser
+	chmod 777 $(AGSCFGDIR)/LVDrestart
+	cp $(AGSCFGDIR)/LVDrestart $(BUILDROOTFSDIR)/agslaser
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
@@ -163,7 +173,6 @@ newusb:
 	sudo dos2unix /mnt/lvdata/data/polarizer
 	sudo echo "\n" > hobbs
 	sudo mv hobbs /mnt/lvdata/data
-	sudo chmod -R 777 /mnt/lvdata/*
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/lvboot
