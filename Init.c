@@ -72,9 +72,9 @@ int ConfigDataInit(struct lg_master* pLgMaster)
       return(return_code);
     // Now read config file & parse objects
     memset(testStr, 0, sizeof(testStr));
-    handle = fopen("/etc/ags/conf/init", "rw");
+    handle = fopen("/laservision/data/init", "rw");
     if (handle == NULL) { 
-      syslog(LOG_ERR, "/etc/ags/conf/init file not found\n" );
+      syslog(LOG_ERR, "/laservision/data/init file not found\n" );
       return(-1);
     }
     fseek(handle, 0L, SEEK_END);
@@ -82,7 +82,7 @@ int ConfigDataInit(struct lg_master* pLgMaster)
     fseek(handle, 0L, SEEK_SET);   // Reset back to beginning of file
     // Get length of file, get a local buffer, and then read it.
     if (file_size <=0) {
-      syslog(LOG_ERR, "/etc/ags/conf/init incorrect file size %lx\n", file_size );
+      syslog(LOG_ERR, "/laservision/data/init incorrect file size %lx\n", file_size );
       return(-2);
     }
     localBuff = malloc(file_size);
@@ -315,8 +315,11 @@ int LGMasterInit(struct lg_master *pLgMaster)
   pLgMaster->gHatchFactor = kHatchFactorDef;
   pLgMaster->gNumberOfSpirals = 128;
   pLgMaster->gSpiralFactor   = 512;
+#if 0
+  // FIXME---PAH---NOT DONE YET
   if (HobbsCountersInit(pLgMaster))
     return(-2);
+#endif
   return(0);
 }
 void LGMasterFree(struct lg_master *pLgMaster)

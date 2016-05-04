@@ -8,6 +8,8 @@
 BUILDROOTDIR = ../buildroot
 STAGING_DIR = $(BUILDROOTDIR)/output/host/usr/x86_64-buildroot-linux-gnu/sysroot
 TOOLDIR = $(BUILDROOTDIR)/output/host/usr/bin/x86_64-buildroot-linux-gnu
+BUILDROOTFSDIR = $(BUILDROOTDIR)/board/agslaser/rootfs_overlay
+BUILDROOTTGTDIR = $(BUILDROOTDIR)/output/target
 AGSCFGDIR = ../ags-config-files
 LNXHDRDIR = ../linux_headers
 CC=$(TOOLDIR)-gcc
@@ -86,19 +88,68 @@ jigqc.o: jigqc.c
 oneside.o: oneside.c
 	$(CC) -c -o oneside.o $(CFLAGS) $(EXTRA_CFLAGS) oneside.c
 clean:
-	rm -f *.o agsd
-install:
+	rm -f *.o agsd $(BUILDROOTFSDIR)/etc
+	rm -rf $(BUILDROOTFSDIR)/debug
+	rm -rf $(BUILDROOTTGTDIR)/etc/ags
+usb_install:
+	cp $(AGSCFGDIR)/autofocus.txt $(BUILDROOTFSDIR)/lv/data/autofocus
+	dos2unix $(BUILDROOTFSDIR)/lv/data/autofocus
+	cp $(AGSCFGDIR)/visionfocus.txt $(BUILDROOTFSDIR)/lv/data/focusvision
+	dos2unix $(BUILDROOTFSDIR)/lv/data/focusvision
+	cp $(AGSCFGDIR)/visionparameters.txt $(BUILDROOTFSDIR)/lv/data/vision
+	dos2unix $(BUILDROOTFSDIR)/lv/data/vision
+	cp $(AGSCFGDIR)/calibration.txt $(BUILDROOTFSDIR)/lv/data/calib
+	dos2unix $(BUILDROOTFSDIR)/lv/data/calib
+	cp $(AGSCFGDIR)/version.txt $(BUILDROOTFSDIR)/lv/data/version
+	dos2unix $(BUILDROOTFSDIR)/lv/data/version
+	cp $(AGSCFGDIR)/information.txt $(BUILDROOTFSDIR)/lv/data/info
+	dos2unix $(BUILDROOTFSDIR)/lv/data/info
+	cp $(AGSCFGDIR)/initialization.txt $(BUILDROOTFSDIR)/lv/data/init
+	dos2unix $(BUILDROOTFSDIR)/lv/data/init
+	cp $(AGSCFGDIR)/polarizer.txt $(BUILDROOTFSDIR)/lv/data/polarizer
+	dos2unix $(BUILDROOTFSDIR)/lv/data/polarizer
+	echo "\0" > $(BUILDROOTFSDIR)/lv/data/hobbs
+	chmod +w $(BUILDROOTFSDIR)/lv/data/*
 	chmod 777 agsd
-	cp agsd $(BUILDROOTDIR)/output/target/usr/sbin
+	cp agsd $(BUILDROOTFSDIR)/lv/sbin
 	chmod 777 $(AGSCFGDIR)/S95agsd
-	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTDIR)/output/target/etc/init.d
+	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d
 	chmod 777 $(AGSCFGDIR)/S50sshd
-	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTDIR)/output/target/etc/init.d
-	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTDIR)/output/target/etc/ssh
-	cp *.c $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
-	cp *.o $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags
-	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/.gdbinit
-	cp $(AGSCFGDIR)/etc_files/* $(BUILDROOTDIR)/board/agslaser/rootfs_overlay/etc/ags/conf
+	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
+	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
+	cp $(AGSCFGDIR)/usb_fstab $(BUILDROOTTGTDIR)/etc/fstab
+	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
+	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
+	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
+	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
+mmc_install:
+	cp $(AGSCFGDIR)/autofocus.txt $(BUILDROOTFSDIR)/lv/data/autofocus
+	dos2unix $(BUILDROOTFSDIR)/lv/data/autofocus
+	cp $(AGSCFGDIR)/visionfocus.txt $(BUILDROOTFSDIR)/lv/data/focusvision
+	dos2unix $(BUILDROOTFSDIR)/lv/data/focusvision
+	cp $(AGSCFGDIR)/visionparameters.txt $(BUILDROOTFSDIR)/lv/data/vision
+	dos2unix $(BUILDROOTFSDIR)/lv/data/vision
+	cp $(AGSCFGDIR)/calibration.txt $(BUILDROOTFSDIR)/lv/data/calib
+	dos2unix $(BUILDROOTFSDIR)/lv/data/calib
+	cp $(AGSCFGDIR)/version.txt $(BUILDROOTFSDIR)/lv/data/version
+	dos2unix $(BUILDROOTFSDIR)/lv/data/version
+	cp $(AGSCFGDIR)/information.txt $(BUILDROOTFSDIR)/lv/data/info
+	dos2unix $(BUILDROOTFSDIR)/lv/data/info
+	cp $(AGSCFGDIR)/initialization.txt $(BUILDROOTFSDIR)/lv/data/init
+	dos2unix $(BUILDROOTFSDIR)/lv/data/init
+	cp $(AGSCFGDIR)/polarizer.txt $(BUILDROOTFSDIR)/lv/data/polarizer
+	dos2unix $(BUILDROOTFSDIR)/lv/data/polarizer
+	touch $(BUILDROOTFSDIR)/lv/data/hobbs
+	chmod +w $(BUILDROOTFSDIR)/lv/data/*
+	chmod 777 agsd
+	cp agsd $(BUILDROOTFSDIR)/lv/sbin
+	chmod 777 $(AGSCFGDIR)/S95agsd
+	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d
+	chmod 777 $(AGSCFGDIR)/S50sshd
+	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
+	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
+	cp $(AGSCFGDIR)/mmc_fstab $(BUILDROOTTGTDIR)/etc/fstab
+	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
@@ -110,5 +161,16 @@ burnusb:
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
 	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/stick
+	sudo umount /dev/sdb1
+	sudo umount $(BUILDROOTDIR)/output/ext2
+burnflash:
+	sudo umount /dev/sdb1
+	sudo mount /dev/sdb1 /mnt/stick
+	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
+	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/stick
+	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/stick
+	sudo cp $(AGSCFGDIR)/mmc_extlinux.conf /mnt/stick/extlinux.conf
+	sudo chmod -R 777 /mnt/stick/lv/data
+	sudo chmod -R 777 /mnt/stick/usr/sbin/agsd
 	sudo umount /dev/sdb1
 	sudo umount $(BUILDROOTDIR)/output/ext2
