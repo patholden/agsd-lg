@@ -87,7 +87,7 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
     SlowDownAndStop(pLgMaster);
 
     // Initialize variables
-    flexFailRespLen = (sizeof(struct parse_flexfail_resp));
+    flexFailRespLen = (sizeof(struct parse_flexfail_resp)-kCRCSize);
     respLen = (sizeof(struct parse_flexrightondofullregwithfeedback_resp)-kCRCSize);
     pFlexFailResp = (struct parse_flexfail_resp *)pLgMaster->theResponseBuffer;
     pRespBuf = (struct parse_flexrightondofullregwithfeedback_resp *)pLgMaster->theResponseBuffer;
@@ -416,7 +416,6 @@ void FlexFullRegWithFeedback(struct lg_master *pLgMaster,
             gWorstTolReg = 0.0;
 	    pFlexFailResp->colineartargets = intColinear;
 	    pFlexFailResp->coplanartargets = intPlanar;
-	    memcpy(pFlexFailResp, &rc, sizeof(uint32_t));
 	    HandleResponse (pLgMaster, flexFailRespLen, respondToWhom);
             return;
           }

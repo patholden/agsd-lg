@@ -76,7 +76,7 @@ void PerformAndSendQuickCheck(struct lg_master *pLgMaster, unsigned char *pAngle
 	  {
 	    if ( theResult == kSuperFineNotFound )
 	      {
-		lostSensors += 1U << i;
+		lostSensors += (1U << i);
 		lostSum++;
 		theResult = 0;
 	      }
@@ -144,7 +144,7 @@ void PerformThresholdQuickCheck(struct lg_master *pLgMaster, char *data, uint32_
 		  {
 		    if ( theResult == kSuperFineNotFound )
 		      {
-			lostSensors += 1 << i;
+			lostSensors += (1U << i);
 			lostSum++;
 			theResult = 0;
 			*ptrX = 0xFFFFFFFF;
@@ -334,17 +334,18 @@ void InitQuickCheckHistory ( void )
 void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
   struct parse_qcmgr_resp *pResp;
-    uint16_t  numBadSensors = 0;
-    uint16_t  numMissOnASensor, i, j;
     uint32_t  QCPlyCount = 0;
+    uint16_t  numBadSensors = 0;
+    uint16_t  numMissOnASensor;
+    int16_t   i, j;
 
     pResp = (struct parse_qcmgr_resp *)pLgMaster->theResponseBuffer;
     memset(pResp, 0, sizeof(struct parse_qcmgr_resp));
   
-    for (i = kNumberOfFlexPoints; i > 0; i--)
+    for (i = kNumberOfFlexPoints-1; i >= 0; i--)
       {
 	numMissOnASensor = 0;
-	for (j = kQCHistoryLength; j > 0; j--)
+	for (j = kQCHistoryLength-1; j >= 0; j--)
 	  {
 	    if (gFailureArray[gCurrentQCSet][i][j])
 	      numMissOnASensor++;
@@ -364,7 +365,7 @@ void AnalyzeQuickChecks (struct lg_master *pLgMaster, uint32_t respondToWhom )
 	pResp->hdr.qcply_byte1 = QCPlyCount >> 16;
        	pResp->currQCSet = htons(++gCurrentQCSet);
 	pResp->QCPlybyte23 = htons(QCPlyCount & QCPLYCOUNT23MASK);
-	HandleResponse(pLgMaster, (sizeof(struct parse_qcmgr_resp) - kCRCSize), kRespondExtern);
+	HandleResponse(pLgMaster, (sizeof(struct parse_qcmgr_resp) - kCRCSize), respondToWhom);
       }
     return;
 }
@@ -383,9 +384,9 @@ void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWho
   
   itemp = pInp->inp_qccount;
 
-  syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckCount: %d",
-	  pLgMaster->gHeaderSpecialByte,
-	  pInp->inp_qccount );
+  //syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckCount: %d",
+  //	  pLgMaster->gHeaderSpecialByte,
+  //	  pInp->inp_qccount );
 
   if ( itemp <= 0 )
     {
@@ -419,9 +420,9 @@ void DoQCtimer ( struct lg_master *pLgMaster, char *data, uint32_t respondToWhom
 
   stopQCcounter( pLgMaster );
   itemp = pInp->inp_qctime;
-  syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckTimer: %d",
-	  pLgMaster->gHeaderSpecialByte,
-	  pInp->inp_qctime);
+  //syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckTimer: %d",
+  //	  pLgMaster->gHeaderSpecialByte,
+  //	  pInp->inp_qctime);
 
   if (itemp < 0)
     {
