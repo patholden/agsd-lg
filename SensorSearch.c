@@ -255,6 +255,9 @@ int SearchForASensor(struct lg_master *pLgMaster, int16_t startX, int16_t startY
     int16_t HatchCount;
     int16_t hf2;
     int theResult;
+    int16_t DwellHalfSpan;
+    int16_t DwellStep;
+
         
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
     memset((char *)&xydelta, 0, sizeof(struct lg_xydata));
@@ -426,25 +429,28 @@ syslog(LOG_DEBUG,"S4ASxny0 Coarse xy %x %x fnd %x %x result %x", eolXNeg, eolYPo
       }
     if ((theResult == 0) && (pLgMaster->gDwell > 0))
       {
+        DwellStep = 2;
+        DwellHalfSpan = 64;
+        nSteps = (2 * DwellHalfSpan) / DwellStep;
+
 	for (i=0; i<pLgMaster->gDwell; i++)
 	  {
-	    nSteps =  32; 
 	    centX = *foundX;
-	    centY = *foundY - 64;
+	    centY = *foundY - DwellHalfSpan;
 	    xydata.xdata =  centX;
 	    xydata.ydata =  centY;
 	    xydelta.xdata = 0;
-	    xydelta.ydata = 1;
+	    xydelta.ydata = DwellStep;
 	    if (DoLineSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydelta *)&xydelta, nSteps))
 	      {
 		return kStopWasDone;
 	      }
-	    centX = *foundX - 64;
+	    centX = *foundX - DwellHalfSpan;
 	    centY = *foundY;
 	    xydata.xdata =  centX;
 	    xydata.ydata =  centY;
-	    xydelta.xdata = 1;
+	    xydelta.xdata = DwellStep;
 	    xydelta.ydata = 0;
 	    if (DoLineSearch(pLgMaster, (struct lg_xydata *)&xydata,
 			     (struct lg_xydelta *)&xydelta, nSteps))

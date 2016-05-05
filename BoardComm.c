@@ -568,27 +568,24 @@ int DoLineSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 	syslog(LOG_ERR, "Unable to send sense command to driver, rc %x,errno %x",rc,errno);
 	return(kStopWasDone);
       }
+
     // Need to give driver time to complete the SENSE sequence
-    // Should be only 2 * event handler period * number of points
-    // Adding retries just in case it takes longer for driver to
-    // complete
+    // read is being used to determine when the sequence finishes
     time_out = SENSOR_READ_FREQ * nPoints;
     usleep(time_out);
     memset((void *)c_out, 0, buff_len);
-    for (j=0; j < MAX_DOSENSE_RETRIES; j++)
+    num = 0;
+    for (j=0; j < MAX_DOSENSE_RETRIES && (int)num <= 0; j++ )
       {
-	num = read(pLgMaster->fd_laser, c_out, (nPoints * sizeof(int16_t)));
-	if (num >= 0)
-	  {
-	    free(c_out);
-	    return(0);
-	  }
-	else
-	  usleep(100);
+        num = read(pLgMaster->fd_laser, c_out, (nPoints * sizeof(int16_t)));
+
+        usleep(500);
       }
     free(c_out);
+
     return(0);
 }
+
 int DoLevelSearch(struct lg_master *pLgMaster, struct lg_xydata *pSrchData,
 		  struct lg_xydelta *pDeltaData, uint32_t nPoints, uint16_t *c_out, uint32_t do_coarse)
 {
