@@ -497,6 +497,9 @@ static int CoarseLeg(struct lg_master *pLgMaster, int16_t Xin, int16_t Yin,
     int32_t           count1, sumX1, sumY1;
     int32_t           count2, sumX2, sumY2;
     int               theResult;
+    uint32_t          numStepsFixed = 40;  // for 2nd coarse set, fix number of steps
+
+
 
     // Initialize variables and buffers to be used
     memset((char *)&xydata, 0, sizeof(struct lg_xydata));
@@ -550,9 +553,10 @@ syslog(LOG_DEBUG, "coarser %d %d %d %d del %d %d i %d", tmpX, tmpY, gLout[i], nS
         // because of scanner lag,
         // searches need to be done in both directions
         // and will probably not overlap
-        // Also, expand search to twice the original size
-	//
-	AdjustOneXYSet(tmpX, tmpY, &eolX, &eolY, delX, delY, nStepsIn);
+        //
+        // finally, fix the number of steps for this last set
+        //
+        AdjustOneXYSet(tmpX, tmpY, &eolX, &eolY, delX, delY, numStepsFixed);
 
            //  search in +delX/+delY direction
 	xydata.xdata =  eolX;
@@ -561,7 +565,7 @@ syslog(LOG_DEBUG, "coarser %d %d %d %d del %d %d i %d", tmpX, tmpY, gLout[i], nS
 	xydelta.ydata = delY;
         pLgMaster->gSearchType = COARSESEARCH;
 	theResult = DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
-				  (struct lg_xydelta*)&xydelta, 2*nStepsIn, gLout, 1);
+				  (struct lg_xydelta*)&xydelta, 2*numStepsFixed, gLout, 1);
 	if (theResult == kStopWasDone)
 	  return(theResult);
 
@@ -573,7 +577,7 @@ syslog(LOG_DEBUG, "coarser %d %d %d %d del %d %d i %d", tmpX, tmpY, gLout[i], nS
 	sumX1 = 0;
 	sumY1 = 0;
 	count1 = 0;
-	for (i=0; i < 2*nStepsIn; i++)
+	for (i=0; i < 2*numStepsFixed; i++)
 	  {
 	    tmpX += delX;
 	    tmpY += delY; 
@@ -586,25 +590,25 @@ syslog(LOG_DEBUG, "coarser %d %d %d %d del %d %d i %d", tmpX, tmpY, gLout[i], nS
 	  }
 
            //  now search in -delX/-delY direction
-	xydata.xdata =  eolX + 2*nStepsIn * delX;
-	xydata.ydata =  eolY + 2*nStepsIn * delY;
+	xydata.xdata =  eolX + 2*numStepsFixed * delX;
+	xydata.ydata =  eolY + 2*numStepsFixed * delY;
 	xydelta.xdata = -delX;
 	xydelta.ydata = -delY;
         pLgMaster->gSearchType = COARSESEARCH;
 	theResult = DoLevelSearch(pLgMaster, (struct lg_xydata*)&xydata,
-				  (struct lg_xydelta*)&xydelta, 2*nStepsIn, gLout, 1);
+				  (struct lg_xydelta*)&xydelta, 2*numStepsFixed, gLout, 1);
 	if (theResult == kStopWasDone)
 	  return(theResult);
 
 	if (IfStopThenStopAndNeg1Else0(pLgMaster))
 	  return(kStopWasDone);
                  
-	tmpX = eolX + 2*nStepsIn * delX;
-	tmpY = eolY + 2*nStepsIn * delY;
+	tmpX = eolX + 2*numStepsFixed * delX;
+	tmpY = eolY + 2*numStepsFixed * delY;
 	sumX2 = 0;
 	sumY2 = 0;
 	count2 = 0;
-	for (i=0; i < 2*nStepsIn; i++)
+	for (i=0; i < 2*numStepsFixed; i++)
 	  {
 	    tmpX -= delX;
 	    tmpY -= delY; 
