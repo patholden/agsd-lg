@@ -191,10 +191,12 @@ newusb:
 	sudo dos2unix /mnt/lvdata/data/init
 	sudo cp -f $(AGSCFGDIR)/polarizer.txt /mnt/lvdata/data/polarizer
 	sudo dos2unix /mnt/lvdata/data/polarizer
-	sudo echo "\n" > hobbs
-	sudo mv hobbs /mnt/lvdata/data
 	sudo chmod -R 777 /mnt/lvdata
 	sudo chmod -R 777 /mnt/lvbkup
+	sudo echo "\n" > /mnt/lvdata/data/hobbs
+	sudo chown root /mnt/lvdata/data/hobbs
+	sudo chattr -R +A /mnt/lvdata
+	sudo chattr -R +A /mnt/lvbkup
 	sudo cp -rf /mnt/lvdata/* /mnt/lvbkup
 	sync
 	sudo umount /dev/sdb1
