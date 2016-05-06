@@ -96,12 +96,10 @@ usb_install:
 	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
-	chmod 777 $(AGSCFGDIR)/usb_inittab
-	cp $(AGSCFGDIR)/usb_inittab $(BUILDROOTTGTDIR)/etc/inittab
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/usb_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
-	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
+#	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
 	mkdir $(BUILDROOTFSDIR)/laservision
 	mkdir $(BUILDROOTFSDIR)/backup
 	mkdir $(BUILDROOTFSDIR)/agslaser
@@ -116,14 +114,12 @@ usb_install:
 mmc_install:
 	chmod 777 $(AGSCFGDIR)/S95agsd
 	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
-	chmod 777 $(AGSCFGDIR)/mmc_inittab
-	cp $(AGSCFGDIR)/mmc_inittab $(BUILDROOTTGTDIR)/etc/inittab
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/mmc_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
-	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
+#	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
 	mkdir $(BUILDROOTFSDIR)/laservision
 	mkdir $(BUILDROOTFSDIR)/agslaser
 	mkdir $(BUILDROOTFSDIR)/backup
@@ -161,43 +157,45 @@ burnusb:
 # newusb copies rootfs to boot partition and ALL files to data partition
 newusb:
 	sudo umount /dev/sdb1
+	sudo umount /dev/sdb2
+	sudo umount /dev/sdb3
 	sudo mkdir /mnt/lvboot
 	sudo mkdir /mnt/lvdata
 	sudo mkdir /mnt/lvbkup
 	sudo mount /dev/sdb1 /mnt/lvboot
 	sudo mount /dev/sdb2 /mnt/lvdata
 	sudo mount /dev/sdb3 /mnt/lvbkup
+	sudo rm -rf /mnt/lvdata/*
+	sudo rm -rf /mnt/lvbkup/*
 	sudo mkdir /mnt/lvdata/data
 	sudo mkdir /mnt/lvdata/sbin
-	sudo mkdir /mnt/lvbkup/data
-	sudo mkdir /mnt/lvbkup/sbin
-	sudo chmod 777 agsd
-	sudo cp agsd /mnt/lvdata/sbin
-	sudo cp -avrf $(AGSCFGDIR)/autofocus.txt /mnt/lvdata/data/autofocus
-	sudo dos2unix /mnt/lvdata/data/autofocus
-	sudo cp -avrf $(AGSCFGDIR)/visionfocus.txt /mnt/lvdata/data/focusvision
-	sudo dos2unix /mnt/lvdata/data/focusvision
-	sudo cp -avrf $(AGSCFGDIR)/visionparameters.txt /mnt/lvdata/data/vision
-	sudo dos2unix /mnt/lvdata/data/vision
-	sudo cp -avrf $(AGSCFGDIR)/calibration.txt /mnt/lvdata/data/calib
-	sudo dos2unix /mnt/lvdata/data/calib
-	sudo cp -avrf $(AGSCFGDIR)/version.txt /mnt/lvdata/data/version
-	sudo dos2unix /mnt/lvdata/data/version
-	sudo cp -avrf $(AGSCFGDIR)/information.txt /mnt/lvdata/data/info
-	sudo dos2unix /mnt/lvdata/data/info
-	sudo cp -avrf $(AGSCFGDIR)/initialization.txt /mnt/lvdata/data/init
-	sudo dos2unix /mnt/lvdata/data/init
-	sudo cp -avrf $(AGSCFGDIR)/polarizer.txt /mnt/lvdata/data/polarizer
-	sudo dos2unix /mnt/lvdata/data/polarizer
-	sudo echo "\n" > hobbs
-	sudo mv hobbs /mnt/lvdata/data
-	sudo cp -r /mnt/lvdata/ /mnt/lvbkup
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/lvboot
 	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/lvboot
+	sudo chmod 777 agsd
+	sudo cp agsd /mnt/lvdata/sbin
+	sudo cp -f $(AGSCFGDIR)/autofocus.txt /mnt/lvdata/data/autofocus
+	sudo dos2unix /mnt/lvdata/data/autofocus
+	sudo cp -f $(AGSCFGDIR)/visionfocus.txt /mnt/lvdata/data/focusvision
+	sudo dos2unix /mnt/lvdata/data/focusvision
+	sudo cp -f $(AGSCFGDIR)/visionparameters.txt /mnt/lvdata/data/vision
+	sudo dos2unix /mnt/lvdata/data/vision
+	sudo cp -f $(AGSCFGDIR)/calibration.txt /mnt/lvdata/data/calib
+	sudo dos2unix /mnt/lvdata/data/calib
+	sudo cp -f $(AGSCFGDIR)/version.txt /mnt/lvdata/data/version
+	sudo dos2unix /mnt/lvdata/data/version
+	sudo cp -f $(AGSCFGDIR)/information.txt /mnt/lvdata/data/info
+	sudo dos2unix /mnt/lvdata/data/info
+	sudo cp -f $(AGSCFGDIR)/initialization.txt /mnt/lvdata/data/init
+	sudo dos2unix /mnt/lvdata/data/init
+	sudo cp -f $(AGSCFGDIR)/polarizer.txt /mnt/lvdata/data/polarizer
+	sudo dos2unix /mnt/lvdata/data/polarizer
+	sudo echo "\n" > hobbs
+	sudo mv hobbs /mnt/lvdata/data
 	sudo chmod -R 777 /mnt/lvdata
 	sudo chmod -R 777 /mnt/lvbkup
+	sudo cp -rf /mnt/lvdata/* /mnt/lvbkup
 	sync
 	sudo umount /dev/sdb1
 	sudo umount /dev/sdb2
