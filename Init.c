@@ -42,6 +42,15 @@ void DoReInit( struct lg_master *pLgMaster, uint32_t respondToWhom )
     pResp->hdr.status = RESPFAIL;
   FlashLed(pLgMaster, 5 );
 
+#if 0
+  // FIXME:  old projector only applies new IP on REBOOT! 
+  // Set flag to reset comms
+  pLgMaster->gResetComm = 1;
+#else
+  pLgMaster->gResetComm = 0;
+#endif  
+  pLgMaster->enet_retry_count = 0;
+  syslog(LOG_DEBUG, "Reinit---Set RESET-COMM FLAG");
   pResp->hdr.status = RESPGOOD;
   HandleResponse(pLgMaster, sizeof(uint32_t), respondToWhom);
   return;
@@ -52,19 +61,24 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 {
     char testStr[512];
     char tmpline[512];
+    char setipcmd[512];
     char word[512];
+    char ipaddr[4];
+    char gwaddr[4];
+    char bcaddr[4];
     FILE *handle;
     char *localBuff;
     char *token;
     char *ptr;
-    int32_t i;
-    uint32_t ufactor;
+    double   ArcSteps = 60.0;
+    double   dTemp;
     long     file_size;
     size_t   length;
+    int32_t  i;
+    uint32_t ufactor;
     int      count;
-    double ArcSteps = 60.0;
-    double dTemp;
     uint32_t return_code;
+    uint32_t  ip0, ip1, ip2, ip3;
     
     // First check version file
     return_code = InitCheckVersion(pLgMaster);
@@ -72,11 +86,22 @@ int ConfigDataInit(struct lg_master* pLgMaster)
       return(return_code);
     // Now read config file & parse objects
     memset(testStr, 0, sizeof(testStr));
-    handle = fopen("/laservision/data/init", "rw");
-    if (handle == NULL) { 
-      syslog(LOG_ERR, "/laservision/data/init file not found\n" );
-      return(-1);
-    }
+    memset(setipcmd, 0, sizeof(setipcmd));
+    memset(ipaddr, 0, sizeof(ipaddr));
+    memset(ipaddr, 0, sizeof(bcaddr));
+    memset(ipaddr, 0, sizeof(gwaddr));
+
+    handle = fopen("/laservision/data/init", "r");
+    if (handle == NULL)
+      { 
+	syslog(LOG_ERR, "init file not found, errno %d, looking for backup", errno);
+	handle = fopen("/backup/data/init", "r");
+      if (handle == NULL)
+	{ 
+	  syslog(LOG_ERR, "init file not found, errno %d, using defaults", errno);
+	  return(0);
+	}
+      }
     fseek(handle, 0L, SEEK_END);
     file_size = ftell(handle);
     fseek(handle, 0L, SEEK_SET);   // Reset back to beginning of file
@@ -123,7 +148,6 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	    if ((tmpline[i] == 0x0a) || (tmpline[i] == 0x0d))
 	      tmpline[i] = 0;
 	  }
-        // syslog(LOG_NOTICE, "size %4ld token ---%s---\n", file_size, token );
 	
 	strcpy( testStr, "transformtolerance =" );
 	if (strncmp( tmpline, testStr, strlen(testStr)) == 0)
@@ -219,8 +243,6 @@ int ConfigDataInit(struct lg_master* pLgMaster)
         if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
           sscanf( token, "projectormode = %s", word );
 
-          // syslog(LOG_NOTICE, "mode ---%s---\n", word );
-
           strcpy( testStr, "laser" );                         
           if ( strncmp( word, testStr, strlen(testStr) ) == 0 ) {
             pLgMaster->projector_mode    = PROJ_LASER;        
@@ -234,14 +256,14 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	strcpy( testStr, "commtype =" );
 	if ( strncmp( token, testStr, strlen(testStr) ) == 0 ) {
 	  sscanf( token, "commtype = %s", word );
-	strcpy( testStr, "serial" );
-	if ( strncmp( word, testStr, strlen(testStr) ) == 0 ) {
-	  pLgMaster->serial_ether_flag = COMM_SERIAL;
-	}
-	strcpy( testStr, "ether" );
-	if ( strncmp( word, testStr, strlen(testStr) ) == 0 ) {
-	  pLgMaster->serial_ether_flag = COMM_ETHER;
-	}
+	  strcpy( testStr, "serial" );
+	  if ( strncmp( word, testStr, strlen(testStr) ) == 0 ) {
+	    pLgMaster->serial_ether_flag = COMM_SERIAL;
+	  }
+	  strcpy( testStr, "ether" );
+	  if ( strncmp( word, testStr, strlen(testStr) ) == 0 ) {
+	    pLgMaster->serial_ether_flag = COMM_ETHER;
+	  }
 	}
 #else
 	pLgMaster->serial_ether_flag = COMM_ETHER;
@@ -256,6 +278,20 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	    strcpy( testStr, "short" );
 	    if (strncmp(word, testStr, strlen(testStr)) == 0)
 	      pLgMaster->LongOrShortThrowSearch = 0;
+	  }
+	strcpy(testStr, "ipaddress =");
+	syslog(LOG_DEBUG, "Checking for new IP");
+	if (strncmp(token, testStr, strlen(testStr)) == 0)
+	  {
+	    syslog(LOG_NOTICE, "Setting new IP to %s", ipaddr);
+	    sscanf(token, "ipaddress = %d.%d.%d.%d", &ip0, &ip1, &ip2, &ip3);
+	    sprintf(ipaddr, "%d.%d.%d.%d", ip0, ip1, ip2, ip3);
+	    ip3 = 1;
+	    sprintf(gwaddr, "%d.%d.%d.%d", ip0, ip1, ip2, ip3);
+	    ip3 = 254;
+	    sprintf(bcaddr, "%d.%d.%d.%d", ip0, ip1, ip2, ip3);
+	    sprintf(setipcmd, "sh /agslaser/LVDsetipaddr %s %s %s", ipaddr, bcaddr, gwaddr);
+	    system(setipcmd);
 	  }
 	while ( *token != 0x00 && *token != 0x0a && *token != 0x0d ) {
 	  token++;

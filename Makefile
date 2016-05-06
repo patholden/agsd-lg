@@ -96,20 +96,28 @@ usb_install:
 	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
+	chmod 777 $(AGSCFGDIR)/usb_inittab
+	cp $(AGSCFGDIR)/usb_inittab $(BUILDROOTTGTDIR)/etc/inittab
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
 	cp $(AGSCFGDIR)/usb_fstab $(BUILDROOTTGTDIR)/etc/fstab
 	cp $(AGSCFGDIR)/gdbinit $(BUILDROOTFSDIR)/.gdbinit
 	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
 	mkdir $(BUILDROOTFSDIR)/laservision
+	mkdir $(BUILDROOTFSDIR)/backup
 	mkdir $(BUILDROOTFSDIR)/agslaser
 	chmod 777 $(AGSCFGDIR)/LVDrestart
 	cp $(AGSCFGDIR)/LVDrestart $(BUILDROOTFSDIR)/agslaser
+	chmod 777 $(AGSCFGDIR)/LVDsetipaddr
+	cp $(AGSCFGDIR)/LVDsetipaddr $(BUILDROOTFSDIR)/agslaser
+	cp agsd $(BUILDROOTFSDIR)/agslaser/agsd.bk
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
 mmc_install:
-	chmod 777 $(AGSCFGDIR)/S95agsd-mmc
-	cp $(AGSCFGDIR)/S95agsd-mmc $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
+	chmod 777 $(AGSCFGDIR)/S95agsd
+	cp $(AGSCFGDIR)/S95agsd $(BUILDROOTTGTDIR)/etc/init.d/S95agsd
+	chmod 777 $(AGSCFGDIR)/mmc_inittab
+	cp $(AGSCFGDIR)/mmc_inittab $(BUILDROOTTGTDIR)/etc/inittab
 	chmod 777 $(AGSCFGDIR)/S50sshd
 	cp $(AGSCFGDIR)/S50sshd $(BUILDROOTTGTDIR)/etc/init.d
 	cp $(AGSCFGDIR)/sshd_config $(BUILDROOTTGTDIR)/etc/ssh
@@ -118,8 +126,12 @@ mmc_install:
 	cp $(AGSCFGDIR)/busybox-init.c $(BUILDROOTDIR)/output/build/busybox-1.24.0/init/init.c
 	mkdir $(BUILDROOTFSDIR)/laservision
 	mkdir $(BUILDROOTFSDIR)/agslaser
+	mkdir $(BUILDROOTFSDIR)/backup
 	chmod 777 $(AGSCFGDIR)/LVDrestart
 	cp $(AGSCFGDIR)/LVDrestart $(BUILDROOTFSDIR)/agslaser
+	chmod 777 $(AGSCFGDIR)/LVDsetipaddr
+	cp $(AGSCFGDIR)/LVDsetipaddr $(BUILDROOTFSDIR)/agslaser
+	cp agsd $(BUILDROOTFSDIR)/agslaser/agsd.bk
 	cp $(AGSCFGDIR)/skeleton.mk $(BUILDROOTDIR)/package/skeleton/
 	cp $(AGSCFGDIR)/ags-busybox-config $(BUILDROOTDIR)/package/busybox
 	cp $(AGSCFGDIR)/ags-buildroot-config $(BUILDROOTDIR)/.config
@@ -133,13 +145,15 @@ burnusb:
 	sudo mount /dev/sdb1 /mnt/lvboot
 	sudo mount /dev/sdb2 /mnt/lvdata
 	chmod 777 agsd
-	cp agsd /mnt/lvdata/sbin/agsd
+	sudo cp agsd /mnt/lvdata/sbin/agsd
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/lvboot
 	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/lvboot
 	sudo umount /dev/sdb1
 	sudo umount /dev/sdb2
+	sudo umount /dev/sdb3
+	sync
 	sudo rm -rf /mnt/lvdata
 	sudo rm -rf /mnt/lvboot
 	sudo umount $(BUILDROOTDIR)/output/ext2
@@ -149,10 +163,14 @@ newusb:
 	sudo umount /dev/sdb1
 	sudo mkdir /mnt/lvboot
 	sudo mkdir /mnt/lvdata
+	sudo mkdir /mnt/lvbkup
 	sudo mount /dev/sdb1 /mnt/lvboot
 	sudo mount /dev/sdb2 /mnt/lvdata
+	sudo mount /dev/sdb3 /mnt/lvbkup
 	sudo mkdir /mnt/lvdata/data
 	sudo mkdir /mnt/lvdata/sbin
+	sudo mkdir /mnt/lvbkup/data
+	sudo mkdir /mnt/lvbkup/sbin
 	sudo chmod 777 agsd
 	sudo cp agsd /mnt/lvdata/sbin
 	sudo cp -avrf $(AGSCFGDIR)/autofocus.txt /mnt/lvdata/data/autofocus
@@ -173,14 +191,18 @@ newusb:
 	sudo dos2unix /mnt/lvdata/data/polarizer
 	sudo echo "\n" > hobbs
 	sudo mv hobbs /mnt/lvdata/data
+	sudo cp -r /mnt/lvdata/ /mnt/lvbkup
 	sudo mount -o loop,ro $(BUILDROOTDIR)/output/images/rootfs.ext2 $(BUILDROOTDIR)/output/ext2
 	sudo cp -avrf $(BUILDROOTDIR)/output/ext2/* /mnt/lvboot
 	sudo cp $(BUILDROOTDIR)/output/images/bzImage /mnt/lvboot
 	sudo cp $(AGSCFGDIR)/extlinux.conf /mnt/lvboot
+	sudo chmod -R 777 /mnt/lvdata
+	sudo chmod -R 777 /mnt/lvbkup
 	sync
 	sudo umount /dev/sdb1
 	sudo umount /dev/sdb2
+	sudo umount /dev/sdb3
 	sudo umount $(BUILDROOTDIR)/output/ext2
-	sudo rm -rf /mnt/lvdata
 	sudo rm -rf /mnt/lvboot
-	sudo umount /dev/sdb2
+	sudo rm -rf /mnt/lvdata
+	sudo rm -rf /mnt/lvbkup

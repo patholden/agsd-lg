@@ -165,14 +165,14 @@ int main ( int argc, char **argv )
   pConfigMaster = malloc(sizeof(struct lg_master));
   if (!pConfigMaster)
     {
-      syslog(LOG_ERR, "LG_MASTER_MALLOC Failed\n");
+      syslog(LOG_ERR, "LG_MASTER_MALLOC Failed");
       closelog();
       exit(EXIT_FAILURE);
     }
   error = LGMasterInit(pConfigMaster);
   if (error)
     {
-      syslog(LOG_ERR,"\nMain: Can't initialize master struct, err %d",error);
+      syslog(LOG_ERR,"Main: Can't initialize master struct, err %d",error);
       free(pConfigMaster);
       closelog();
       exit(EXIT_FAILURE);
@@ -180,16 +180,17 @@ int main ( int argc, char **argv )
   error = InitBoard(pConfigMaster);
   if (error)
     {
-      syslog(LOG_ERR,"\nMain: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
+      syslog(LOG_ERR,"Main: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
       free(pConfigMaster);
       closelog();
       exit(EXIT_FAILURE);
     }
-  syslog(LOG_NOTICE,"\nMAIN: INITBOARD complete for /dev/laser, fd %d",pConfigMaster->fd_laser);
+  syslog(LOG_NOTICE,"MAIN: INITBOARD complete for /dev/laser, fd %d",pConfigMaster->fd_laser);
   error = ConfigDataInit(pConfigMaster);
   if (error)
     {
-      syslog(LOG_ERR,"\nConfigDataInit: Can't get config data, err %d", error);
+      fprintf(stderr,"ConfigDataInit: Can't get config data, err %d", error);
+      syslog(LOG_ERR,"ConfigDataInit: Can't get config data, err %d", error);
       free(pConfigMaster);
       closelog();
       exit(EXIT_FAILURE);
@@ -197,9 +198,7 @@ int main ( int argc, char **argv )
 
   error = InitVision(pConfigMaster);
   if (error)
-    {
-      syslog(LOG_ERR,"\nInitVision: Can't get vision data, err %d", error);
-    }
+    syslog(LOG_ERR,"InitVision: Can't get vision data, err %d", error);
 
   // start background thread for doing updates
 #if 0
@@ -293,14 +292,13 @@ int main ( int argc, char **argv )
       exit(EXIT_SUCCESS);
     }
   // The main loop should never really exit.
-  syslog(stderr, " \n");
-  syslog(stderr, "Waiting to Accept packets");
+  syslog(LOG_NOTICE, "Waiting to Accept packets");
   // Before jumping into main loop, start background thread
   // will is only used for updating hobbs counters once every 2 hours
   thread_data[0].pLgMaster = pConfigMaster;
   if (pthread_create(&thread[0], NULL, ags_bkgd_proc, (void *) &thread_data[0]))
     {
-      syslog(stdout, "Error creating thread\n");
+      syslog(LOG_NOTICE, "Error creating thread\n");
       ags_cleanup(pConfigMaster);
       closelog();
       exit(EXIT_FAILURE);
@@ -314,21 +312,29 @@ int main ( int argc, char **argv )
 	  if (error < 0)
 	    {
 	      syslog(LOG_ERR, "COMMLOOP: Read  data failure, err = %x, try to re-open", error);
-	      if (pConfigMaster->datafd >= 0)
+	      if ((pConfigMaster->datafd >= 0)&& (pConfigMaster->socketfd >= 0))
 		{
 		  close(pConfigMaster->datafd);
 		  pConfigMaster->datafd = -1;
 		}
 	      else
 		{
-		  // Try to open Comms interface to PC host
-		  if ((CommConfigSockfd(pConfigMaster)) < 0)
+		  if ((CommReinit(pConfigMaster)) < 0)
 		    {
-		      syslog(LOG_ERR, "COMMLOOP: Unable to restart Comms, shutting down\n");
-		      ags_cleanup(pConfigMaster);
-		      closelog();
-		      exit(EXIT_FAILURE);
+		      // It takes a while for eth0 to free up bound socket.
+		      // Try to open Comms interface to PC host once a second
+		      sleep(3);
 		    }
+		}
+	    }
+	  else if (pConfigMaster->gResetComm)
+	    {
+	      error = CommReinit(pConfigMaster);
+	      if (error)
+		{
+		  // It takes a while for eth0 to free up bound socket.
+		  // Try to open Comms interface to PC host once a second
+		  sleep(3);
 		}
 	    }
 	}

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
+#include <errno.h>
 #include <math.h>
 #include <fcntl.h>
 #include <ctype.h>
@@ -324,10 +325,17 @@ unsigned char InitAngleCorrections (struct lg_master *pLgMaster)
 	
         
 	filenum = open( "/laservision/data/calib", O_RDONLY );
-	if ( filenum <= 0 ) { 
-	  syslog(LOG_ERR, "calibration file missing");
-             return(false);
-        }
+	if ( filenum <= 0 )
+	  { 
+	    syslog(LOG_ERR, "unable to open calibration file, errno %d, trying backup", errno);
+	    filenum = open( "/backup/data/calib", O_RDONLY );	
+	    if ( filenum <= 0 )
+	      { 
+		syslog(LOG_ERR, "unable to open backup calibration file, errno %d, giving up", errno);
+    
+		return(false);
+	      }
+	  }
         gTempBuff = (char *)malloc( (size_t)CALIB_SIZE );
         length = read( filenum, gTempBuff, CALIB_SIZE );
         syslog(LOG_NOTICE, "calibration file size %d", length);

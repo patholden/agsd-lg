@@ -3,6 +3,7 @@
 #define ETHER_SERVER_LOOP_H
 
 int CommInit(struct lg_master *pLgMaster);
+int CommReinit(struct lg_master *pLgMaster);
 int CommConfigSockfd(struct lg_master *pLgMaster);
 int DoProcEnetPackets(struct lg_master *pLgMaster);
 void SendConfirmation(struct lg_master *pLgMaster, unsigned char theCommand);

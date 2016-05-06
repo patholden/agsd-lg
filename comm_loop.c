@@ -48,6 +48,69 @@ struct packet
     char msg[PACKETSIZE-sizeof(struct icmphdr)];
 };
 
+int CommReinit(struct lg_master *pLgMaster)
+{    
+    int                sockaddr_len = sizeof(struct sockaddr_in);
+    int                error;
+    int                on = 1;
+
+    syslog(LOG_NOTICE, "Re-initializing PC host comm connection");
+
+    // Initialize buffers to 0
+    memset(&pLgMaster->webhost_addr, 0, sockaddr_len);
+
+    if (pLgMaster->datafd >=0)
+      {
+	close(pLgMaster->datafd);
+	pLgMaster->datafd = -1;
+      }
+    if (pLgMaster->socketfd >=0)
+      {
+	close(pLgMaster->socketfd);
+	pLgMaster->socketfd = -1;
+      }
+    sleep(3);
+    // Set up comm interface with PC Host
+    pLgMaster->socketfd = socket(PF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (pLgMaster->socketfd < 0)
+      {
+	syslog(LOG_ERR, "REINIT server socket failed");
+	return(-1);
+      }
+    error = setsockopt(pLgMaster->socketfd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on));
+    if (error < 0)
+      {
+	syslog(LOG_ERR,"COMMCFGSCK: REINIT setsockopt failed for socket %d",pLgMaster->socketfd);
+	close(pLgMaster->socketfd);
+	pLgMaster->socketfd = 0;
+	return(-2);
+      }
+    pLgMaster->webhost_addr.sin_family = AF_INET;
+    pLgMaster->webhost_addr.sin_port = htons(AGS_PORT);
+    pLgMaster->webhost_addr.sin_addr.s_addr = INADDR_ANY;
+    error = bind(pLgMaster->socketfd, (struct sockaddr *)&pLgMaster->webhost_addr, sockaddr_len);
+    if (error < 0)
+      {
+	syslog(LOG_ERR, "COMMCFGSCK: REINIT bind failed");
+	close(pLgMaster->socketfd);
+	pLgMaster->socketfd = 0;
+	return(-2);
+      }
+    error = listen(pLgMaster->socketfd, MAXPENDING);
+    if (error < 0)
+      {
+	syslog(LOG_ERR, "COMMCFGSCK: REINIT connect failed ");
+	close(pLgMaster->socketfd);
+	pLgMaster->socketfd = 0;
+	return(-3);
+      }
+
+    pLgMaster->enet_retry_count++;
+    pLgMaster->serial_ether_flag = 2;
+    pLgMaster->gResetComm = 0;
+    syslog(LOG_ERR, "COMMCFGSCK: REINIT SUCCESSFUL");
+    return(0);
+}
 
 int CommConfigSockfd(struct lg_master *pLgMaster)
 {    
@@ -73,13 +136,13 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
   pLgMaster->socketfd = socket(PF_INET, SOCK_STREAM, IPPROTO_IP);
   if (pLgMaster->socketfd < 0)
     {
-      perror("server socket: ");
+      syslog(LOG_ERR, "INIT server socket: ");
       return(-1);
     }
   error = setsockopt(pLgMaster->socketfd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on));
   if (error < 0)
     {
-      syslog(LOG_ERR,"COMMCFGSCK: setsockopt failed for socket %d",pLgMaster->socketfd);
+      syslog(LOG_ERR,"COMMCFGSCK: INIT setsockopt failed for socket %d",pLgMaster->socketfd);
       return(-2);
     }
   pLgMaster->webhost_addr.sin_family = AF_INET;
@@ -88,13 +151,13 @@ int CommConfigSockfd(struct lg_master *pLgMaster)
   error = bind(pLgMaster->socketfd, (struct sockaddr *)&pLgMaster->webhost_addr, sockaddr_len);
   if (error < 0)
     {
-      perror("COMMCFGSCK: Bind failed ");
+      syslog(LOG_ERR, "COMMCFGSCK: INIT Bind failed ");
       return(-2);
     }
   error = listen(pLgMaster->socketfd, MAXPENDING);
   if (error < 0)
     {
-      perror("COMMCFGSCK: connect failed ");
+      syslog(LOG_ERR, "COMMCFGSCK: INIT connect failed ");
       return(-3);
     }
 
@@ -110,14 +173,14 @@ int CommInit(struct lg_master *pLgMaster)
   // Always check integrity of master struct
   if (!pLgMaster)
     {
-      perror("Need master data configured!");
+      syslog(LOG_ERR, "Need master data configured!");
       return(-1);
     }
 
   // Try to open Comms interface to PC host
   if ((error = CommConfigSockfd(pLgMaster)) < 0)
     {
-      perror("opensock");
+      syslog(LOG_ERR, "opensock");
       return(error);
     }
   syslog(LOG_NOTICE, "PC host comm ethernet port initialized");
@@ -333,7 +396,7 @@ void HandleResponse (struct lg_master *pLgMaster, int32_t lengthOfResponse, uint
     gOutputHEX = malloc((lengthOfResponse * 2));
     if (!gOutputHEX)
       {
-	perror("\nHANDLERESP: Bad Malloc():");
+	syslog(LOG_ERR, "HANDLERESP: Bad Malloc():");
 	return;
       }
     memset(gOutputHEX, 0, (lengthOfResponse * 2));
@@ -407,7 +470,7 @@ pingClient(char* peerAddr )
   // Make sure our PC webhost has been configured!
   if ((inaddr = inet_addr(peerAddr)) == INADDR_NONE)
     {
-      perror("\nBad WebHost IP: ");
+      syslog(LOG_ERR, "Bad WebHost IP: ");
       // ***debug*** return(-1);
     }
    
@@ -463,6 +526,18 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
 	error = ProcEnetPacketsFromHost(pLgMaster);
 	if (error < 0)
 	  return(error);
+	else if (pLgMaster->gResetComm)
+	  {
+	    syslog(LOG_DEBUG, "Setting RESET-COMM connection");
+	    if ((CommReinit(pLgMaster)) < 0)
+	      {
+		  // It takes a while for eth0 to free up bound socket.
+		  // Try to open Comms interface to PC host once a second
+		  sleep(3);
+		  return(-1);
+	      }
+	    // Return to caller to decide what to do
+	  }
 	else
 	  {
 	    // Honor ping-heartbeat so partner knows we're alive

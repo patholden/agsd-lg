@@ -100,7 +100,7 @@ static char return_name[] = "targetreturns";
 static uint32_t saveLength;
 
 static int WriteToBuffer ( char *buff,     int32_t offset, int32_t size );
-static int WriteBufferToFS (char * name, int32_t Size );
+static int WriteBufferToFS(char *fullname, char *fname, int32_t Size);
 static int ReadFromFS ( char *buff,   char * name, int32_t offset, int32_t request );
 static int GetFileSize(char *name, uint32_t*size);
 static int GetBufferSize ( int32_t request,   int32_t * size );
@@ -437,7 +437,7 @@ void   DoFilePutStart (struct lg_master *pLgMaster, char * parameters, uint32_t 
     memset(BIG_Buffer, 0, BIG_SIZE );
     saveLength = 0;
 
-    memset(lcName, 0, 32);
+    memset(lcName, 0, sizeof(lcName));
     inp_filelen = strlen(pInp->inp_filename);
 
     // Copy incoming filename to local buffer & set to all lowercase
@@ -754,7 +754,7 @@ void   DoFilePutDone  ( struct lg_master *pLgMaster, char * parameters, uint32_t
       {
         err = GetBufferSize( MaxSize, &size );
         if ( !err && (size == saveLength)) 
-	  err = WriteBufferToFS( FSName, saveLength );
+	  err = WriteBufferToFS( FSName, lcName, saveLength );
         else
             err = -1;
       }
@@ -869,40 +869,44 @@ static int WriteToBuffer ( char *buff, int32_t offset, int32_t size )
   return err;
 }
 
-static int WriteBufferToFS ( char * name, int32_t Size )
+static int WriteBufferToFS(char *fullname, char *fname, int32_t Size)
 {
-  int request, size, i;
-  char *ptr;
-  int filenum;
-  int length;
-  int  err;
-  char delete[80]  = "rm -f ";
+    int  request, size, i;
+    char *ptr;
+    int  filenum;
+    int  length;
+    int  err;
+    char movecmd[512];
 
-  request = Size;
-  i = request;
-  ptr = &(BIG_Buffer[request-1]);
-  while ( ( *ptr== 0 ) && ( i > 0 ) ) {
-       ptr--; i--;
-  }
-  size = i;
-  if( size > BIG_SIZE) {size = BIG_SIZE;}
+    memset(movecmd, 0, sizeof(movecmd));
+    request = Size;
+    i = request;
+    ptr = &(BIG_Buffer[request-1]);
+    while ((*ptr== 0) && (i > 0))
+      ptr--; i--;
+    size = i;
+    if (size > BIG_SIZE)
+      {size = BIG_SIZE;}
 
-  strcat( delete, name );
-  err = system( delete );
-  if (err)
-    return(-1);
+    if (strcmp(ags_name, fname) == 0)
+      sprintf(movecmd, "cp -f %s ../backup/sbin", fullname);
+    else
+      sprintf(movecmd, "cp -f %s ../backup/data", fullname);
+
+    err = system(movecmd);
+    if (err)
+      return(-1);
   
-  filenum = open( name
-                , O_CREAT|O_RDWR
-                , S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH
-                );
-  if (filenum <= 0)
-    return(-2);
-  length = write( filenum, BIG_Buffer, size );
-  close( filenum );
-  if (length <=0)
-    return(-3);
-  return(0);
+    filenum = open(fullname, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
+    if (filenum <= 0)
+      return(-2);
+    length = write( filenum, BIG_Buffer, size );
+    close( filenum );
+    if (length <=0)
+      return(-3);
+    // Issue sync command to system to try to flush fs
+    system("sudo sync");
+    return(0);
 }
 
 static int ReadFromFS ( char *buff, char * name, int32_t offset, int32_t request )

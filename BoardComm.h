@@ -186,6 +186,7 @@ struct lg_master {
   uint8_t         gHeaderSpecialByte;
   uint8_t         RFUpad;
   uint8_t         gAbortDisplay;
+  uint8_t         gResetComm;
 };
 
 typedef struct ags_bkgd_thread_struct
