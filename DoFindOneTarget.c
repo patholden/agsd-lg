@@ -42,13 +42,7 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
 
     steerX = pInp->steerX;
     steerY = pInp->steerY;
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"DOFIND1TGT->Convert: XY angle-in X=%f,Y=%f",steerX,steerY);
-#endif
     rc = ConvertExternalAnglesToBinary(pLgMaster, steerX, steerY, &ptX, &ptY);
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"DOFIND1TGT: XY angle-in X=%f,Y=%f, x=%x,y=%x,rc=%x",steerX,steerY,ptX,ptY,rc);
-#endif
     if (rc)
       {
 	pResp->hdr.status1 = RESPFAIL;
@@ -59,9 +53,6 @@ void DoFindOneTarget(struct lg_master *pLgMaster,
 
     ClearSensorBuffers();  // Make sure all the buffers used by SearchForASensor are zeroed to start
     rc = SearchForASensor(pLgMaster, ptX, ptY, &fndX, &fndY);
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"DOFIND1TGT: SEARCHSENSOR x=%x,y=%x,findX %x, findY %x, rc %x",ptX,ptY,fndX,fndY,rc);
-#endif
     if (rc == kStopWasDone)
       {
 	pResp->hdr.status = RESPFAIL;

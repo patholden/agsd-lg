@@ -82,12 +82,6 @@ void RightOnCert(struct lg_master *pLgMaster,
    int16_t   bYe;
    int16_t   bYf;
 
-#ifdef AGS_DEBUG
-   syslog(LOG_DEBUG, "Entered Routine: RightOnCert");
-
-   LogRightOnCertCommand(param, pLgMaster);
-#endif
-
    pRespBuf = (struct parse_rtoncert_resp *)pLgMaster->theResponseBuffer;
    memset(pRespBuf, 0, sizeof(respLen));
 
@@ -184,9 +178,6 @@ void RightOnCert(struct lg_master *pLgMaster,
      {
        SearchBeamOff(pLgMaster);
        pRespBuf->hdr.status = RESPGOOD;
-#ifdef AGS_DEBUG
-       LogRightOnCertResponse(pRespBuf, sizeof(pRespBuf->hdr.hdr));
-#endif
        HandleResponse(pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom);
        return;
      }
@@ -211,9 +202,6 @@ void RightOnCert(struct lg_master *pLgMaster,
    if (status)
      {
        pRespBuf->hdr.status = RESPFAIL;
-#ifdef AGS_DEBUG
-       LogRightOnCertResponse(pRespBuf, sizeof(pRespBuf->hdr.hdr));
-#endif
        HandleResponse(pLgMaster, sizeof(pRespBuf->hdr.hdr), respondToWhom);
        return;
      }
@@ -232,9 +220,6 @@ void RightOnCert(struct lg_master *pLgMaster,
        ConvertBinaryToExternalAngles(pLgMaster, bXf, bYf, &Xexternal, &Yexternal);
        pRespBuf->Xexternal = Xexternal;
        pRespBuf->Yexternal = Yexternal;
-#ifdef AGS_DEBUG
-       LogRightOnCertResponse(pRespBuf, respLen);
-#endif
        HandleResponse(pLgMaster, respLen, respondToWhom);
        return;
      }
@@ -269,71 +254,3 @@ static double uptime(void)
     
     return dtime;
 }
-
-
-#ifdef AGS_DEBUG
-void LogRightOnCertCommand(struct parse_rtoncert_parms *param, struct lg_master *pLgMaster)
-{
-    double           transform[MAX_NEW_TRANSFORM_ITEMS];
-    int32_t          i;
-
-    syslog(LOG_DEBUG, "CMD: HeaderSpecialByte: %02x", pLgMaster->gHeaderSpecialByte);
-
-    syslog(LOG_DEBUG, "CMD: angleflag: %d", param->inp_angle_flag);
-
-    memcpy(transform, param->inp_transform, sizeof(transform));
-    for (i = 0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
-      {
-	syslog(LOG_DEBUG, "CMD: transform[%d]: %f", i, transform[i]);
-      }
-
-    syslog(LOG_DEBUG, "CMD: inp_Xin: %f", param->inp_Xin);
-
-    syslog(LOG_DEBUG, "CMD: inp_Yin: %f", param->inp_Yin);
-
-    syslog(LOG_DEBUG, "CMD: inp_Zin: %f", param->inp_Zin);
-
-    syslog(LOG_DEBUG, "CMD: inp_XrawAngle: %d", param->inp_XrawAngle);
-
-    syslog(LOG_DEBUG, "CMD: inp_YrawAngle: %d", param->inp_YrawAngle);
-
-    syslog(LOG_DEBUG, "CMD: inp_XgeomAngle: %f", param->inp_XgeomAngle);
-
-    syslog(LOG_DEBUG, "CMD: inp_YgeomAngle: %f", param->inp_YgeomAngle);
-
-    return;    
-}
-
-
-void LogRightOnCertResponse(struct parse_rtoncert_resp *pRespBuf, uint32_t respLen)
-{    
-  syslog(LOG_DEBUG, "RSP: hdr: %08x",htonl(pRespBuf->hdr.hdr));
-
-    if (respLen <= sizeof(pRespBuf->hdr.hdr))
-	return;
-
-    syslog(LOG_DEBUG, "RSP: Xtr: %f", pRespBuf->Xtr);
-
-    syslog(LOG_DEBUG, "RSP: Ytr: %f", pRespBuf->Ytr);
-
-    syslog(LOG_DEBUG, "RSP: Ztr: %f", pRespBuf->Ztr);
-
-    syslog(LOG_DEBUG, "RSP: Xfound: %f", pRespBuf->Xfound);
-
-    syslog(LOG_DEBUG, "RSP: Yfound: %f", pRespBuf->Yfound);
-
-    syslog(LOG_DEBUG, "RSP: Xexpect: %f", pRespBuf->Xexpect);
-
-    syslog(LOG_DEBUG, "RSP: Yexpect: %f", pRespBuf->Yexpect);
- 
-    syslog(LOG_DEBUG, "RSP: bXf: %d", pRespBuf->bXf);
-
-    syslog(LOG_DEBUG, "RSP: bYf: %d", pRespBuf->bYf);
- 
-    syslog(LOG_DEBUG, "RSP: Xexternal: %f", pRespBuf->Xexternal);
-
-    syslog(LOG_DEBUG, "RSP: Yexternal: %f", pRespBuf->Yexternal);
-
-    return;
-}
-#endif

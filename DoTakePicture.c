@@ -54,7 +54,7 @@ void DoTakePicture ( struct lg_master *pLgMaster,
   theError = PointToBinary(pLgMaster, outputPoint, &data[0], &data[1]);
   if (theError)
     {
-      syslog(LOG_DEBUG, "DoTakePicture failed out of range" );
+      syslog(LOG_ERR, "DoTakePicture failed out of range" );
       pResp->hdr.status = RESPFAIL;
       pResp->hdr.errtype1 = RESPE1INANGLEOUTOFRANGE; 
       HandleResponse (pLgMaster, (sizeof(struct parse_basic_resp)-kCRCSize), respondToWhom );

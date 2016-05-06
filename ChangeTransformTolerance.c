@@ -29,8 +29,6 @@ void DoChangeTransformTolerance(struct lg_master *pLgMaster, struct parse_chngxf
     memset(pResp, 0, sizeof(struct parse_chngxfrmtol_resp));
     newTol = pInp->new_tolerance;
 
-    syslog(LOG_DEBUG,"change display  %f", newTol );
-
     if ((newTol >= 1.0e-10) && (newTol < 1.0))
       {
 	pResp->hdr.status = RESPGOOD;

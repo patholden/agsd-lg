@@ -8,9 +8,9 @@
 extern int gROIsearch;
 
 // Function Prototypes
-extern int FlashInit(void);
-extern void DoReInit(struct lg_master *pLgMaster, uint32_t respondToWhom );
-extern int LGMasterInit(struct lg_master *pLgMaster);
-extern int ConfigDataInit(struct lg_master *pLgMaster);
-extern void LGMasterFree(struct lg_master *pLgMaster);
+int FlashInit(void);
+void DoReInit(struct lg_master *pLgMaster, uint32_t respondToWhom );
+int LGMasterInit(struct lg_master *pLgMaster);
+int ConfigDataInit(struct lg_master *pLgMaster);
+void LGMasterFree(struct lg_master *pLgMaster);
 #endif   // INIT_H

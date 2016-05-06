@@ -528,7 +528,6 @@ int DoProcEnetPackets(struct lg_master *pLgMaster)
 	  return(error);
 	else if (pLgMaster->gResetComm)
 	  {
-	    syslog(LOG_DEBUG, "Setting RESET-COMM connection");
 	    if ((CommReinit(pLgMaster)) < 0)
 	      {
 		  // It takes a while for eth0 to free up bound socket.
@@ -601,15 +600,11 @@ DoOnePing( char * hostip, uint8_t * buf, size_t bufsize )
         // open a socket for an ICMP ping packet
         sd    =  socket(PF_INET, SOCK_RAW, protocol->p_proto);
         if (sd < 0)
-        {
-                syslog(LOG_DEBUG, "DoOnePing socket error");
-                return(-1);
-        }
+	  return(-1);
 
         // set Time-To-Live
         if (setsockopt(sd, SOL_IP, IP_TTL, &val, sizeof(val)) != 0)
         {
-                syslog(LOG_DEBUG, "DoOnePing Set TTL option error");
                 close( sd );
                 return(-1);
         }
@@ -617,7 +612,6 @@ DoOnePing( char * hostip, uint8_t * buf, size_t bufsize )
         // set socket status flag
         if (fcntl(sd, F_SETFL, O_NONBLOCK) != 0)
         {
-                syslog(LOG_DEBUG, "DoOnePing Request nonblocking I/O error");
                 close( sd );
                 return(-1);
         }
@@ -636,7 +630,6 @@ DoOnePing( char * hostip, uint8_t * buf, size_t bufsize )
         // send off ICMP ping packet
         //
         if (sendto(sd, &pckt, sizeof(pckt), 0, (struct sockaddr*)&addr, sizeof(addr)) <= 0) {
-                syslog(LOG_DEBUG, "DoOnePing sending ping failed");
                 close( sd );
                 return(-1);
         }
@@ -665,10 +658,7 @@ DoOnePing( char * hostip, uint8_t * buf, size_t bufsize )
             }
        }
 
-       // syslog(LOG_DEBUG, "DoOnePing bytes %d  try %d\n", bytes, try );
-
        close( sd );
-
        return ( bytes );
 }
 

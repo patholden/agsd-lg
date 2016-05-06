@@ -31,7 +31,7 @@
 
 void DoReInit( struct lg_master *pLgMaster, uint32_t respondToWhom )
 {
-  struct parse_basic_resp *pResp;
+    struct parse_basic_resp *pResp;
 
   pResp = (struct parse_basic_resp *)pLgMaster->theResponseBuffer;
   
@@ -50,7 +50,6 @@ void DoReInit( struct lg_master *pLgMaster, uint32_t respondToWhom )
   pLgMaster->gResetComm = 0;
 #endif  
   pLgMaster->enet_retry_count = 0;
-  syslog(LOG_DEBUG, "Reinit---Set RESET-COMM FLAG");
   pResp->hdr.status = RESPGOOD;
   HandleResponse(pLgMaster, sizeof(uint32_t), respondToWhom);
   return;
@@ -280,7 +279,6 @@ int ConfigDataInit(struct lg_master* pLgMaster)
 	      pLgMaster->LongOrShortThrowSearch = 0;
 	  }
 	strcpy(testStr, "ipaddress =");
-	syslog(LOG_DEBUG, "Checking for new IP");
 	if (strncmp(token, testStr, strlen(testStr)) == 0)
 	  {
 	    syslog(LOG_NOTICE, "Setting new IP to %s", ipaddr);

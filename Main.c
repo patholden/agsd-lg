@@ -143,210 +143,214 @@ static void *ags_bkgd_proc(void *p_threadarg)
 }
 int main ( int argc, char **argv )
 {
-  pthread_t     thread[MAX_NUM_THREADS];
-  int     error=0;
+    pthread_t     thread[MAX_NUM_THREADS];
+    int     error=0;
 
+    openlog("agsd", 0, LOG_USER);
+    syslog(LOG_NOTICE, "%s", ags_banner);
 
-  openlog("agsd", 0, LOG_USER);
-  syslog(LOG_NOTICE, "%s", ags_banner);
+    /* defaults */
+    gBeamLinearRangeX = GBEAMLNRNG_DEF;	
+    gBeamLinearRangeY = GBEAMLNRNG_DEF;	
+    gSlowExponent = 8;
+    gFastExponent = 11;
+    gSlowBabies = 1U << gSlowExponent;
+    gFastBabies = 1U << gFastExponent;
+    gFOM        = -1;
+    gMaxPiledPts= 9;
+    //
+    //  try board initialization here
+    //
+    pConfigMaster = malloc(sizeof(struct lg_master));
+    if (!pConfigMaster)
+      {
+	syslog(LOG_ERR, "LG_MASTER_MALLOC Failed");
+	closelog();
+	exit(EXIT_FAILURE);
+      }
+    error = LGMasterInit(pConfigMaster);
+    if (error)
+      {
+	syslog(LOG_ERR,"Main: Can't initialize master struct, err %d",error);
+	free(pConfigMaster);
+	closelog();
+	exit(EXIT_FAILURE);
+      }
+    error = InitBoard(pConfigMaster);
+    if (error)
+      {
+	syslog(LOG_ERR,"Main: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
+	free(pConfigMaster);
+	closelog();
+	exit(EXIT_FAILURE);
+      }
+    syslog(LOG_NOTICE,"MAIN: INITBOARD complete for /dev/laser, fd %d",pConfigMaster->fd_laser);
+    error = ConfigDataInit(pConfigMaster);
+    if (error)
+      {
+	fprintf(stderr,"ConfigDataInit: Can't get config data, err %d", error);
+	syslog(LOG_ERR,"ConfigDataInit: Can't get config data, err %d", error);
+	free(pConfigMaster);
+	closelog();
+	exit(EXIT_FAILURE);
+      }
 
-  /* defaults */
-  gBeamLinearRangeX = GBEAMLNRNG_DEF;	
-  gBeamLinearRangeY = GBEAMLNRNG_DEF;	
-  gSlowExponent = 8;
-  gFastExponent = 11;
-  gSlowBabies = 1U << gSlowExponent;
-  gFastBabies = 1U << gFastExponent;
-  gFOM        = -1;
-  gMaxPiledPts= 9;
-//
-//  try board initialization here
-//
-  pConfigMaster = malloc(sizeof(struct lg_master));
-  if (!pConfigMaster)
-    {
-      syslog(LOG_ERR, "LG_MASTER_MALLOC Failed");
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-  error = LGMasterInit(pConfigMaster);
-  if (error)
-    {
-      syslog(LOG_ERR,"Main: Can't initialize master struct, err %d",error);
-      free(pConfigMaster);
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-  error = InitBoard(pConfigMaster);
-  if (error)
-    {
-      syslog(LOG_ERR,"Main: Can't start board laser-fd %d, err %d, errno %d",pConfigMaster->fd_laser, error, errno);
-      free(pConfigMaster);
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-  syslog(LOG_NOTICE,"MAIN: INITBOARD complete for /dev/laser, fd %d",pConfigMaster->fd_laser);
-  error = ConfigDataInit(pConfigMaster);
-  if (error)
-    {
-      fprintf(stderr,"ConfigDataInit: Can't get config data, err %d", error);
-      syslog(LOG_ERR,"ConfigDataInit: Can't get config data, err %d", error);
-      free(pConfigMaster);
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-
-  error = InitVision(pConfigMaster);
-  if (error)
-    syslog(LOG_ERR,"InitVision: Can't get vision data, err %d", error);
-
-  // start background thread for doing updates
-#if 0
-  if ((pthread_mutex_init(&lock, NULL)) != 0)
-    {
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-#endif
-  // Init thread variables
-  memset((char *)&thread_data[0], 0, sizeof(thread_data));
-  memset((char *)&thread, 0, sizeof(thread));
+    // On reboot or power up we need to adjust IP, bounce eth0
+    // so new IP (if there is one) can take affect
+    system("ifdown eth0");
+    system("ifup eth0");
   
-  error = CommInit(pConfigMaster);
-  if (error)
-    {
-      syslog(LOG_ERR,"\nMain: Can't initialize Ethernet/Serial Interfaces");
-      free(pConfigMaster);
-      closelog();
-      exit(EXIT_FAILURE);
-    }
+    error = InitVision(pConfigMaster);
+    if (error)
+      syslog(LOG_ERR,"InitVision: Can't get vision data, err %d", error);
+
+    // start background thread for doing updates
+#if 0
+    if ((pthread_mutex_init(&lock, NULL)) != 0)
+      {
+	closelog();
+	exit(EXIT_FAILURE);
+      }
+#endif
+    // Init thread variables
+    memset((char *)&thread_data[0], 0, sizeof(thread_data));
+    memset((char *)&thread, 0, sizeof(thread));
+
+    error = CommInit(pConfigMaster);
+    if (error)
+      {
+	syslog(LOG_ERR,"\nMain: Can't initialize Ethernet/Serial Interfaces");
+	free(pConfigMaster);
+	closelog();
+	exit(EXIT_FAILURE);
+      }
 	    
-  if (pConfigMaster->gHEX == 0)
-    syslog(LOG_NOTICE, "old binary serial I/O\n");
-  else if (pConfigMaster->gHEX == 1)
-    syslog(LOG_NOTICE, "limited HEX serial I/O in ASCII hex\n");
-  else if (pConfigMaster->gHEX == 2)
-    syslog(LOG_NOTICE, "full HEX serial I/O in ASCII hex\n" );
+    if (pConfigMaster->gHEX == 0)
+      syslog(LOG_NOTICE, "old binary serial I/O\n");
+    else if (pConfigMaster->gHEX == 1)
+      syslog(LOG_NOTICE, "limited HEX serial I/O in ASCII hex\n");
+    else if (pConfigMaster->gHEX == 2)
+      syslog(LOG_NOTICE, "full HEX serial I/O in ASCII hex\n" );
 
-  syslog(LOG_NOTICE, "tol %f", pConfigMaster->gArgTol);
-  syslog(LOG_NOTICE, " period %d",  pConfigMaster->gPeriod );
-  syslog(LOG_NOTICE, " QC %d",  pConfigMaster->gQCcount );
-  syslog(LOG_NOTICE, " X %f",  gBeamLinearRangeX );
-  syslog(LOG_NOTICE, " Y %f",  gBeamLinearRangeY );
-  syslog(LOG_NOTICE, " baud %d",  GBAUD_DEFAULT);
-  syslog(LOG_NOTICE, "   gSearchStepPeriod %d", pConfigMaster->gSrchStpPeriod);
-  syslog(LOG_NOTICE, "   gFinePeriod %d", pConfigMaster->gFinePeriod);
-  syslog(LOG_NOTICE, "   gCoarsePeriod %d", pConfigMaster->gCoarsePeriod);
-  syslog(LOG_NOTICE, "   gSenseThreshold %d",  pConfigMaster->gSenseThreshold );
-  syslog(LOG_NOTICE, "   gTargetDrift %d",  gTargetDrift );
-  syslog(LOG_NOTICE, " coarse step 0x%x",   pConfigMaster->gCoarse2SearchStep );
-  syslog(LOG_NOTICE, " spirals %d",   pConfigMaster->gNumberOfSpirals );
-  syslog(LOG_NOTICE, " factor %d",   pConfigMaster->gCoarse2Factor );
-  syslog(LOG_NOTICE, " attempt %d",   gNumberOfSensorSearchAttempts );
-  SensorInitLog();
-  syslog(LOG_NOTICE, " factor spiral %d",   pConfigMaster->gSpiralFactor );
-  syslog(LOG_NOTICE, " hatch %d",           pConfigMaster->gHatchFactor );
-  syslog(LOG_NOTICE, " SuperFineCount %d", gSuperFineCount);
-  syslog(LOG_NOTICE, " SuperFineSkip %d", gSuperFineSkip );
-  syslog(LOG_NOTICE, " SuperFineFactor %d",   getSuperFineFactor());
-  syslog(LOG_NOTICE, "fast %x",   gFastBabies );
-  syslog(LOG_NOTICE, " (expo %d), ",       gFastExponent );
-  syslog(LOG_NOTICE, "slow %x",   gSlowBabies );
-  syslog(LOG_NOTICE, " (expo %d) ",       gSlowExponent );
-  syslog(LOG_NOTICE, "dwell %d ",   pConfigMaster->gDwell );
-  syslog(LOG_NOTICE, "MaxPiledPts %d ",   gMaxPiledPts );
-  syslog(LOG_NOTICE, "MaxCos %f ",   gMaxCos );
-  syslog(LOG_NOTICE, "LongToShort %f ",   gLongToShort );
-  syslog(LOG_NOTICE, "CurveInterpolation %f ",   gCurveMin );
-  syslog(LOG_NOTICE, "QuickCheck %d ",   gQuickCheck );
-  syslog(LOG_NOTICE, "MaxQuickSearches %d ", kMaxQuickSearches);
-  syslog(LOG_NOTICE, "MaxDiffMag %f ",   gMaxDiffMag );
-  syslog(LOG_NOTICE, "MultipleSweeps %d ", pConfigMaster->gMultipleSweeps );
+    syslog(LOG_NOTICE, "tol %f", pConfigMaster->gArgTol);
+    syslog(LOG_NOTICE, " period %d",  pConfigMaster->gPeriod );
+    syslog(LOG_NOTICE, " QC %d",  pConfigMaster->gQCcount );
+    syslog(LOG_NOTICE, " X %f",  gBeamLinearRangeX );
+    syslog(LOG_NOTICE, " Y %f",  gBeamLinearRangeY );
+    syslog(LOG_NOTICE, " baud %d",  GBAUD_DEFAULT);
+    syslog(LOG_NOTICE, "   gSearchStepPeriod %d", pConfigMaster->gSrchStpPeriod);
+    syslog(LOG_NOTICE, "   gFinePeriod %d", pConfigMaster->gFinePeriod);
+    syslog(LOG_NOTICE, "   gCoarsePeriod %d", pConfigMaster->gCoarsePeriod);
+    syslog(LOG_NOTICE, "   gSenseThreshold %d",  pConfigMaster->gSenseThreshold );
+    syslog(LOG_NOTICE, "   gTargetDrift %d",  gTargetDrift );
+    syslog(LOG_NOTICE, " coarse step 0x%x",   pConfigMaster->gCoarse2SearchStep );
+    syslog(LOG_NOTICE, " spirals %d",   pConfigMaster->gNumberOfSpirals );
+    syslog(LOG_NOTICE, " factor %d",   pConfigMaster->gCoarse2Factor );
+    syslog(LOG_NOTICE, " attempt %d",   gNumberOfSensorSearchAttempts );
+    SensorInitLog();
+    syslog(LOG_NOTICE, " factor spiral %d",   pConfigMaster->gSpiralFactor );
+    syslog(LOG_NOTICE, " hatch %d",           pConfigMaster->gHatchFactor );
+    syslog(LOG_NOTICE, " SuperFineCount %d", gSuperFineCount);
+    syslog(LOG_NOTICE, " SuperFineSkip %d", gSuperFineSkip );
+    syslog(LOG_NOTICE, " SuperFineFactor %d",   getSuperFineFactor());
+    syslog(LOG_NOTICE, "fast %x",   gFastBabies );
+    syslog(LOG_NOTICE, " (expo %d), ",       gFastExponent );
+    syslog(LOG_NOTICE, "slow %x",   gSlowBabies );
+    syslog(LOG_NOTICE, " (expo %d) ",       gSlowExponent );
+    syslog(LOG_NOTICE, "dwell %d ",   pConfigMaster->gDwell );
+    syslog(LOG_NOTICE, "MaxPiledPts %d ",   gMaxPiledPts );
+    syslog(LOG_NOTICE, "MaxCos %f ",   gMaxCos );
+    syslog(LOG_NOTICE, "LongToShort %f ",   gLongToShort );
+    syslog(LOG_NOTICE, "CurveInterpolation %f ",   gCurveMin );
+    syslog(LOG_NOTICE, "QuickCheck %d ",   gQuickCheck );
+    syslog(LOG_NOTICE, "MaxQuickSearches %d ", kMaxQuickSearches);
+    syslog(LOG_NOTICE, "MaxDiffMag %f ",   gMaxDiffMag );
+    syslog(LOG_NOTICE, "MultipleSweeps %d ", pConfigMaster->gMultipleSweeps );
 
-  doClearLinkLED(pConfigMaster);
-  StopPulse(pConfigMaster); 
-  if ((InitUserStuff (pConfigMaster)) < 0)
-    {
-      syslog(LOG_ERR,"\nINIT: Malloc failure");
-      ags_cleanup(pConfigMaster);
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-  syslog(LOG_NOTICE, " projector_mode %d \n", pConfigMaster->projector_mode );
-  if ( pConfigMaster->projector_mode == PROJ_LASER ) {
+    doClearLinkLED(pConfigMaster);
+    StopPulse(pConfigMaster); 
+    if ((InitUserStuff (pConfigMaster)) < 0)
+      {
+	syslog(LOG_ERR,"\nINIT: Malloc failure");
+	ags_cleanup(pConfigMaster);
+	closelog();
+	exit(EXIT_FAILURE);
+      }
+    syslog(LOG_NOTICE, " projector_mode %d \n", pConfigMaster->projector_mode );
+    if ( pConfigMaster->projector_mode == PROJ_LASER ) {
       syslog(LOG_NOTICE, " projector_mode %d - laser \n", pConfigMaster->projector_mode );
-  }
-  if ( pConfigMaster->projector_mode == PROJ_VISION ) {
+    }
+    if ( pConfigMaster->projector_mode == PROJ_VISION ) {
       syslog(LOG_NOTICE, " projector_mode %d - vision \n", pConfigMaster->projector_mode );
-  }
-  SlowDownAndStop (pConfigMaster);
-  SetQCcounter(pConfigMaster, 0);
-  SearchBeamOff(pConfigMaster);
+    }
+    SlowDownAndStop (pConfigMaster);
+    SetQCcounter(pConfigMaster, 0);
+    SearchBeamOff(pConfigMaster);
 
-  // Set up program to capture user-entered signals
-  if ((main_capture_signals()) < 0)
-    {
-      syslog(LOG_ERR,"\nSIGACT failure");
-      ags_cleanup(pConfigMaster);
-      closelog();
-      exit(EXIT_SUCCESS);
-    }
-  // The main loop should never really exit.
-  syslog(LOG_NOTICE, "Waiting to Accept packets");
-  // Before jumping into main loop, start background thread
-  // will is only used for updating hobbs counters once every 2 hours
-  thread_data[0].pLgMaster = pConfigMaster;
-  if (pthread_create(&thread[0], NULL, ags_bkgd_proc, (void *) &thread_data[0]))
-    {
-      syslog(LOG_NOTICE, "Error creating thread\n");
-      ags_cleanup(pConfigMaster);
-      closelog();
-      exit(EXIT_FAILURE);
-    }
-  doClearReadyLED(pConfigMaster);
-  while (exit_check())
-    {
-      if (pConfigMaster->serial_ether_flag == 2)
-	{
-	  error = DoProcEnetPackets(pConfigMaster);
-	  if (error < 0)
-	    {
-	      syslog(LOG_ERR, "COMMLOOP: Read  data failure, err = %x, try to re-open", error);
-	      if ((pConfigMaster->datafd >= 0)&& (pConfigMaster->socketfd >= 0))
-		{
-		  close(pConfigMaster->datafd);
-		  pConfigMaster->datafd = -1;
-		}
-	      else
-		{
-		  if ((CommReinit(pConfigMaster)) < 0)
-		    {
-		      // It takes a while for eth0 to free up bound socket.
-		      // Try to open Comms interface to PC host once a second
-		      sleep(3);
-		    }
-		}
-	    }
-	  else if (pConfigMaster->gResetComm)
-	    {
-	      error = CommReinit(pConfigMaster);
-	      if (error)
-		{
-		  // It takes a while for eth0 to free up bound socket.
-		  // Try to open Comms interface to PC host once a second
-		  sleep(3);
-		}
-	    }
-	}
-    }
-
-  // Clean up AGS specific stuff before exiting
-  doSetReadyLED(pConfigMaster);
-  doClearLinkLED(pConfigMaster);
-  syslog(LOG_NOTICE, "Shutting down do to System or User interrupt");
-  ags_cleanup(pConfigMaster);
-  closelog();
-  exit(EXIT_SUCCESS);
+    // Set up program to capture user-entered signals
+    if ((main_capture_signals()) < 0)
+      {
+	syslog(LOG_ERR,"\nSIGACT failure");
+	ags_cleanup(pConfigMaster);
+	closelog();
+	exit(EXIT_SUCCESS);
+      }
+    // The main loop should never really exit.
+    syslog(LOG_NOTICE, "Waiting to Accept packets");
+    // Before jumping into main loop, start background thread
+    // will is only used for updating hobbs counters once every 2 hours
+    thread_data[0].pLgMaster = pConfigMaster;
+    if (pthread_create(&thread[0], NULL, ags_bkgd_proc, (void *) &thread_data[0]))
+      {
+	syslog(LOG_NOTICE, "Error creating thread\n");
+	ags_cleanup(pConfigMaster);
+	closelog();
+	exit(EXIT_FAILURE);
+      }
+    doClearReadyLED(pConfigMaster);
+    while (exit_check())
+      {
+	if (pConfigMaster->serial_ether_flag == 2)
+	  {
+	    error = DoProcEnetPackets(pConfigMaster);
+	    if (error < 0)
+	      {
+		syslog(LOG_ERR, "COMMLOOP: Read  data failure, err = %x, try to re-open", error);
+		if ((pConfigMaster->datafd >= 0)&& (pConfigMaster->socketfd >= 0))
+		  {
+		    close(pConfigMaster->datafd);
+		    pConfigMaster->datafd = -1;
+		  }
+		else
+		  {
+		    if ((CommReinit(pConfigMaster)) < 0)
+		      {
+			// It takes a while for eth0 to free up bound socket.
+			// Try to open Comms interface to PC host once a second
+			sleep(3);
+		      }
+		  }
+	      }
+	    else if (pConfigMaster->gResetComm)
+	      {
+		error = CommReinit(pConfigMaster);
+		if (error)
+		  {
+		    // It takes a while for eth0 to free up bound socket.
+		    // Try to open Comms interface to PC host once a second
+		    sleep(3);
+		  }
+	      }
+	  }
+      }
+    
+    // Clean up AGS specific stuff before exiting
+    doSetReadyLED(pConfigMaster);
+    doClearLinkLED(pConfigMaster);
+    syslog(LOG_NOTICE, "Shutting down do to System or User interrupt");
+    ags_cleanup(pConfigMaster);
+    closelog();
+    exit(EXIT_SUCCESS);
 }
 
 int InitUserStuff (struct lg_master *pLgMaster)

@@ -50,8 +50,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 
      // for LASER mode
      // check if remote computer is to be used
-     //syslog(LOG_DEBUG, "af special header %x", pLgMaster->gHeaderSpecialByte);
-
      if ( (pLgMaster->gHeaderSpecialByte & 0x01) && (pLgMaster->projector_mode == PROJ_LASER) ) {
 
            RemoteSerial( pLgMaster
@@ -65,8 +63,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
      // Write buffer out to ttyS2
      // Need to read one byte at a time due to FPGA limitations for serial port design
      // A single operation at 115200 takes 69 usec, need to honor that time with usleep
-     //syslog(LOG_DEBUG, "AFtoWrite %d  fd %d ", AFtoWrite, pLgMaster->af_serial );
-
      if ( pLgMaster->af_serial > 0 ) {
        for (af_index = 0; af_index < AFtoWrite; af_index++)
        {
@@ -84,8 +80,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
        }
      }
      
-     //syslog(LOG_DEBUG, "AFtoWrite2 %d ", AFtoWrite );
-
      // response expected?
      if ( pLgMaster->gHeaderSpecialByte & 0x02 )
        {
@@ -140,8 +134,6 @@ void DoAutoFocusCmd(struct lg_master *pLgMaster, unsigned char *buffer)
 		   }
 	       }
 	   }
-
-         //syslog(LOG_DEBUG, "AF num_read %d ", num_read );
 
 	 if ((num_read > 0) && (num_read <= AUTOFOCUS_SIZE))
 	   {

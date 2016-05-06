@@ -384,10 +384,6 @@ void DoQCcount ( struct lg_master *pLgMaster, char * data, uint32_t respondToWho
   
   itemp = pInp->inp_qccount;
 
-  //syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckCount: %d",
-  //	  pLgMaster->gHeaderSpecialByte,
-  //	  pInp->inp_qccount );
-
   if ( itemp <= 0 )
     {
       if ( itemp == -2 )
@@ -420,10 +416,6 @@ void DoQCtimer ( struct lg_master *pLgMaster, char *data, uint32_t respondToWhom
 
   stopQCcounter( pLgMaster );
   itemp = pInp->inp_qctime;
-  //syslog(LOG_DEBUG, "QuickCheckTargetThreshold: %d   QuickCheckTimer: %d",
-  //	  pLgMaster->gHeaderSpecialByte,
-  //	  pInp->inp_qctime);
-
   if (itemp < 0)
     {
       gQCtimer = -1;

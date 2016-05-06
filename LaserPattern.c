@@ -233,9 +233,6 @@ uint32_t FinishPattern (struct lg_master *pLgMaster)
 	if ( gItIsStart ) return 0U;
 	if (gRawInput)
 	  {
-#ifdef AGS_DEBUG
-	    syslog(LOG_DEBUG,"gRawInput set");
-#endif
 	    return(0);
 	  }
 	UnpendPenDown();

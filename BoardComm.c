@@ -373,9 +373,6 @@ void PostCommand(struct lg_master *pLgMaster, uint32_t theCommand, char *data, u
 	cmd_buff->base.hdr.length = ptn_len;
 	write( pLgMaster->fd_laser, cmd_buff, sizeof(struct cmd_rw));
 	free(cmd_buff);
-#ifdef AGS_DEBUG
-	syslog(LOG_DEBUG,"\nPostCmdVideo: writing to device, len %d",ptn_len);
-#endif
 	StartHobbs(pLgMaster);
 	pLgMaster->gDisplayFlag = 1;
 	rc = doDevDisplay(pLgMaster, ptn_len, 0);
@@ -1006,9 +1003,6 @@ void ResumeDisplay(struct lg_master *pLgMaster)
 {
     int                   rc;
     
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG, "Attempting to resume display");
-#endif
     RestoreBeamPosition(pLgMaster);
     StartHobbs(pLgMaster);
     pLgMaster->gDisplayFlag = 1;
@@ -1029,9 +1023,6 @@ void RestoreBeamPosition(struct lg_master *pLgMaster)
 {
 
     move_dark(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG,"\nRESTOREBEAM: x=%d,y=%d",pLgMaster->gSaveXY.xdata, pLgMaster->gSaveXY.ydata);
-#endif
     doWriteDevPoints(pLgMaster, (struct lg_xydata *)&pLgMaster->gSaveXY);
     usleep(10000);
     return;
@@ -1040,9 +1031,6 @@ void RestoreBeamPosition(struct lg_master *pLgMaster)
 void GoToRaw(struct lg_master *pLgMaster, struct lg_xydata *pRawData)
 {
   move_dark(pLgMaster, pRawData);
-#ifdef AGS_DEBUG
-  syslog(LOG_DEBUG,"\nGOTORAW: x=%d,y=%d",pRawData->xdata, pRawData->ydata);
-#endif
   doWriteDevPoints(pLgMaster, pRawData);
   return;
 }

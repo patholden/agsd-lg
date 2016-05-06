@@ -59,10 +59,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   struct timeval  tv;
   struct timezone tz;
 #endif
-  uint32_t       *pCrc;
   
-  //  FIXME--PAH  int magic, magic_too, flag;
-
   if (!pLgMaster || !pLgMaster->gInputBuffer || !pLgMaster->gRawBuffer || !pLgMaster->theResponseBuffer || !data || (data_len > kMaxDataLength))
     {
       syslog(LOG_ERR, "PARSEDATA:  Received Bad input");
@@ -153,9 +150,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   pLgMaster->gHeaderSpecialByte = pLgMaster->gInputBuffer[1];
   pLgMaster->seqNo    =  (pLgMaster->gInputBuffer[2] << 8) + pLgMaster->gInputBuffer[3];
 
-  // Track all commands incoming
-  syslog(LOG_NOTICE, "PARSEDATA:  newCommand rcvd %02x,  seqNo %04x, cmdLen = %d",
-	 pLgMaster->newCommand, pLgMaster->seqNo,index);
   switch(pLgMaster->newCommand) {
     // 0x02  kSTOP
   case kStop:
@@ -219,13 +213,6 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
 	    }
 	  else
 	    {
-#ifdef AGS_DEBUG
-	      pCrc = (uint32_t *)((char *)pLgMaster->gInputBuffer + (kSizeOfCommand
-								     + offsetof(struct parse_chunkdata_parms, chunk_apt_data)
-								     + dataLength));
-	      
-	      syslog(LOG_DEBUG,"ADDCHUNKS CRC ERROR, CRC = %x",*pCrc);
-#endif
 	      SendConfirmation (pLgMaster, kCRC16NoMatchMsg);
 	    }
 	}
@@ -885,8 +872,7 @@ int parse_data(struct lg_master *pLgMaster, unsigned char *data, uint32_t data_l
   case kShowTargets:
     if (index >= (int)(2*(sizeof(uint32_t))))
       {
-	// FIXME---PAH---NEEDS CMD/RESP STRUCT
-	nTargets = *((int32_t *)pLgMaster->gParametersBuffer);
+	nTargets = ((struct parse_showtgt_parms *)pLgMaster->gParametersBuffer)->inp_numpairs;
 	dataLength = nTargets * kSizeOf1TargetData;
 	cmdSize = kSizeOfCommand + kSizeOfShowTargetsParameters + dataLength;
       if (index >= cmdSize + 2)

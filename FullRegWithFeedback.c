@@ -38,12 +38,6 @@ static char rcsid[] = "$Id: FullRegWithFeedback.c,v 1.1 2006/06/05 18:40:30 ags-
 
 #define	kNumberOfSensorSearchAttempts 3
 
-#ifdef AGS_DEBUG
-void LogFullRegWithFeedbackCommand(struct parse_rightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster);
-
-void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_resp *pRespBuf, uint32_t respLen);
-#endif
-
 void FullRegWithFeedback(struct lg_master *pLgMaster,
 			 struct parse_rightondofullregwithfeedback_parms *param,
 			 uint32_t respondToWhom)
@@ -74,14 +68,7 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
     unsigned short   i, j;
     unsigned char    theResult;
    
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG, "Entered Routine: FullRegWithFeedback");
-
-    LogFullRegWithFeedbackCommand(param, pLgMaster);
-#endif
-    
     SlowDownAndStop(pLgMaster);
-
     pRespBuf = (struct parse_rightondofullregwithfeedback_resp *)pLgMaster->theResponseBuffer;
     
     theTransformTolerance  = pLgMaster->gArgTol;
@@ -280,12 +267,7 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
 	  {
             pRespBuf->hdr.status3 = RESPFAIL;
 	    pRespBuf->hdr.hdr |= htonl(lostSensors);
-	    
-#ifdef AGS_DEBUG
-	    LogFullRegWithFeedbackResponse(pRespBuf, sizeof(pRespBuf->hdr));
-#endif
-	    
-            HandleResponse (pLgMaster, sizeof(pRespBuf->hdr), respondToWhom);
+	    HandleResponse (pLgMaster, sizeof(pRespBuf->hdr), respondToWhom);
             return;
 	  }
 
@@ -325,126 +307,6 @@ void FullRegWithFeedback(struct lg_master *pLgMaster,
 	    pRespBuf->target_status[i] = target_status[i];
 	  }
 
-#ifdef AGS_DEBUG
-	LogFullRegWithFeedbackResponse(pRespBuf, respLen);
-#endif
-
 	HandleResponse(pLgMaster, respLen, respondToWhom);
-
 	return;
 }
-
-
-#ifdef AGS_DEBUG
-void LogFullRegWithFeedbackCommand(struct parse_rightondofullregwithfeedback_parms *param, struct lg_master *pLgMaster)
-{
-    int32_t          i;
-    int32_t          numberOfTargets;
-    int32_t          RawGeomFlag;
-
-    syslog(LOG_DEBUG, "CMD: HeaderSpecialByte: %02x", pLgMaster->gHeaderSpecialByte);
-    
-    RawGeomFlag = param->angleflag;
-    syslog(LOG_DEBUG, "CMD: angleflag: %d", param->angleflag);
-
-    numberOfTargets = param->num_targets;
-    syslog(LOG_DEBUG, "CMD: num_targets: %d", param->num_targets);
-
-    for (i = 0; i < numberOfTargets; i++)
-      {
-        syslog(LOG_DEBUG, "CMD: target #%d: target[%d].Xtgt: %f   target[%d].Ytgt: %f   target[%d].Ztgt: %f",
-               i + 1,
-	       i,
-  	       param->target[i].Xtgt,
-	       i,
-	       param->target[i].Ytgt,
-	       i,
-	       param->target[i].Ztgt);
-	}
-
-    if (RawGeomFlag == 2)
-      {
-	for (i = 0; i < numberOfTargets; i++)
-	  {
-	    syslog(LOG_DEBUG, "CMD: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].Yangle: %f",
-		   i + 1,
-		   i,
-		   param->target_geo_angle[i].Xangle,
-		   i,
-		   param->target_geo_angle[i].Yangle);
-	  }
-      }
-    
-    if (RawGeomFlag == 1)
-      {
-	for (i = 0; i < numberOfTargets; i++)
-	  {
-	    syslog(LOG_DEBUG, "CMD: target #%d: target_raw_angle[%d].xangle: %d   target_raw_angle[%d].yangle: %d",
-		   i + 1,
-		   i,
-		   param->target_raw_angle[i].xangle & kMaxUnsigned,
-		   i,
-		   param->target_raw_angle[i].yangle & kMaxUnsigned);
-	  }
-      }
-
-    return;    
-}
-
-
-void LogFullRegWithFeedbackResponse(struct parse_rightondofullregwithfeedback_resp *pRespBuf, uint32_t respLen)
-{
-    double           transform[MAX_NEW_TRANSFORM_ITEMS];
-    int32_t          i;
-    int32_t          numberOfTargets;
-    
-    syslog(LOG_DEBUG, "RSP: hdr: %08x", htonl(pRespBuf->hdr.hdr));
-
-    if (respLen <= sizeof(pRespBuf->hdr.hdr))
-      return;
-
-    memcpy(transform, pRespBuf->transform, sizeof(transform));
-    for (i = 0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
-      {
-	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
-      }
-
-    syslog(LOG_DEBUG, "RSP: besttolerance: %le", pRespBuf->besttolerance);
-
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanycalculatedtransform: %le", pRespBuf->worsttoleranceofanycalculatedtransform);
-
-    syslog(LOG_DEBUG, "RSP: worsttoleranceofanyintolerancetransform: %le", pRespBuf->worsttoleranceofanyintolerancetransform);
-
-    syslog(LOG_DEBUG, "RSP: numberoftransforms: %d", pRespBuf->numberoftransforms);
-
-    numberOfTargets = pRespBuf->numberoftargets;
-    syslog(LOG_DEBUG, "RSP: numberoftargets: %d", pRespBuf->numberoftargets);
-
-    for (i = 0; i < numberOfTargets; i++)
-      {
-        syslog(LOG_DEBUG, "RSP: target #%d: anglepairsX[%d]: %d   anglepairsY[%d]: %d",
-	       i + 1,
-	       2*i+0,
-	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
-	       2*i+1,
-  	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
-      }
-
-    for (i = 0; i < numberOfTargets; i++)
-      {
-        syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
-	       i + 1,
-	       i,
-	       pRespBuf->target_geo_angle[i].Xangle,
-	       i,
-  	       pRespBuf->target_geo_angle[i].Yangle);
-      }
-
-    for (i = 0; i < numberOfTargets; i++)
-      {
-	syslog(LOG_DEBUG, "RSP: target #%d: target_status[%d]: %d", i + 1, i, pRespBuf->target_status[i]);
-      }
-
-    return;
-}
-#endif

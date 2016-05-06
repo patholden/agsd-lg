@@ -303,7 +303,7 @@ int IfStopThenStopAndNeg1Else0 (struct lg_master *pLgMaster)
     status = poll( poll_set, numfds, 0 );
    
     if (  (poll_set[0].revents & POLLIN) && status >= 1 ) {
-        syslog(LOG_DEBUG, "IfStopThenStopAndNeg1Else0 stopping" );
+        syslog(LOG_NOTICE, "IfStopThenStopAndNeg1Else0 stopping" );
 	pLgMaster->rcvdStopCmd = 0;
 	return(1);
       }
@@ -613,21 +613,11 @@ void DoDisplayKitVideo (struct lg_master *pLgMaster, uint32_t dataLength,
 #endif
 			SetQCcounter(pLgMaster, gVideoCount );
                         gQCtimer = -1;
-#ifdef AGS_DEBUG
-			syslog(LOG_DEBUG,"\nPostCmdDisp from DoDisplayKitVideo");
-#endif
 			PostCmdDisplay(pLgMaster, (struct displayData *)&dispData, SENDRESPONSE, respondToWhom );
  			ResetPlyCounter(pLgMaster);
  		}
   	}
 }
-
-#if 0
-void AbortDisplay ( void )
-{
-	gAbortDisplay = true;
-}
-#endif
 
 void SetDisplaySeveral(struct lg_master *pLgMaster, uint32_t number, uint32_t respondToWhom )
 {

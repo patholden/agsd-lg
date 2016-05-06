@@ -36,12 +36,6 @@ static char rcsid[] = "$Id: RightOnFullReg.c,v 1.2 2000/05/05 23:57:15 ags-sw Ex
 
 #define	kNumberOfSensorSearchAttempts 3
 
-#ifdef AGS_DEBUG
-void LogRightOnFullRegCommand(struct parse_rightondofullreg_parms *param, struct lg_master *pLgMaster);
-
-void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uint32_t respLen);
-#endif
-
 void RightOnFullReg(struct lg_master *pLgMaster,
 		    struct parse_rightondofullreg_parms *param,
 		    uint32_t respondToWhom)
@@ -70,12 +64,6 @@ void RightOnFullReg(struct lg_master *pLgMaster,
     unsigned short   i, j;
     unsigned char    theResult;
 				
-#ifdef AGS_DEBUG
-    syslog(LOG_DEBUG, "Entered Routine: RighOnFullReg");
-
-    LogRightOnFullRegCommand(param, pLgMaster);
-#endif
-
     SlowDownAndStop(pLgMaster);
  
     pRespBuf = (struct parse_rightondofullreg_resp *)pLgMaster->theResponseBuffer;
@@ -239,10 +227,6 @@ void RightOnFullReg(struct lg_master *pLgMaster,
 	    pRespBuf->target_geo_angle[i].Yangle = YExternalAngles[i];
 	  }
 
-#ifdef AGS_DEBUG
-	LogRightOnFullRegResponse(pRespBuf, respLen);
-#endif
-	
 	HandleResponse (pLgMaster, respLen, respondToWhom );
       }
     else
@@ -258,97 +242,3 @@ void RightOnFullReg(struct lg_master *pLgMaster,
 				
     return;
 }
-
-#ifdef AGS_DEBUG
-void LogRightOnFullRegCommand(struct parse_rightondofullreg_parms *param, struct lg_master *pLgMaster)
-{
-    int32_t          i;
-    int32_t          RawGeomFlag;
-
-    syslog(LOG_DEBUG, "CMD: HeaderSpecialByte: %02x", pLgMaster->gHeaderSpecialByte);
-
-    RawGeomFlag = param->angleflag;
-
-    syslog(LOG_DEBUG, "CMD: angleflag: %d", param->angleflag);
-
-    for (i = 0; i < MAX_TARGETSOLD; i++)
-      {
-        syslog(LOG_DEBUG, "CMD: target #%d: target[%d].Xtgt: %f   target[%d].Ytgt: %f   target[%d].Ztgt: %f",
-               i + 1,
-	       i,
-  	       param->target[i].Xtgt,
-	       i,
-	       param->target[i].Ytgt,
-	       i,
-	       param->target[i].Ztgt);
-	}
-
-    if (RawGeomFlag == 2)
-      {
-	for (i = 0; i < MAX_TARGETSOLD; i++)
-	  {
-	    syslog(LOG_DEBUG, "CMD: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].Yangle: %f",
-		   i + 1,
-		   i,
-		   param->target_geo_angle[i].Xangle,
-		   i,
-		   param->target_geo_angle[i].Yangle);
-	  }
-      }
-    
-    if (RawGeomFlag == 1)
-      {
-	for (i = 0; i < MAX_TARGETSOLD; i++)
-	  {
-	    syslog(LOG_DEBUG, "CMD: target #%d: target_raw_angle[%d].xangle: %d   target_raw_angle[%d].yangle: %d",
-		   i + 1,
-		   i,
-		   param->target_raw_angle[i].xangle & kMaxUnsigned,
-		   i,
-		   param->target_raw_angle[i].yangle & kMaxUnsigned);
-	  }
-      }
-
-    return;    
-}
-
-
-void LogRightOnFullRegResponse(struct parse_rightondofullreg_resp *pRespBuf, uint32_t respLen)
-{
-    double           transform[MAX_NEW_TRANSFORM_ITEMS];
-    int32_t          i;
-    
-    syslog(LOG_DEBUG, "RSP: hdr: %08x", htonl(pRespBuf->hdr.hdr));
-
-    if (respLen <= sizeof(pRespBuf->hdr.hdr))
-	return;
-
-    memcpy(transform, pRespBuf->transform, sizeof(transform));
-    for (i = 0; i < MAX_NEW_TRANSFORM_ITEMS; i++)
-      {
-	syslog(LOG_DEBUG, "RSP: transform[%d]: %f", i, transform[i]);
-      }
-
-    for (i = 0; i < MAX_TARGETSOLD; i++)
-      {
-        syslog(LOG_DEBUG, "RSP: target #%d: anglepairsX[%d]: %d   anglepairsY[%d]: %d",
-	       i + 1,
-	       2*i+0,
-	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+0],
-	       2*i+1,
-  	       ((uint32_t *)(&(pRespBuf->anglepairs[0])))[2*i+1]);
-      }
-
-    for (i = 0; i < MAX_TARGETSOLD; i++)
-      {
-        syslog(LOG_DEBUG, "RSP: target #%d: target_geo_angle[%d].Xangle: %f   target_geo_angle[%d].yangle: %f",
-	       i + 1,
-	       i,
-	       pRespBuf->target_geo_angle[i].Xangle,
-	       i,
-  	       pRespBuf->target_geo_angle[i].Yangle);
-      }
-
-    return;
-}
-#endif

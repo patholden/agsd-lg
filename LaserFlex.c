@@ -158,8 +158,6 @@ void DoFlexDisplayChunks (struct lg_master *pLgMaster,
         dispData.sensorAngles = (int32_t *)pLgMaster->gSensorBuffer;
         dispData.pattern = SetUpLaserPattern(pLgMaster, tmpDoubleArr);
       }
-syslog(LOG_DEBUG, "DoFlex ply rec %d pattern %p", pLgMaster->gPlysReceived, dispData.pattern );
-  
   pResp->hdr.errtype = ProcessPatternData(pLgMaster, pLgMaster->gDataChunksBuffer, pLgMaster->gDataChunksLength);
   if (pResp->hdr.errtype)
     {
