@@ -33,6 +33,10 @@ ParseVisionFocus(int length, char * infile)
      int itest;     
      int tmplen;
 
+     // don't parse vision focus file as comment lines were added
+     // and the parser can't handle these lines.  just return 0.
+     return 0;
+
      for ( i=0; i<65536; i++ ) {
          parsedDistance[i] = 0;
      }
